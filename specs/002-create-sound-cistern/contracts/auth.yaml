@@ -1,0 +1,17 @@
+openapi: 3.0.0
+info:
+  title: Sound Cistern Authentication
+  version: 1.0.0
+paths:
+  /auth/soundcloud:
+    get:
+      summary: Initiate Soundcloud OAuth login
+      responses:
+        '200':
+          description: Redirect to Soundcloud for authentication
+  /auth/callback:
+    get:
+      summary: Handle Soundcloud OAuth callback
+      responses:
+        '200':
+          description: User authenticated, redirect to feed

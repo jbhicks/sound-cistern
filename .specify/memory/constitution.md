@@ -1,50 +1,38 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- Sync Impact Report
+Version change: none → 1.0.0
+List of modified principles: All principles are new (1-5)
+Added sections: All sections are new
+Removed sections: None
+Templates requiring updates: ✅ .specify/templates/plan-template.md (updated version reference)
+Follow-up TODOs: Set actual ratification date when known.
+-->
+
+# Sound Cistern Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Buffalo Framework Adherence
+Always utilize out-of-the-box capabilities provided by the Buffalo Framework and Plush templates. Avoid reinventing the wheel; check available features first. If major additions are needed, backport them to the template for future SaaS products.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Performance Optimization
+Architect the site to minimize initial page load times. Avoid direct API calls to Soundcloud on user login; implement continuous database updates for user tracks and trim older entries.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Freemium Model
+Provide the base application free to use, with core features like standard feed filtering. Offer paid features for extended feed length or custom track lists.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Continuous Data Management
+Implement mechanisms for continuous updating of the database with latest Soundcloud tracks for each user, ensuring data freshness without impacting user experience.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Simplicity and Efficiency
+Build a simple, fast service focused on providing saved feeds. Prioritize efficiency in all implementations.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technical Constraints
+Use Go language with Buffalo framework. Database for user data and tracks. Integrate with Soundcloud API for feed data.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Practices
+Follow test-driven development. Ensure code is testable and maintainable. Use version control best practices.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+The constitution supersedes all other practices. Amendments require documentation, approval, and migration plan. All changes must verify compliance with principles.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date unknown, set to 2025-09-28 as placeholder. | **Last Amended**: 2025-09-28

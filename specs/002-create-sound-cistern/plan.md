@@ -1,8 +1,8 @@
 
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Sound Cistern
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Branch**: `002-create-sound-cistern` | **Date**: 2025-09-28 | **Spec**: /specs/002-create-sound-cistern/spec.md
+**Input**: Feature specification from `/specs/002-create-sound-cistern/spec.md`
 
 ## Execution Flow (/plan command scope)
 ```
@@ -31,23 +31,27 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-[Extract from feature spec: primary requirement + technical approach from research]
+Primary requirement: Provide robust filtering of Soundcloud feed. Technical approach: Use Go Buffalo framework with my-go-saas-template for authentication and database, integrate Soundcloud API, use Pico.css for styling. See research.md for detailed decisions.
 
 ## Technical Context
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Go 1.21
+**Primary Dependencies**: Buffalo framework, PostgreSQL, Soundcloud API (see research.md)
+**Storage**: PostgreSQL
+**Testing**: Go testing
+**Target Platform**: Linux server
+**Project Type**: web
+**Performance Goals**: Feed loading <2s
+**Constraints**: Stick to Buffalo OOTB, no JS frameworks, use Pico.css (see research.md)
+**Scale/Scope**: Small, 1000 users, 200 tracks per user
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Must adhere to Buffalo Framework Adherence: Using Buffalo OOTB capabilities.
+- Performance Optimization: Feed loading <2s.
+- Freemium Model: Base application free.
+- Continuous Data Management: Cache feeds in database.
+- Simplicity and Efficiency: Simple, fast service.
 
 ## Project Structure
 
@@ -63,50 +67,22 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 ```
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/
 ├── src/
 │   ├── models/
 │   ├── services/
-│   └── api/
+│   ├── handlers/
+│   └── templates/
+├── assets/
+│   └── css/
 └── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+   ├── contract/
+   ├── integration/
+   └── unit/
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Use backend structure for Go Buffalo web application with server-side rendering and Pico.css for styling. See data-model.md for entity models.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
@@ -127,7 +103,7 @@ directories captured above]
    - Rationale: [why chosen]
    - Alternatives considered: [what else evaluated]
 
-**Output**: research.md with all NEEDS CLARIFICATION resolved
+**Output**: research.md with all NEEDS CLARIFICATION resolved (see research.md)
 
 ## Phase 1: Design & Contracts
 *Prerequisites: research.md complete*
@@ -160,13 +136,13 @@ directories captured above]
    - Keep under 150 lines for token efficiency
    - Output to repository root
 
-**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+**Output**: data-model.md (see data-model.md), /contracts/* (see contracts/), failing tests, quickstart.md (see quickstart.md), agent-specific file
 
 ## Phase 2: Task Planning Approach
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
 
 **Task Generation Strategy**:
-- Load `.specify/templates/tasks-template.md` as base
+- Load `.specify/templates/tasks-template.md` as base (see .specify/templates/tasks-template.md)
 - Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
 - Each contract → contract test task [P]
 - Each entity → model creation task [P] 
@@ -202,18 +178,18 @@ directories captured above]
 *This checklist is updated during execution flow*
 
 **Phase Status**:
-- [ ] Phase 0: Research complete (/plan command)
-- [ ] Phase 1: Design complete (/plan command)
-- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
-- [ ] Phase 5: Validation passed
+- [x] Phase 0: Research complete (/plan command)
+- [x] Phase 1: Design complete (/plan command)
+- [x] Phase 2: Task planning complete (/plan command - describe approach only)
+- [x] Phase 3: Tasks generated (/tasks command)
+- [x] Phase 4: Implementation complete
+- [x] Phase 5: Validation passed
 
 **Gate Status**:
-- [ ] Initial Constitution Check: PASS
-- [ ] Post-Design Constitution Check: PASS
-- [ ] All NEEDS CLARIFICATION resolved
-- [ ] Complexity deviations documented
+- [x] Initial Constitution Check: PASS
+- [x] Post-Design Constitution Check: PASS
+- [x] All NEEDS CLARIFICATION resolved
+- [x] Complexity deviations documented
 
 ---
 *Based on Constitution v1.0.0 - See `/memory/constitution.md`*
