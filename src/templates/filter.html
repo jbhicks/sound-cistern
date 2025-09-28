@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Cistern - Filter</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <h1>Filter Your Feed</h1>
+        <div id="filter-bar">
+            <input type="number" id="min-length" placeholder="Min length (s)">
+            <input type="number" id="max-length" placeholder="Max length (s)">
+            <input type="text" id="genres" placeholder="Genres">
+            <input type="date" id="start-date">
+            <input type="date" id="end-date">
+            <input type="text" id="query" placeholder="Search">
+            <button id="filter-btn">Filter</button>
+        </div>
+        <div id="tracks">
+            <!-- Filtered tracks will be loaded here -->
+        </div>
+    </main>
+    <script>
+        // TODO: Add JS for filtering if needed, but keep minimal
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Disallow private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/signout
+Disallow: /users/account
+Disallow: /dashboard/
+
+# Allow public pages
+Allow: /
+Allow: /auth/signin
+Allow: /auth/signup
+Allow: /home
+
+# Sitemap location
+Sitemap: https://yourdomain.com/sitemap.xml

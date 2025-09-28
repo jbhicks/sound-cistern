@@ -1,0 +1,170 @@
+<!-- Admin Posts Management with Navigation -->
+<nav class="container-fluid dashboard-nav">
+  <ul>
+    <li>
+      <a href="/" class="logo">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        <strong>My Go SaaS</strong>
+      </a>
+    </li>
+  </ul>
+  <ul>
+    <li>
+      <a href="/admin">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Admin Dashboard
+      </a>
+    </li>
+    <li>
+      <!-- Compact Theme Toggle -->
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="theme-icon"></span>
+      </button>
+    </li>
+  </ul>
+</nav>
+
+<main class="container">
+
+<section>
+    <header>
+        <h1>Blog Posts</h1>
+        <nav>
+            <ul>
+                <li><a href="/admin/posts/new" role="button">New Post</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Search and Filter Form -->
+    <form method="GET" action="/admin/posts" style="margin-bottom: 1rem;">
+        <fieldset role="group">
+            <input type="search" name="search" placeholder="Search posts by title, content, or author..." 
+                   value="<%= search %>" style="margin-bottom: 0;">
+            <select name="status" style="margin-bottom: 0;">
+                <option value="">All Posts</option>
+                <option value="published"<%= if (string(status) == "published") { %> selected<% } %>>Published</option>
+                <option value="draft"<%= if (string(status) == "draft") { %> selected<% } %>>Drafts</option>
+            </select>
+            <button type="submit">Search</button>
+        </fieldset>
+        <%= if (string(search) != "" || string(status) != "") { %>
+            <p><a href="/admin/posts" role="button" class="outline secondary">Clear Filters</a></p>
+        <% } %>
+    </form>
+
+    <%= if (len(posts) == 0) { %>
+        <article>
+            <p>No blog posts found.</p>
+            <p><a href="/admin/posts/new" role="button">Create your first post</a></p>
+        </article>
+    <% } else { %>
+        <%# Bulk Actions Form - Temporarily disabled for testing 
+        <form id="bulk-form" method="POST" action="/admin/posts/bulk" style="margin-bottom: 1rem;">
+            <input type="hidden" name="authenticity_token" value="<%= authenticity_token %>">
+            <fieldset role="group">
+                <select name="bulk_action" required>
+                    <option value="">Select bulk action...</option>
+                    <option value="publish">Publish Selected</option>
+                    <option value="unpublish">Unpublish Selected</option>
+                    <option value="delete">Delete Selected</option>
+                </select>
+                <button type="submit" onclick="return confirmBulkAction()">Apply</button>
+            </fieldset>
+        </form>
+        %>
+
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="select-all"></th>
+                        <th>Image</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% for (post) in posts { %>
+                        <tr>
+                            <td>
+                                <input type="checkbox" name="post_ids" value="<%= post.ID %>" form="bulk-form">
+                            </td>
+                            <td>
+                                <%= if (post.Image != "") { %>
+                                    <img src="<%= post.Image %>" alt="<%= post.ImageAlt %>" 
+                                         style="width: 60px; height: 40px; object-fit: cover; border-radius: var(--pico-border-radius);">
+                                <% } else { %>
+                                    <div style="width: 60px; height: 40px; background: var(--pico-muted-color); border-radius: var(--pico-border-radius); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--pico-muted-color);">
+                                        No Image
+                                    </div>
+                                <% } %>
+                            </td>
+                            <td>
+                                <a href="/admin/posts/<%= post.ID %>"><%= post.Title %></a>
+                                <%= if (post.Excerpt != "") { %>
+                                    <br><small style="color: var(--pico-muted-color);"><%= post.Excerpt %></small>
+                                <% } %>
+                            </td>
+                            <td><%= post.Author.FirstName %> <%= post.Author.LastName %></td>
+                            <td>
+                                <%= if (post.Published) { %>
+                                    <mark>Published</mark>
+                                <% } else { %>
+                                    <mark class="secondary">Draft</mark>
+                                <% } %>
+                            </td>
+                            <td><%= post.CreatedAt.Format("Jan 2, 2006") %></td>
+                            <td>
+                                <a href="/admin/posts/<%= post.ID %>/edit" role="button" class="outline secondary">Edit</a>
+                                <%# Delete form temporarily disabled for testing
+                                <form method="POST" action="/admin/posts/<%= post.ID %>" style="display: inline;">
+                                    <input type="hidden" name="_method" value="DELETE">
+                                    <input type="hidden" name="authenticity_token" value="<%= authenticity_token %>">
+                                    <button type="submit" class="outline contrast" onclick="return confirm('Are you sure you want to delete this post?')">Delete</button>
+                                </form>
+                                %>
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </figure>
+
+        <script>
+        // Select all checkbox functionality
+        document.getElementById('select-all').addEventListener('change', function() {
+            var checkboxes = document.querySelectorAll('input[name="post_ids"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = this.checked;
+            }, this);
+        });
+
+        // Bulk action confirmation
+        function confirmBulkAction() {
+            var selected = document.querySelectorAll('input[name="post_ids"]:checked');
+            var action = document.querySelector('select[name="bulk_action"]').value;
+            
+            if (selected.length === 0) {
+                alert('Please select at least one post.');
+                return false;
+            }
+            
+            if (action === 'delete') {
+                return confirm('Are you sure you want to delete ' + selected.length + ' post(s)? This action cannot be undone.');
+            }
+            
+            return confirm('Are you sure you want to ' + action + ' ' + selected.length + ' post(s)?');
+        }
+        </script>
+    <% } %>
+</section>
+
+</main>

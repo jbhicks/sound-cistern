@@ -1,0 +1,100 @@
+<!-- Profile Settings Partial for HTMX -->
+<!-- Page Header -->
+<section>
+  <hgroup>
+    <h1>
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+      </svg>
+      Profile Settings
+    </h1>
+    <p>Manage your personal information and preferences</p>
+  </hgroup>
+</section>
+
+<!-- Flash Messages -->
+<%= if (flash["success"]) { %>
+  <article>
+    <p><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> <%= for (msg) in flash["success"] { %><%= msg %><% } %></p>
+  </article>
+<% } %>
+
+<%= if (flash["danger"]) { %>
+  <article>
+    <p><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> <%= for (msg) in flash["danger"] { %><%= msg %><% } %></p>
+  </article>
+<% } %>
+
+<%= if (flash["info"]) { %>
+  <article>
+    <p>ℹ️ <%= for (msg) in flash["info"] { %><%= msg %><% } %></p>
+  </article>
+<% } %>
+
+  <!-- Profile Form -->
+  <article>
+    <header>
+      <h3>Edit Profile Information</h3>
+    </header>
+    
+    <%= formFor(user, {action: "/profile", method: "POST"}) { %>
+      <fieldset>
+        <label>
+          First Name
+          <%= f.InputTag("FirstName", {
+            type: "text",
+            placeholder: "Enter your first name"
+          }) %>
+          <%= if (errors && errors["first_name"]) { %>
+            <small><%= errors["first_name"] %></small>
+          <% } %>
+        </label>
+
+        <label>
+          Last Name
+          <%= f.InputTag("LastName", {
+            type: "text",
+            placeholder: "Enter your last name"
+          }) %>
+          <%= if (errors && errors["last_name"]) { %>
+            <small><%= errors["last_name"] %></small>
+          <% } %>
+        </label>
+
+        <label>
+          Email Address
+          <input 
+            type="email" 
+            value="<%= user.Email %>" 
+            readonly 
+          />
+          <small>Email changes require contacting support</small>
+        </label>
+
+        <%= if (current_user.Role == "admin") { %>
+        <label>
+          Role
+          <%= f.SelectTag("Role", {
+            options: roleOptions,
+            value: user.Role
+          }) %>
+          <%= if (errors && errors["role"]) { %>
+            <small><%= errors["role"] %></small>
+          <% } %>
+        </label>
+        <% } %>
+      </fieldset>
+
+      <button type="submit">Update Profile</button>
+    <% } %>
+
+    <footer>
+      <a href="/account" role="button" class="secondary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.25rem;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        Account Settings
+      </a>
+    </footer>
+  </article>

@@ -1,0 +1,56 @@
+<section>
+  <h2>Technology Stack</h2>
+  <figure>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Component</th>
+          <th scope="col">Technology</th>
+          <th scope="col">Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Backend Framework</td>
+          <td>Go Buffalo v0.18+</td>
+          <td>Web framework with routing, middleware, templating</td>
+        </tr>
+        <tr>
+          <td>Database</td>
+          <td>PostgreSQL 13+</td>
+          <td>User data storage, migrations with Pop/Soda</td>
+        </tr>
+        <tr>
+          <td>Authentication</td>
+          <td>Buffalo Auth</td>
+          <td>Session-based auth with bcrypt password hashing</td>
+        </tr>
+        <tr>
+          <td>Frontend</td>
+          <td>Pico.css v2 & HTMX</td>
+          <td>Semantic CSS framework and dynamic content loading</td>
+        </tr>
+        <tr>
+          <td>Templates</td>
+          <td>Plush</td>
+          <td>Go-based templating engine</td>
+        </tr>
+        <tr>
+          <td>Deployment</td>
+          <td>Docker</td>
+          <td>Containerization for consistent environments</td>
+        </tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section>
+  <h2>Welcome to Your Application!</h2>
+  <p>This is the default landing page. You can customize it by editing <code>templates/home/_index_content.plush.html</code>.</p>
+  <% if (!user_logged_in) { %>
+    <p>Please <a href="<%= newAuthPath() %>" hx-get="<%= newAuthPath() %>" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Login</a> or <a href="<%= newUsersPath() %>" hx-get="<%= newUsersPath() %>" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Sign Up</a> to continue.</p>
+  <% } else { %>
+    <p>You are logged in. Go to your <a href="<%= dashboardPath() %>" hx-get="<%= dashboardPath() %>" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Dashboard</a>.</p>
+  <% } %>
+</section>

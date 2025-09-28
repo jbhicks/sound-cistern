@@ -1,0 +1,110 @@
+/* Quill Editor Custom Styling for Pico.css */
+
+/* Container styling */
+#quill-editor-container {
+    border: var(--pico-border-width) solid var(--pico-border-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+    background: var(--pico-background-color);
+}
+
+/* Toolbar styling */
+.ql-toolbar {
+    border: none !important;
+    border-bottom: var(--pico-border-width) solid var(--pico-border-color) !important;
+    background: var(--pico-card-background-color) !important;
+    padding: 0.5rem !important;
+}
+
+.ql-toolbar .ql-stroke {
+    stroke: var(--pico-color) !important;
+}
+
+.ql-toolbar .ql-fill {
+    fill: var(--pico-color) !important;
+}
+
+.ql-toolbar .ql-picker {
+    color: var(--pico-color) !important;
+}
+
+.ql-toolbar button:hover,
+.ql-toolbar button:focus,
+.ql-toolbar button.ql-active {
+    color: var(--pico-primary) !important;
+}
+
+.ql-toolbar button:hover .ql-stroke,
+.ql-toolbar button:focus .ql-stroke,
+.ql-toolbar button.ql-active .ql-stroke {
+    stroke: var(--pico-primary) !important;
+}
+
+.ql-toolbar button:hover .ql-fill,
+.ql-toolbar button:focus .ql-fill,
+.ql-toolbar button.ql-active .ql-fill {
+    fill: var(--pico-primary) !important;
+}
+
+/* Editor content area */
+.ql-editor {
+    border: none !important;
+    font-family: var(--pico-font-family) !important;
+    font-size: var(--pico-font-size) !important;
+    line-height: var(--pico-line-height) !important;
+    color: var(--pico-color) !important;
+    background: var(--pico-background-color) !important;
+    padding: 1rem !important;
+    min-height: 350px !important;
+}
+
+.ql-editor.ql-blank::before {
+    color: var(--pico-muted-color) !important;
+    font-style: italic !important;
+}
+
+/* Container border styling */
+.ql-container {
+    border: none !important;
+    font-family: var(--pico-font-family) !important;
+}
+
+/* Dropdown menus */
+.ql-picker-options {
+    background: var(--pico-card-background-color) !important;
+    border: var(--pico-border-width) solid var(--pico-border-color) !important;
+    border-radius: var(--pico-border-radius) !important;
+}
+
+.ql-picker-item {
+    color: var(--pico-color) !important;
+}
+
+.ql-picker-item:hover {
+    background: var(--pico-primary-hover) !important;
+    color: var(--pico-primary-inverse) !important;
+}
+
+/* Dark theme specific adjustments */
+[data-theme="dark"] .ql-toolbar .ql-stroke {
+    stroke: var(--pico-color) !important;
+}
+
+[data-theme="dark"] .ql-toolbar .ql-fill {
+    fill: var(--pico-color) !important;
+}
+
+[data-theme="dark"] .ql-editor {
+    background: var(--pico-card-background-color) !important;
+}
+
+/* Ensure proper sizing */
+#quill-editor {
+    display: block;
+    width: 100%;
+}
+
+/* Remove any conflicting styles */
+.ql-snow {
+    border: none !important;
+}

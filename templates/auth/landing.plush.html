@@ -1,0 +1,38 @@
+<style>
+  .auth-center{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+  .sign-in-btn{
+    margin-right: 10px;
+  }
+  .signout-form {
+    display: inline;
+    margin-left: 10px;
+  }
+  .signout-btn {
+    background: none;
+    border: none;
+    color: #007bff;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+  }
+  .signout-btn:hover {
+    color: #0056b3;
+  }
+</style>
+
+<div class="auth-center">
+  <%= if (current_user) { %>
+    <h1><%= current_user.Email %></h1>
+    <a href="/signout" class="signout-btn">Sign Out</a>
+  <% } else { %>
+    <a href="/auth/new/">Sign In</a>
+    <a href="/users/new/">Register</a>
+  <% } %>
+</div>
+

@@ -1,0 +1,6 @@
+drop_column("posts", "meta_title")
+drop_column("posts", "meta_description")
+drop_column("posts", "meta_keywords")
+drop_column("posts", "og_title")
+drop_column("posts", "og_description")
+drop_column("posts", "og_image")

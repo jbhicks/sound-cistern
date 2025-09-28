@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Primary Meta Tags -->
+    <title><%= if (title) { %><%= title %> - My Go SaaS<% } else { %>My Go SaaS - Modern SaaS Platform<% } %></title>
+    <meta name="title" content="<%= if (title) { %><%= title %> - My Go SaaS<% } else { %>My Go SaaS - Modern SaaS Platform<% } %>">
+    <meta name="description" content="<%= if (description) { %><%= description %><% } else { %>Build and scale your SaaS application with our modern Go-powered platform. Features authentication, user management, and responsive design.<% } %>">
+    <meta name="keywords" content="SaaS, Go, Buffalo, web application, business software, authentication, user management">
+    <meta name="author" content="My Go SaaS">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= if (current_path) { %>https://yourdomain.com<%= current_path %><% } else { %>https://yourdomain.com/<% } %>">
+    <meta property="og:title" content="<%= if (title) { %><%= title %> - My Go SaaS<% } else { %>My Go SaaS - Modern SaaS Platform<% } %>">
+    <meta property="og:description" content="<%= if (description) { %><%= description %><% } else { %>Build and scale your SaaS application with our modern Go-powered platform. Features authentication, user management, and responsive design.<% } %>">
+    <meta property="og:image" content="https://yourdomain.com/images/og-image.png">
+    <meta property="og:site_name" content="My Go SaaS">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="<%= if (current_path) { %>https://yourdomain.com<%= current_path %><% } else { %>https://yourdomain.com/<% } %>">
+    <meta property="twitter:title" content="<%= if (title) { %><%= title %> - My Go SaaS<% } else { %>My Go SaaS - Modern SaaS Platform<% } %>">
+    <meta property="twitter:description" content="<%= if (description) { %><%= description %><% } else { %>Build and scale your SaaS application with our modern Go-powered platform. Features authentication, user management, and responsive design.<% } %>">
+    <meta property="twitter:image" content="https://yourdomain.com/images/og-image.png">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="<%= if (current_path) { %>https://yourdomain.com<%= current_path %><% } else { %>https://yourdomain.com/<% } %>">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- Pico.css - Minimal CSS Framework -->
+    <link rel="stylesheet" href="/css/pico.min.css">
+    
+    <!-- Quill Rich Text Editor -->
+    <link rel="stylesheet" href="/css/quill.snow.css">
+    <link rel="stylesheet" href="/css/quill-custom.css">
+    
+    <!-- Custom styles using Pico.css variables -->
+    <%= if (GO_ENV == "development") { %>
+        <link rel="stylesheet" href="/css/custom.css?v=dev">
+    <% } else { %>
+        <link rel="stylesheet" href="/css/custom.css">
+    <% } %>
+    
+    <!-- Structured Data for SaaS -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "My Go SaaS",
+      "description": "Modern SaaS platform built with Go and Buffalo framework",
+      "url": "https://yourdomain.com",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "USD",
+        "price": "0",
+        "description": "Free tier available"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "My Go SaaS"
+      }
+    }
+    </script>
+    
+    <!-- Heroicons helper for SVG icons -->
+    <script src="/js/icons.js"></script>
+    
+    <!-- Quill Rich Text Editor -->
+    <script src="/js/quill.min.js"></script>
+    <script src="/js/quill-editor.js"></script>
+    
+    <!-- Theme switching functionality -->
+    <script src="/js/theme.js"></script>
+    
+    <!-- HTMX Library -->
+    <script src="/js/htmx.min.js"></script>
+    
+    <% if (authenticity_token) { %>
+    <meta name="csrf-param" content="authenticity_token" />
+    <meta name="csrf-token" content="<%= authenticity_token %>" />
+    <% } %>
+  </head>
+  <body>
+    <% if (flash != nil && len(flash) > 0) { %>
+      <%= partial("flash.html") %>
+    <% } %>
+    <%= yield %>
+  </body>
+</html>

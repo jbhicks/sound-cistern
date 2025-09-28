@@ -1,0 +1,37 @@
+🔍 Checking required dependencies...
+✅ Go is installed: go version go1.24.6 linux/amd64
+time="2025-09-28T10:13:22-07:00" level=info msg="Buffalo version is: v0.18.14"
+✅ Buffalo CLI is installed: 
+✅ Docker Compose is installed: Docker Compose version 2.39.2
+
+✅ All dependencies are installed and ready!
+🗄️  Starting PostgreSQL database...
+🐳 Using Docker Compose...
+ Container my_go_saas_template_postgres  Running
+✅ Database container started successfully.
+🔍 Waiting for database to be ready...
+Checking PostgreSQL readiness...
+PostgreSQL is ready!
+🚀 Starting Buffalo development server...
+📱 Visit http://127.0.0.1:3001 to see your application
+🔥 Hot reload is enabled - changes will be reflected automatically
+buffalo: 2025/09/28 10:13:22 === Rebuild on: :start: ===
+buffalo: 2025/09/28 10:13:22 [32m=== Running: go build -v -tags development -o tmp/my-go-saas-template-build ./cmd/app (PID: 400596) ===[0m
+my_go_saas_template/actions
+# my_go_saas_template/actions
+actions/app.go:71:4: duplicate field name Host in struct literal
+buffalo: 2025/09/28 10:13:22 [31m=== Error! ===[0m
+buffalo: 2025/09/28 10:13:22 [31m=== exit status 1
+my_go_saas_template/actions
+# my_go_saas_template/actions
+actions/app.go:71:4: duplicate field name Host in struct literal
+ ===[0m
+buffalo: 2025/09/28 10:14:30 === Rebuild on: actions/app.go ===
+buffalo: 2025/09/28 10:14:30 [32m=== Running: go build -v -tags development -o tmp/my-go-saas-template-build ./cmd/app (PID: 402544) ===[0m
+buffalo: 2025/09/28 10:14:30 [32m=== Building Completed (PID: 402544) (Time: 133.799891ms) ===[0m
+buffalo: 2025/09/28 10:14:30 [32m=== Running: tmp/my-go-saas-template-build (PID: 402681) ===[0m
+[37mDEBU[0m[2025-09-28T10:14:30-07:00] starting application
+[36mINFO[0m[2025-09-28T10:14:30-07:00] starting simple server on 127.0.0.1:3000
+[36mINFO[0m[2025-09-28T10:14:30-07:00] starting Simple background worker
+❌ Buffalo failed to start. Check the output above for errors.
+make: *** [Makefile:104: dev] Error 1

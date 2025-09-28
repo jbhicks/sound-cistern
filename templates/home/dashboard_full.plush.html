@@ -1,0 +1,133 @@
+<!-- User Dashboard with Navigation -->
+<nav class="container-fluid">
+  <ul>
+    <li>
+      <a href="/" class="logo">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        <strong>My Go SaaS</strong>
+      </a>
+    </li>
+  </ul>
+  <ul>
+    <li><a href="/" hx-get="/" hx-target="#htmx-content" hx-push-url="true">Home</a></li>
+    <li><a href="/blog" hx-get="/blog" hx-target="#htmx-content" hx-push-url="true">Blog</a></li>
+    <li><a href="/dashboard" hx-get="/dashboard" hx-target="#htmx-content" hx-push-url="true" aria-current="page">Dashboard</a></li>
+    
+    <%= if (current_user && current_user.Role == "admin") { %>
+      <li><a href="/admin" hx-get="/admin" hx-target="#htmx-content" hx-push-url="true">Admin</a></li>
+    <% } %>
+    
+    <li>
+      <details class="dropdown">
+        <summary aria-haspopup="listbox">
+          <%= current_user.Email %>
+        </summary>
+        <ul dir="rtl">
+          <li><a href="/account" hx-get="/account" hx-target="#htmx-content" hx-push-url="true">Account Settings</a></li>
+          <li><a href="/auth/logout">Logout</a></li>
+        </ul>
+      </details>
+    </li>
+    <li>
+      <!-- Compact Theme Toggle -->
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="theme-icon"></span>
+      </button>
+    </li>
+  </ul>
+</nav>
+
+<main class="container" id="htmx-content">
+  <!-- Header Section -->
+  <section>
+    <hgroup>
+      <h1>Dashboard</h1>
+      <p>Welcome back, <%= current_user.Email %>! Here's a summary of your account.</p>
+    </hgroup>
+  </section>
+
+  <!-- Stats Grid with Consistent Design -->
+  <section class="grid">
+    <article class="stats-card">
+      <header>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3>Account Status</h3>
+      </header>
+      <p><strong>Active</strong></p>
+      <footer><small>Your account is in good standing</small></footer>
+    </article>
+
+    <article class="stats-card">
+      <header>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h6m-6 0l-.5 8.5A2 2 0 0010.5 19h3a2 2 0 002-1.5L16 9H8z"></path>
+        </svg>
+        <h3>Member Since</h3>
+      </header>
+      <p><strong><%= current_user.CreatedAt.Format("January 2006") %></strong></p>
+      <footer><small>Thank you for being a valued member</small></footer>
+    </article>
+
+    <article class="stats-card">
+      <header>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3>Need Help?</h3>
+      </header>
+      <p>Get support via our documentation or email</p>
+      <footer><small>We're here to assist you</small></footer>
+    </article>
+  </section>
+
+  <!-- Admin Section - Only visible to admin users -->
+  <%= if (current_user.Role == "admin") { %>
+  <section>
+    <article class="danger-zone">
+      <header>
+        <h3>
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          Administrator Actions
+        </h3>
+      </header>
+      <p>Access admin dashboard and manage system settings.</p>
+      <nav>
+        <ul>
+          <li><a href="/admin" hx-get="/admin" hx-target="#htmx-content" hx-push-url="true" role="button">Admin Dashboard</a></li>
+        </ul>
+      </nav>
+    </article>
+  </section>
+  <% } %>
+
+  <!-- Quick Actions -->
+  <section>
+    <header>
+      <h2>Quick Actions</h2>
+    </header>
+    <nav>
+      <ul>
+        <li><a href="/account" hx-get="/account" hx-target="#htmx-content" hx-push-url="true" role="button" class="outline">Account Settings</a></li>
+        <li><a href="/blog" hx-get="/blog" hx-target="#htmx-content" hx-push-url="true" role="button" class="outline">View Blog</a></li>
+        <li><a href="/auth/logout" role="button" class="secondary">Logout</a></li>
+      </ul>
+    </nav>
+  </section>
+</main>
+
+<footer class="container">
+  <hr>
+  <p>
+    <small>
+      © 2025 My Go SaaS. Built with 
+      <a href="https://gobuffalo.io" target="_blank">Buffalo</a> and 
+      <a href="https://picocss.com" target="_blank">Pico CSS</a>.
+    </small>
+  </p>
+</footer>

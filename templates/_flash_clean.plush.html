@@ -1,0 +1,16 @@
+<!-- Flash Messages using Pico.css semantic elements -->
+<% for (k, messages) in flash { %>
+  <% for (msg) in messages { %>
+    <div class="container">
+      <% if (k == "success") { %>
+        <ins><%= msg %></ins>
+      <% } else if (k == "error" || k == "danger") { %>
+        <del><%= msg %></del>
+      <% } else if (k == "warning") { %>
+        <mark><%= msg %></mark>
+      <% } else { %>
+        <small><%= msg %></small>
+      <% } %>
+    </div>
+  <% } %>
+<% } %>

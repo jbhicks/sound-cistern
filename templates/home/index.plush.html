@@ -1,0 +1,132 @@
+<!-- Persistent Header using Dashboard Nav Style -->
+<nav class="container-fluid dashboard-nav" hx-preserve="true">
+  <!-- Original content of dashboard-nav's first ul (logo) -->
+  <ul>
+    <li>
+      <a href="/" hx-get="/" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true" class="logo">
+        <svg class="icon-standard icon-spacing" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        <strong>Buffalo SaaS</strong>
+      </a>
+    </li>
+  </ul>
+  <!-- Original content of dashboard-nav's second ul (links, theme toggle, profile) -->
+  <ul>
+    <%= if (current_user) { %>
+      <li><a href="/blog" hx-get="/blog" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Blog</a></li>
+      <li><a href="/dashboard" hx-get="/dashboard" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Dashboard</a></li>
+      <li>
+        <button class="theme-toggle-btn" onclick="toggleTheme();" aria-label="Toggle theme" title="Toggle theme">
+          <span id="theme-icon-header">
+            <!-- SVG will be injected by JS -->
+          </span>
+        </button>
+      </li>
+      <li>
+        <details class="dropdown">
+          <summary role="button">
+            <svg class="icon-standard" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+            </svg>
+            <%= current_user.Email %>
+          </summary>
+          <ul>
+            <li><a href="/profile" hx-get="/profile" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Your Profile</a></li>
+            <li><a href="/account" hx-get="/account" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Account Settings</a></li>
+            <%= if (current_user.Role == "admin") { %>
+            <li><a href="/admin" hx-get="/admin/dashboard" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.25rem;">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Admin Dashboard</a></li>
+            <% } %>
+            <li><a href="/signout" class="secondary" hx-post="/signout" hx-confirm="Are you sure you want to sign out?">Sign out</a></li>
+          </ul>
+        </details>
+      </li>
+    <% } else { %>
+      <li><a href="/blog" hx-get="/blog" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Blog</a></li>
+      <li>
+        <button class="theme-toggle-btn" onclick="toggleTheme();" aria-label="Toggle theme" title="Toggle theme">
+          <span id="theme-icon-header">
+            <!-- SVG will be injected by JS -->
+          </span>
+        </button>
+      </li>
+      <li>
+        <a href="<%= newAuthPath() %>" role="button" class="btn-primary" aria-label="Login" title="Login"
+           data-target="modal-login" onclick="toggleModal(event)"
+           hx-get="<%= newAuthPath() %>" hx-target="#modal-login-content" hx-swap="innerHTML">
+          Login
+        </a>
+      </li>
+      <li>
+        <a href="<%= newUsersPath() %>" role="button" class="btn-primary" aria-label="Sign Up" title="Sign Up"
+           data-target="modal-signup" onclick="toggleModal(event)"
+           hx-get="<%= newUsersPath() %>" hx-target="#modal-signup-content" hx-swap="innerHTML">
+          Sign Up
+        </a>
+      </li>
+    <% } %>
+  </ul>
+</nav>
+
+<!-- HTMX Content Target -->
+<main class="container" id="htmx-content" hx-get="/" hx-trigger="load" hx-swap="innerHTML">
+  <%# This area will be populated by HTMX on load %>
+  <%# The hx-get="/" will call the HomeHandler again, but as an HTMX request %>
+  <%# HomeHandler will then return _index_content.plush.html %>
+</main>
+
+<!-- Footer -->
+<!-- The footer might also be part of the static shell or loaded with content. -->
+<!-- For simplicity, let's assume it's part of the static shell for now. -->
+<footer class="container" hx-preserve="true">
+  <small>
+    <!-- These links should also be HTMX enabled if they point to internal pages -->
+    <a href="/blog" hx-get="/blog" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Blog</a> • 
+    <a href="/dashboard" hx-get="/dashboard" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Dashboard</a> • 
+    <a href="/auth/new" hx-get="/auth/new" hx-target="#htmx-content" hx-swap="innerHTML" hx-push-url="true">Login</a> • 
+    <a href="https://github.com/gobuffalo/buffalo" target="_blank">Buffalo Framework</a>
+  </small>
+  <small>Built with <a href="https://gobuffalo.io" target="_blank">Buffalo</a> and <a href="https://picocss.com" target="_blank">Pico.css</a></small>
+</footer>
+
+<!-- Modals -->
+<dialog id="modal-login">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" data-target="modal-login" onclick="toggleModal(event)"></button>
+      <h3>Login</h3>
+    </header>
+    <div id="modal-login-content">
+      <!-- Login form will be loaded here by HTMX -->
+      <p><span aria-busy="true">Loading login form...</span></p>
+    </div>
+  </article>
+</dialog>
+
+<dialog id="modal-signup">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" data-target="modal-signup" onclick="toggleModal(event)"></button>
+      <h3>Sign Up</h3>
+    </header>
+    <div id="modal-signup-content">
+      <!-- Sign up form will be loaded here by HTMX -->
+      <p><span aria-busy="true">Loading sign up form...</span></p>
+    </div>
+  </article>
+</dialog>
+
+<script>
+  // Optional: If you want to ensure the initial content for '/' is loaded via HTMX
+  // even on a direct page load, you could do something like this.
+  // However, for the very first load, rendering it directly as part of index.plush.html is fine.
+  // document.addEventListener('DOMContentLoaded', function() {
+  //   if (window.location.pathname === '/') {
+  //     htmx.ajax('GET', '/home/index_content', '#htmx-content');
+  //   }
+  // });
+</script>

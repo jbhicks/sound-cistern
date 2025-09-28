@@ -1,0 +1,6 @@
+add_column("posts", "meta_title", "string", {"null": true})
+add_column("posts", "meta_description", "text", {"null": true})
+add_column("posts", "meta_keywords", "text", {"null": true})
+add_column("posts", "og_title", "string", {"null": true})
+add_column("posts", "og_description", "text", {"null": true})
+add_column("posts", "og_image", "string", {"null": true})

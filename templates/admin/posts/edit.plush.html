@@ -1,0 +1,194 @@
+<!-- Admin Post Edit with Navigation -->
+<nav class="container-fluid dashboard-nav">
+  <ul>
+    <li>
+      <a href="/" class="logo">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        <strong>My Go SaaS</strong>
+      </a>
+    </li>
+  </ul>
+  <ul>
+    <li>
+      <a href="/admin">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Admin Dashboard
+      </a>
+    </li>
+    <li>
+      <a href="/admin/posts">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+        </svg>
+        Posts
+      </a>
+    </li>
+    <li>
+      <!-- Compact Theme Toggle -->
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="theme-icon"></span>
+      </button>
+    </li>
+  </ul>
+</nav>
+
+<main class="container">
+
+<section>
+    <header>
+        <h1>Edit Post</h1>
+        <nav>
+            <ul>
+                <li><a href="/admin/posts" role="button" class="secondary">← Back to Posts</a></li>
+                <li><a href="/admin/posts/<%= post.ID %>" role="button" class="outline">View Post</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <form method="POST" action="/admin/posts/<%= post.ID %>" enctype="multipart/form-data">
+        
+        <fieldset>
+            <label for="title">
+                Title
+                <input type="text" id="title" name="title" value="<%= post.Title %>" required>
+            </label>
+            <%= if (errors && errors.Get("title")) { %>
+                <small class="error"><%= errors.Get("title") %></small>
+            <% } %>
+        </fieldset>
+
+        <fieldset>
+            <label for="slug">
+                Slug (URL-friendly version of title)
+                <input type="text" id="slug" name="slug" value="<%= post.Slug %>">
+            </label>
+            <%= if (errors && errors.Get("slug")) { %>
+                <small class="error"><%= errors.Get("slug") %></small>
+            <% } %>
+        </fieldset>
+
+        <fieldset>
+            <label for="excerpt">
+                Excerpt (optional)
+                <textarea id="excerpt" name="excerpt" rows="3" 
+                         placeholder="Brief description of the post"><%= post.Excerpt %></textarea>
+            </label>
+            <small>Leave blank to auto-generate from content</small>
+        </fieldset>
+
+        <fieldset>
+            <label for="content">
+                Content
+            </label>
+            <!-- Quill Editor Container -->
+            <div id="quill-editor-container" style="margin-bottom: 0.5rem;">
+                <div id="quill-editor" style="min-height: 350px;"></div>
+            </div>
+            <!-- Hidden textarea for form submission -->
+            <textarea id="content" name="content" style="display: none;" required><%= post.Content %></textarea>
+            <%= if (errors && errors.Get("content")) { %>
+                <small class="error"><%= errors.Get("content") %></small>
+            <% } %>
+            <small>Use the toolbar above to format your content. You can add headings, bold text, links, lists, and more.</small>
+        </fieldset>
+
+        <fieldset>
+            <label for="image">
+                Featured Image
+                <input type="file" id="image" name="image" accept="image/*">
+            </label>
+            <%= if (post.Image != "") { %>
+                <small>Current image: <a href="<%= post.Image %>" target="_blank">View current image</a></small>
+            <% } %>
+            <small>Upload a new image to replace the current one (JPG, PNG, GIF, WebP)</small>
+        </fieldset>
+
+        <fieldset>
+            <label for="image_alt">
+                Image Alt Text
+                <input type="text" id="image_alt" name="image_alt" value="<%= post.ImageAlt %>" 
+                       placeholder="Describe the image for accessibility">
+            </label>
+            <small>Alt text for screen readers and SEO</small>
+        </fieldset>
+
+        <fieldset>
+            <label>
+                <input type="checkbox" id="published" name="published" value="true" 
+                       <%= if (post.Published) { %>checked<% } %>>
+                Published
+            </label>
+            <small>Uncheck to save as draft</small>
+        </fieldset>
+
+        <!-- SEO Meta Fields -->
+        <details>
+            <summary>SEO & Social Media Settings</summary>
+            
+            <fieldset>
+                <label for="meta_title">
+                    Meta Title (SEO)
+                    <input type="text" id="meta_title" name="meta_title" value="<%= post.MetaTitle %>" 
+                           placeholder="Leave blank to use post title">
+                </label>
+                <small>Recommended: 50-60 characters. Leave blank to use post title.</small>
+            </fieldset>
+
+            <fieldset>
+                <label for="meta_description">
+                    Meta Description (SEO)
+                    <textarea id="meta_description" name="meta_description" rows="3" 
+                             placeholder="Brief description for search engines"><%= post.MetaDescription %></textarea>
+                </label>
+                <small>Recommended: 150-160 characters. Leave blank to use excerpt.</small>
+            </fieldset>
+
+            <fieldset>
+                <label for="meta_keywords">
+                    Meta Keywords
+                    <input type="text" id="meta_keywords" name="meta_keywords" value="<%= post.MetaKeywords %>" 
+                           placeholder="keyword1, keyword2, keyword3">
+                </label>
+                <small>Comma-separated keywords (optional).</small>
+            </fieldset>
+
+            <fieldset>
+                <label for="og_title">
+                    Open Graph Title (Social Media)
+                    <input type="text" id="og_title" name="og_title" value="<%= post.OgTitle %>" 
+                           placeholder="Leave blank to use meta title">
+                </label>
+                <small>For Facebook, Twitter, LinkedIn previews.</small>
+            </fieldset>
+
+            <fieldset>
+                <label for="og_description">
+                    Open Graph Description
+                    <textarea id="og_description" name="og_description" rows="2" 
+                             placeholder="Description for social media previews"><%= post.OgDescription %></textarea>
+                </label>
+                <small>For social media post previews.</small>
+            </fieldset>
+
+            <fieldset>
+                <label for="og_image">
+                    Open Graph Image URL
+                    <input type="url" id="og_image" name="og_image" value="<%= post.OgImage %>" 
+                           placeholder="https://example.com/image.jpg">
+                </label>
+                <small>Image for social media previews (recommended: 1200x630px).</small>
+            </fieldset>
+        </details>
+
+        <fieldset>
+            <button type="submit">Update Post</button>
+            <a href="/admin/posts/<%= post.ID %>" role="button" class="secondary">Cancel</a>
+        </fieldset>
+    </form>
+</section>
+
+</main>

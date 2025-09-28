@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  strapi:
+    image: strapi/strapi:4.25.0
+    container_name: my-go-saas-strapi
+    restart: unless-stopped
+    environment:
+      DATABASE_CLIENT: postgres
+      DATABASE_NAME: strapi
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      JWT_SECRET: your-jwt-secret-change-this-in-production
+      ADMIN_JWT_SECRET: your-admin-jwt-secret-change-this-in-production
+      APP_KEYS: app-key-1,app-key-2,app-key-3,app-key-4
+      API_TOKEN_SALT: your-api-token-salt-change-this-in-production
+      NODE_ENV: development
+    volumes:
+      - ./strapi-data:/opt/app
+    ports:
+      - "1337:1337"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    container_name: my-go-saas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

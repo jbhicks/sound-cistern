@@ -1,0 +1,2 @@
+drop_column("posts", "image_alt")
+drop_column("posts", "image")
