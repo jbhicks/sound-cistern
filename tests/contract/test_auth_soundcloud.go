@@ -1,16 +1,25 @@
 package contract
 
 import (
-	"net/http/httptest"
 	"testing"
+
+	"github.com/gobuffalo/suite/v4"
+	"github.com/jbhicks/sound-cistern/actions"
 )
 
-func Test_AuthSoundcloud(t *testing.T) {
-	app := App()
-	req := httptest.NewRequest("GET", "/auth/soundcloud", nil)
-	res := httptest.New(app).Request(req)
-	if res.Code != 200 {
-		t.Errorf("Expected 200, got %d", res.Code)
+type AuthSoundcloudContractSuite struct {
+	*suite.Action
+}
+
+func Test_AuthSoundcloudContract(t *testing.T) {
+	as := &AuthSoundcloudContractSuite{
+		Action: suite.NewAction(actions.App()),
 	}
-	// Expect redirect to Soundcloud
+	suite.Run(t, as)
+}
+
+func (as *AuthSoundcloudContractSuite) Test_AuthSoundcloud() {
+	res := as.HTML("/auth/soundcloud").Get()
+	// Expect redirect to Soundcloud (302)
+	as.Equal(302, res.Code)
 }

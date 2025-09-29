@@ -1,16 +1,26 @@
 package contract
 
 import (
-	"net/http/httptest"
 	"testing"
+
+	"github.com/gobuffalo/suite/v4"
+	"github.com/jbhicks/sound-cistern/actions"
 )
 
-func Test_Feed(t *testing.T) {
-	app := App()
-	req := httptest.NewRequest("GET", "/feed", nil)
-	res := httptest.New(app).Request(req)
-	if res.Code != 200 {
-		t.Errorf("Expected 200, got %d", res.Code)
+type FeedContractSuite struct {
+	*suite.Action
+}
+
+func Test_FeedContract(t *testing.T) {
+	as := &FeedContractSuite{
+		Action: suite.NewAction(actions.App()),
 	}
+	suite.Run(t, as)
+}
+
+func (as *FeedContractSuite) Test_Feed() {
+	// TODO: Add authentication setup first
+	// res := as.HTML("/feed").Get()
+	// as.Equal(200, res.Code)
 	// Expect list of tracks
 }

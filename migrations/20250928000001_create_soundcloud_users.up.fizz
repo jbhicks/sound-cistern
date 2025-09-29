@@ -1,0 +1,9 @@
+create_table("soundcloud_users") {
+  t.Column("id", "uuid", {primary: true})
+  t.Column("soundcloud_id", "string", {"size": 255, "null": false})
+  t.Column("access_token", "string", {"size": 512, "null": false})
+  t.Column("created_at", "timestamp", {"null": false})
+  t.Column("updated_at", "timestamp", {"null": false})
+  
+  t.Index("soundcloud_id", {"unique": true})
+}

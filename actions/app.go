@@ -100,6 +100,7 @@ func App() *buffalo.App {
 
 		// Public routes
 		app.GET("/", HomeHandler)
+		app.GET("/health", HealthCheck)
 
 		// Blog routes
 		app.GET("/blog", BlogIndex)
@@ -143,6 +144,18 @@ func App() *buffalo.App {
 		adminGroup.GET("/posts/{post_id}/edit", AdminPostsEdit)
 		adminGroup.POST("/posts/{post_id}", AdminPostsUpdate)
 		adminGroup.DELETE("/posts/{post_id}", AdminPostsDelete)
+
+		// Sound Cistern routes
+		// Skip Authorize middleware for Soundcloud auth routes
+		app.Middleware.Skip(Authorize, SoundcloudAuth, SoundcloudCallback)
+
+		// Auth routes for Soundcloud
+		app.GET("/auth/soundcloud", SoundcloudAuth)
+		app.GET("/auth/callback", SoundcloudCallback)
+
+		// Protected Sound Cistern routes
+		app.GET("/feed", FeedIndex)
+		app.POST("/filter", FeedFilter)
 
 		// Add no-cache headers for static files in development
 		if ENV == "development" {

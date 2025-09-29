@@ -1,0 +1,9 @@
+create_table("soundcloud_feeds") {
+  t.Column("id", "uuid", {primary: true})
+  t.Column("user_id", "uuid", {"null": false})
+  t.Column("tracks", "text", {"null": false})
+  t.Column("updated_at", "timestamp", {"null": false})
+  
+  t.ForeignKey("user_id", {"soundcloud_users": ["id"]}, {"on_delete": "cascade"})
+  t.Index("user_id", {"unique": true})
+}

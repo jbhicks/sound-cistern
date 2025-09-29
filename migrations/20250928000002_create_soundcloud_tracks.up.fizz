@@ -1,0 +1,14 @@
+create_table("soundcloud_tracks") {
+  t.Column("id", "uuid", {primary: true})
+  t.Column("user_id", "uuid", {"null": false})
+  t.Column("soundcloud_id", "string", {"size": 255, "null": false})
+  t.Column("title", "string", {"size": 500, "null": false})
+  t.Column("length", "integer", {"null": false})
+  t.Column("genre", "string", {"size": 255})
+  t.Column("post_time", "timestamp", {"null": false})
+  t.Column("created_at", "timestamp", {"null": false})
+  t.Column("updated_at", "timestamp", {"null": false})
+  
+  t.ForeignKey("user_id", {"soundcloud_users": ["id"]}, {"on_delete": "cascade"})
+  t.Index(["user_id", "soundcloud_id"], {"unique": true})
+}

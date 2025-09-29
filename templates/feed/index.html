@@ -1,0 +1,144 @@
+<!-- Sound Cistern Feed with Pico.css -->
+<section>
+  <hgroup>
+    <h1>
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+      </svg>
+      Your Soundcloud Feed
+    </h1>
+    <p>Music tracks from your Soundcloud feed</p>
+  </hgroup>
+</section>
+
+<!-- Filter form -->
+<section>
+  <details>
+    <summary>Filter Tracks</summary>
+    <form hx-post="/filter" hx-target="#tracks-container" hx-swap="innerHTML">
+      <div class="grid">
+        <label>
+          Minimum Length (seconds)
+          <input type="number" name="min_length" placeholder="0">
+        </label>
+        <label>
+          Maximum Length (seconds)
+          <input type="number" name="max_length" placeholder="600">
+        </label>
+      </div>
+      
+      <label>
+        Genre
+        <input type="text" name="genres" placeholder="Electronic, Hip Hop, etc.">
+        <small>Comma-separated list of genres</small>
+      </label>
+      
+      <label>
+        Search Query
+        <input type="text" name="query" placeholder="Search in track titles">
+      </label>
+      
+      <button type="submit">Apply Filters</button>
+      <button type="button" onclick="location.reload()">Clear Filters</button>
+    </form>
+  </details>
+</section>
+
+<div id="tracks-container">
+  <%= if (len(tracks) > 0) { %>
+    <div class="grid">
+      <%= for (track) in tracks { %>
+        <article>
+          <header>
+            <h3><%= track["title"] %></h3>
+            <p><small>
+              <%= if (track["genre"]) { %>
+                Genre: <%= track["genre"] %> • 
+              <% } %>
+              <%= if (track["duration"]) { %>
+                Duration: <%= track["duration"] / 1000 %>s
+              <% } %>
+              <%= if (track["created_at"]) { %>
+                • Posted: <%= track["created_at"] %>
+              <% } %>
+            </small></p>
+          </header>
+          
+          <%= if (track["description"]) { %>
+            <p><%= track["description"] %></p>
+          <% } %>
+          
+          <%= if (track["artwork_url"]) { %>
+            <img src="<%= track["artwork_url"] %>" alt="<%= track["title"] %> artwork" 
+                 style="width: 100%; height: 200px; object-fit: cover; border-radius: var(--pico-border-radius);">
+          <% } %>
+          
+          <footer>
+            <%= if (track["permalink_url"]) { %>
+              <a href="<%= track["permalink_url"] %>" target="_blank" role="button" class="outline">
+                Listen on Soundcloud
+              </a>
+            <% } %>
+            <%= if (track["stream_url"]) { %>
+              <audio controls style="width: 100%; margin-top: 1rem;">
+                <source src="<%= track["stream_url"] %>" type="audio/mpeg">
+                Your browser does not support the audio element.
+              </audio>
+            <% } %>
+          </footer>
+        </article>
+      <% } %>
+    </div>
+  <% } else { %>
+    <article>
+      <header>
+        <h2>No Tracks Found</h2>
+      </header>
+      <p>
+        No tracks were found in your Soundcloud feed. This could mean:
+      </p>
+      <ul>
+        <li>You haven't uploaded any tracks to Soundcloud</li>
+        <li>Your tracks are private</li>
+        <li>There was an issue fetching your feed</li>
+      </ul>
+      <p>
+        <a href="/auth/soundcloud" role="button">Re-authenticate with Soundcloud</a>
+      </p>
+    </article>
+  <% } %>
+</div>
+
+<script>
+// Handle filter form submission
+document.addEventListener('DOMContentLoaded', function() {
+  const filterForm = document.querySelector('form[hx-post="/filter"]');
+  if (filterForm) {
+    filterForm.addEventListener('htmx:configRequest', function(event) {
+      // Convert form data to JSON for the API
+      const formData = new FormData(filterForm);
+      const criteria = {};
+      
+      // Convert form fields to appropriate types
+      if (formData.get('min_length')) {
+        criteria.min_length = parseInt(formData.get('min_length'));
+      }
+      if (formData.get('max_length')) {
+        criteria.max_length = parseInt(formData.get('max_length'));
+      }
+      if (formData.get('genres')) {
+        criteria.genres = formData.get('genres').split(',').map(g => g.trim());
+      }
+      if (formData.get('query')) {
+        criteria.query = formData.get('query');
+      }
+      
+      // Set the request body to JSON
+      event.detail.parameters = {};
+      event.detail.headers['Content-Type'] = 'application/json';
+      event.detail.xhr.send(JSON.stringify(criteria));
+      event.preventDefault();
+    });
+  }
+});
+</script>

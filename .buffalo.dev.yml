@@ -1,0 +1,42 @@
+# Buffalo Development Configuration
+# This file is required for Buffalo to recognize the project
+
+# Application name
+app: sound-cistern
+
+# Binary target
+bin: ./bin/sound-cistern
+
+# Database configuration
+database:
+  dialect: postgres
+  database: sound_cistern_development
+  user: postgres
+  password: postgres
+  host: 127.0.0.1
+  pool: 5
+
+# Development server configuration
+server:
+  host: 0.0.0.0
+  port: 3000
+
+# Asset pipeline configuration
+assets:
+  js: yarn
+  css: yarn
+
+# Session configuration
+session:
+  name: _sound_cistern_session
+  store: cookie
+  secret: your-secret-key-here
+
+# Logging configuration
+log:
+  level: debug
+
+# Development tools
+dev:
+  reload: true
+  proxy: false

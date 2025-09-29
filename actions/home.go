@@ -61,3 +61,15 @@ func DashboardHandler(c buffalo.Context) error {
 	// Direct access - render full page with navigation
 	return c.Render(http.StatusOK, r.HTML("home/dashboard_full.plush.html"))
 }
+
+// HealthCheck provides a simple health check endpoint for deployment monitoring
+func HealthCheck(c buffalo.Context) error {
+	health := map[string]interface{}{
+		"status":    "healthy",
+		"service":   "sound-cistern",
+		"version":   "1.0.0",
+		"timestamp": c.Request().Header.Get("Date"),
+	}
+
+	return c.Render(http.StatusOK, r.JSON(health))
+}

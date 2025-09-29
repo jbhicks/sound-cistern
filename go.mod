@@ -1,6 +1,6 @@
 module github.com/jbhicks/sound-cistern
 
-go 1.24.3
+go 1.18
 
 require (
 	github.com/gobuffalo/buffalo v1.1.2

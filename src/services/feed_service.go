@@ -1,24 +1,77 @@
 package services
 
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/gobuffalo/pop/v6"
+	"github.com/gofrs/uuid"
+	"github.com/jbhicks/sound-cistern/src/models"
+)
+
 // FeedService handles feed caching and filtering
 type FeedService struct {
+	DB *pop.Connection
 }
 
 // NewFeedService creates a new service
-func NewFeedService() *FeedService {
-	return &FeedService{}
+func NewFeedService(db *pop.Connection) *FeedService {
+	return &FeedService{DB: db}
 }
 
 // CacheFeed caches the feed for a user
 func (fs *FeedService) CacheFeed(userID string, tracks []interface{}) error {
-	// TODO: Save to database
-	return nil
+	userUUID, err := uuid.FromString(userID)
+	if err != nil {
+		return err
+	}
+
+	// Convert tracks to JSON
+	tracksJSON, err := json.Marshal(tracks)
+	if err != nil {
+		return err
+	}
+
+	// Update or create feed entry
+	feed := &models.Feed{}
+	err = fs.DB.Where("user_id = ?", userUUID).First(feed)
+	if err != nil {
+		// Create new feed
+		feed = &models.Feed{
+			ID:        uuid.Must(uuid.NewV4()),
+			UserID:    userUUID,
+			Tracks:    string(tracksJSON),
+			UpdatedAt: time.Now(),
+		}
+		return fs.DB.Create(feed)
+	} else {
+		// Update existing feed
+		feed.Tracks = string(tracksJSON)
+		feed.UpdatedAt = time.Now()
+		return fs.DB.Update(feed)
+	}
 }
 
 // GetCachedFeed gets cached feed for user
 func (fs *FeedService) GetCachedFeed(userID string) ([]interface{}, error) {
-	// TODO: Load from database
-	return []interface{}{}, nil
+	userUUID, err := uuid.FromString(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	feed := &models.Feed{}
+	err = fs.DB.Where("user_id = ?", userUUID).First(feed)
+	if err != nil {
+		return []interface{}{}, nil // Return empty if no cache
+	}
+
+	var tracks []interface{}
+	err = json.Unmarshal([]byte(feed.Tracks), &tracks)
+	if err != nil {
+		return []interface{}{}, err
+	}
+
+	return tracks, nil
 }
 
 // FilterTracks filters tracks based on criteria

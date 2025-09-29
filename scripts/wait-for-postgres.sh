@@ -3,13 +3,23 @@
 # Wait for PostgreSQL to be ready
 echo "Checking PostgreSQL readiness..."
 
+# Determine which compose command to use
+if command -v podman-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="podman-compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "ERROR: Neither podman-compose nor docker-compose found"
+    exit 1
+fi
+
 # Maximum wait time in seconds
 MAX_WAIT=30
 WAIT_COUNT=0
 
 while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
     # Check if container is running and healthy
-    if docker-compose exec postgres pg_isready -U postgres > /dev/null 2>&1; then
+    if $COMPOSE_CMD exec postgres pg_isready -U postgres > /dev/null 2>&1; then
         echo "PostgreSQL is ready!"
         exit 0
     fi
@@ -21,7 +31,7 @@ done
 
 echo "ERROR: PostgreSQL failed to become ready within $MAX_WAIT seconds"
 echo "Container status:"
-docker-compose ps
+$COMPOSE_CMD ps
 echo "Container logs:"
-docker-compose logs postgres --tail 20
+$COMPOSE_CMD logs postgres --tail 20
 exit 1

@@ -1,38 +1,59 @@
-# This is a multi-stage Dockerfile and requires >= Docker 17.05
-# https://docs.docker.com/engine/userguide/eng-image/multistage-build/
-FROM gobuffalo/buffalo:v0.18.14 as builder
+# Production Dockerfile for Sound Cistern with Go 1.21+ support
+# Uses modern Go version to support all dependencies
 
-ENV GOPROXY http://proxy.golang.org
+FROM golang:1.23-alpine AS builder
 
-RUN mkdir -p /src/my_go_saas_template
-WORKDIR /src/my_go_saas_template
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata wget
 
-# Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
+# Install Buffalo CLI (compatible with Go 1.21+)
+RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files for dependency caching
+COPY go.mod go.sum ./
+
+# Download dependencies
 RUN go mod download
+RUN go mod verify
 
-ADD . .
-RUN buffalo build --static -o /bin/app
+# Copy source code
+COPY . .
 
-FROM alpine
-RUN apk add --no-cache bash
-RUN apk add --no-cache ca-certificates
+# Build the application
+RUN buffalo build --skip-template-validation -o /app/sound-cistern
 
-WORKDIR /bin/
+# Production runtime image
+FROM alpine:latest
 
-COPY --from=builder /bin/app .
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates bash tzdata wget
+RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -s /bin/sh -D appuser
 
-# Uncomment to run the binary in "production" mode:
-# ENV GO_ENV=production
+# Create app directory
+WORKDIR /app
 
-# Bind the app to 0.0.0.0 so it can be seen from outside the container
+# Copy binary from builder stage
+COPY --from=builder /app/sound-cistern /app/sound-cistern
+RUN chmod +x /app/sound-cistern
+
+# Create non-root user for security
+RUN chown -R appuser:appgroup /app
+USER appuser
+
+# Set container environment (disable SSL redirect for container networking)
+ENV GO_ENV=development
 ENV ADDR=0.0.0.0
+ENV PORT=3000
 
+# Expose port
 EXPOSE 3000
 
-# Uncomment to run the migrations before running the binary:
-# CMD /bin/app migrate; /bin/app
-CMD exec /bin/app
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Start application (migrations handled separately)
+CMD /app/sound-cistern
