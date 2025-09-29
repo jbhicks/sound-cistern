@@ -28,8 +28,8 @@ RUN buffalo build --skip-template-validation -o /app/sound-cistern
 # Production runtime image
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates bash tzdata wget
+# Install runtime dependencies (including curl for Coolify health checks)
+RUN apk --no-cache add ca-certificates bash tzdata wget curl
 RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -s /bin/sh -D appuser
 
 # Create app directory
@@ -51,9 +51,9 @@ ENV PORT=3000
 # Expose port
 EXPOSE 3000
 
-# Health check - basic connectivity check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD nc -z localhost 3000 || exit 1
+# Health check - HTTP-based for Coolify compatibility
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -f -s http://localhost:3000/health || exit 1
 
 # Start application (migrations handled separately)
 CMD /app/sound-cistern
