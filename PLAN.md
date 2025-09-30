@@ -23,7 +23,7 @@ This plan outlines the steps to properly configure the Soundcloud OAuth redirect
 ### 2. Update Soundcloud App Configuration
 **Action**: Modify redirect URI in Soundcloud Developer Console
 - Navigate to: https://developers.soundcloud.com/
-- Select your app (Client ID: `p3VMevElTvzBml5KFY2YLuTJg5HpBlbK`)
+ - Select your app (Client ID: configured in environment variables)
 - Update "Redirect URI" field to:
   ```
   https://your-coolify-deployment-url.com/auth/callback
@@ -53,7 +53,7 @@ SOUNDCLOUD_REDIRECT_URI=https://your-coolify-deployment-url.com/auth/callback
 
 ### 1. Local Testing (with updated .env)
 ```bash
-# Set environment variables
+# Set environment variables (configured in .env or deployment platform)
 export SOUNDCLOUD_REDIRECT_URI=https://your-coolify-deployment-url.com/auth/callback
 
 # Start application

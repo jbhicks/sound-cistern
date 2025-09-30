@@ -21,6 +21,7 @@ The application has been reviewed and is ready for Coolify deployment with the f
 DATABASE_URL=postgres://username:password@hostname:5432/sound_cistern_production?sslmode=require
 
 # Soundcloud OAuth
+# Secrets configured via environment variables in Coolify
 SOUNDCLOUD_REDIRECT_URI=https://your-coolify-domain.com/auth/callback
 
 # Application

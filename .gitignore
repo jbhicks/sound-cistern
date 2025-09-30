@@ -1,0 +1,35 @@
+# Environment variables
+.env
+.env.local
+
+# Build outputs
+/bin/
+/tmp/
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go specific
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+test_output.txt
+
+# Temporary files
+*.tmp
+*.swp
