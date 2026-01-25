@@ -1,0 +1,161 @@
+# Ralph Structured Task Definitions
+
+tasks:
+  oauth_implementation:
+    name: "OAuth Authentication Implementation"
+    description: "Complete Soundcloud OAuth 2.1 flow with PKCE support"
+    priority: "high"
+    estimated_iterations: 3
+    estimated_cost: 4.50
+    
+    subagent_prompt: >
+      Implement Soundcloud OAuth 2.1 authentication with PKCE (Proof Key for Code Exchange).
+      
+      Focus on:
+      1. OAuth URL generation with PKCE verifier and challenge
+      2. OAuth callback handling with state validation and code exchange
+      3. Token storage with proper encryption and refresh mechanisms
+      
+      Routes to implement:
+      - GET /auth/soundcloud (OAuth initiation)
+      - GET /auth/soundcloud/callback (OAuth callback)
+      
+      Requirements:
+      - Use PKCE for enhanced security
+      - Store tokens encrypted in database
+      - Handle token refresh automatically
+      - Follow existing PocketBase patterns
+      - Use project's Go 1.23 conventions
+      
+      Do NOT implement:
+      - Stream display (separate task)
+      - Track fetching (separate task)
+      - UI components (handled by templates)
+      
+    dependencies: []
+    
+    success_criteria:
+      - name: "OAuth URL Generation"
+        description: "Generate Soundcloud authorization URLs with PKCE parameters"
+        verification: "oauth_url_test"
+        
+      - name: "Callback Handling" 
+        description: "Handle OAuth callback with state validation and token exchange"
+        verification: "oauth_callback_test"
+        
+      - name: "Token Storage"
+        description: "Store access tokens securely with refresh capability"
+        verification: "token_storage_test"
+
+  stream_display:
+    name: "Stream Display Implementation"
+    description: "Build main stream view showing Soundcloud tracks chronologically"
+    priority: "high"
+    estimated_iterations: 2
+    estimated_cost: 3.00
+    
+    subagent_prompt: >
+      Build the main stream display for Soundcloud tracks.
+      
+      Focus on:
+      1. API endpoint to fetch user's Soundcloud tracks
+      2. Database integration for track storage and caching
+      3. Template for displaying tracks chronologically
+      4. HTMX integration for dynamic loading and filtering
+      
+      Components to implement:
+      - GET /api/stream (API endpoint)
+      - views/stream.templ (main template)
+      - Track fetching from Soundcloud API
+      - Basic filtering (date, genre)
+      
+      Requirements:
+      - Use existing PocketBase database patterns
+      - Follow Templ template conventions
+      - Use HTMX for dynamic updates
+      - Handle API rate limiting gracefully
+      - Display track metadata (title, artist, duration, artwork)
+      
+      Dependencies:
+      - OAuth must be working to access user's tracks
+      
+    dependencies: ["oauth_implementation"]
+    
+    success_criteria:
+      - name: "Track Fetching"
+        description: "Fetch tracks from Soundcloud API using stored tokens"
+        verification: "track_fetching_test"
+        
+      - name: "Stream Display"
+        description: "Display tracks chronologically with proper metadata"
+        verification: "stream_display_test"
+        
+      - name: "Dynamic Updates"
+        description: "HTMX-powered filtering and updates"
+        verification: "dynamic_updates_test"
+
+  track_metadata:
+    name: "Track Metadata Enhancement"
+    description: "Enhanced track information display and filtering"
+    priority: "medium"
+    estimated_iterations: 2
+    estimated_cost: 2.50
+    
+    subagent_prompt: >
+      Enhance track metadata display and add advanced filtering capabilities.
+      
+      Focus on:
+      1. Rich track metadata display
+      2. Advanced filtering options
+      3. Metadata caching for performance
+      4. Search functionality
+      
+      Features to implement:
+      - Detailed track information (genre, BPM, play count)
+      - Advanced filters (genre, date range, duration)
+      - Search within track titles and descriptions
+      - Caching layer for frequent API calls
+      
+      Requirements:
+      - Build on existing stream display
+      - Use PocketBase for metadata storage
+      - Implement efficient caching strategy
+      - Add pagination for large track libraries
+      
+    dependencies: ["stream_display"]
+    
+    success_criteria:
+      - name: "Rich Metadata"
+        description: "Display comprehensive track information"
+        verification: "rich_metadata_test"
+        
+      - name: "Advanced Filtering"
+        description: "Multiple filter types with combinations"
+        verification: "advanced_filtering_test"
+        
+      - name: "Search Functionality"
+        description: "Search across track titles and descriptions"
+        verification: "search_test"
+
+# Global Configuration
+completion_promise: "User can authenticate with Soundcloud and see their stream with rich metadata and filtering capabilities"
+
+cost_limits:
+  total: 15.00
+  per_task:
+    oauth_implementation: 4.50
+    stream_display: 3.00
+    track_metadata: 2.50
+  buffer: 5.00
+
+iteration_limits:
+  total: 30
+  per_task:
+    oauth_implementation: 8
+    stream_display: 6
+    track_metadata: 6
+
+escalation_policy:
+  hint_after_iterations: 3
+  alternative_approach_after: 5
+  human_intervention_after: 7

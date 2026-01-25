@@ -1,0 +1,30 @@
+current_task: "oauth_implementation"
+current_iteration: 2
+last_verification: ".ralph/results/oauth_url_test_fixed.json"
+
+feedback_history:
+
+# Next iteration guidance
+next_iteration:
+  focus_areas:
+    - "Implement OAuth URL generation with PKCE"
+    - "Add proper state parameter handling"
+    - "Create database migration for soundcloud_users"
+  
+  avoid_areas:
+    - "Don't implement track fetching (separate task)"
+    - "Don't create UI components (handled by templates)"
+  
+  specific_hints: []
+  
+  escalation_level: 0  # 0: normal, 1: hint provided, 2: alternative approach
+
+# Code patterns to use
+recommended_patterns:
+  go_patterns:
+    - "Use existing PocketBase migration patterns"
+
+next_iteration:
+  focus_areas:
+    - ""
+  

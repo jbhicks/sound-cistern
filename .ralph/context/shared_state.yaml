@@ -1,0 +1,70 @@
+# Shared State for Ralph Sessions
+
+session_id: "session_001"
+started_at: "2025-01-25T15:45:00Z"
+orchestrator_agent: "ralph-orchestrator"
+
+# Current loop state
+loop_state:
+  status: "running"  # running, paused, completed, failed
+  current_task: "oauth_implementation"
+  current_iteration: 1
+  total_iterations: 1
+  
+# Budget tracking
+budget:
+  total_allocated: 15.00
+  total_spent: 0.00
+  per_task:
+    oauth_implementation:
+      allocated: 4.50
+      spent: 0.00
+    stream_display:
+      allocated: 3.00
+      spent: 0.00
+    track_metadata:
+      allocated: 2.50
+      spent: 0.00
+
+# Task progress tracking
+tasks:
+  oauth_implementation:
+    status: "in_progress"
+    iterations: 1
+    last_verification: null
+    feedback_history: []
+    estimated_completion: "iteration_3"
+    
+  stream_display:
+    status: "pending"
+    dependencies: ["oauth_implementation"]
+    iterations: 0
+    
+  track_metadata:
+    status: "pending"
+    dependencies: ["stream_display"]
+    iterations: 0
+
+# Sub-agent sessions
+sub_agents:
+  oauth_implementation-iteration-1:
+    session_id: "oauth_implementation-iteration-1"
+    task: "oauth_implementation"
+    started_at: "2025-01-25T15:45:00Z"
+    status: "running"
+    cost: 0.00
+
+# Verification results
+verification_results: {}
+
+# User interventions
+user_interventions:
+  hints: []
+  pauses: []
+  manual_completions: []
+
+# Git checkpoints
+git_checkpoints:
+  - commit_hash: null
+    timestamp: null
+    description: "Initial state"

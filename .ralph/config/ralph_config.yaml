@@ -1,0 +1,31 @@
+project:
+  name: "sound-cistern"
+  description: "Soundcloud stream aggregator with PocketBase"
+  tech_stack: ["go", "pocketbase", "templ", "htmx"]
+  base_url: "http://localhost:8090"
+
+ralph_loop:
+  max_iterations: 30
+  cost_limit: 15.00
+  completion_promise: "User can authenticate and see their Soundcloud stream with basic filtering"
+  
+tasks:
+  current: "soundcloud-mvp"
+  success_criteria:
+    - name: "OAuth Authentication"
+      description: "User can authenticate via Soundcloud OAuth 2.1"
+      verification: "oauth_test"
+      test_url: "/auth/soundcloud"
+    - name: "Stream Display" 
+      description: "Primary view shows user's Soundcloud tracks chronologically"
+      verification: "stream_display_test"
+      test_url: "/api/stream"
+    - name: "Track Metadata"
+      description: "Display track info (title, artist, duration, artwork)"
+      verification: "track_metadata_test"
+      test_url: "/api/stream"
+
+verification_scripts:
+  oauth_test: "./ralph_verify.sh oauth"
+  stream_display_test: "./ralph_verify.sh stream"
+  track_metadata_test: "./ralph_verify.sh metadata"

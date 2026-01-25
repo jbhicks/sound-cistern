@@ -2,16 +2,25 @@ openapi: 3.0.0
 info:
   title: Sound Cistern Authentication
   version: 1.0.0
+  description: PocketBase routes for Soundcloud OAuth flow
 paths:
-  /auth/soundcloud:
+  /api/auth/soundcloud:
     get:
       summary: Initiate Soundcloud OAuth login
+      description: Custom PocketBase route (registered in main.go via app.OnBeforeServe)
       responses:
-        '200':
-          description: Redirect to Soundcloud for authentication
-  /auth/callback:
+        '302':
+          description: Redirect to Soundcloud OAuth authorization URL
+  /api/auth/callback:
     get:
       summary: Handle Soundcloud OAuth callback
+      description: Custom PocketBase route (registered in main.go via app.OnBeforeServe)
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: User authenticated, redirect to feed
+        '302':
+          description: User authenticated, PocketBase session created, redirect to /feed

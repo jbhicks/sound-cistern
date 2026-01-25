@@ -1,114 +1,108 @@
 # Structured Logging System
 
-This document describes the structured logging system implemented in the Go SaaS template application.
+This document describes the structured logging system for Sound Cistern.
 
 ## Overview
 
-The structured logging system provides comprehensive audit trails, security event tracking, and user action logging throughout the application. It uses logrus as the underlying logging library and supports multiple output formats and destinations.
+The structured logging system provides comprehensive audit trails, security event tracking, and user action logging throughout the application. PocketBase provides built-in logging capabilities with SQLite-based log storage.
 
 ## Features
 
-- **Structured logging** with key-value pairs for better searchability and analysis
-- **Multiple log levels**: Debug, Info, Warn, Error, Fatal
-- **Specialized logging types**: Audit, UserAction, SecurityEvent
-- **Configurable output**: Console, file, or both
-- **Multiple formats**: JSON (production) or text (development)
-- **Context awareness**: Automatic inclusion of request IDs, user IDs, and HTTP details
-- **Environment-based configuration**: LOG_LEVEL, LOG_FORMAT, LOG_OUTPUT, LOG_FILE_PATH
+- **Built-in PocketBase Logging**: Automatic request and system logging
+- **SQLite Log Storage**: Logs stored in `/pb_data/logs.db`
+- **Admin Dashboard**: View and filter logs through PocketBase admin UI at `/_/`
+- **Custom Application Logging**: Add custom log entries for business logic
+- **Go Standard Library**: Use `log` package or PocketBase's logger
+- **Environment-based configuration**: `LOG_LEVEL` environment variable
 
 ## Architecture
 
-### Core Components
+### PocketBase Logging System
 
-#### Service (`pkg/logging/service.go`)
-- Main logging service implementation
-- Wraps logrus with structured field support
-- Provides specialized methods for different log types
+#### Built-in Request Logger
+- Automatically logs all HTTP requests
+- Stores in `/pb_data/logs.db`
+- Accessible via admin UI at `/_/logs`
 
-#### Configuration (`pkg/logging/config.go`)
-- Environment-based configuration system
-- Supports development and production settings
-- Configurable log levels, formats, and output destinations
+#### Custom Application Logging
+```go
+// Access PocketBase's logger
+app.Logger().Info("Custom log message", "key", "value")
+app.Logger().Error("Error occurred", "error", err)
+```
 
-#### Global Instance (`pkg/logging/global.go`)
-- Global logging service instance management
-- Convenience functions for application-wide logging
-- Thread-safe singleton pattern
+#### Log Storage
+- SQLite database: `/pb_data/logs.db`
+- Automatically managed by PocketBase
+- Queryable through admin interface
 
 ## Usage
 
-### Basic Logging
+### Basic Logging with PocketBase
 
 ```go
-import "github.com/jbhicks/sound-cistern/pkg/logging"
-
-// Simple info message
-logging.Info("User profile updated")
-
-// Info with structured fields
-logging.Info("User profile updated", logging.Fields{
-    "user_id": userID,
-    "fields_changed": []string{"email", "name"},
-})
+// In main.go or route handlers
+app.Logger().Info("User profile updated", 
+    "user_id", userID,
+    "fields_changed", []string{"email", "name"},
+)
 
 // Error logging
-logging.Error("Database connection failed", err, logging.Fields{
-    "database": "primary",
-    "retry_count": 3,
-})
+app.Logger().Error("Database operation failed", 
+    "error", err,
+    "collection", "users",
+)
 ```
 
-### Context-Aware Logging
+### Custom Route Handlers
 
 ```go
-// In Buffalo actions, pass the context for automatic field inclusion
-func (v UsersResource) Update(c buffalo.Context) error {
-    logging.UserAction(c, "profile_update", "user", logging.Fields{
-        "fields_changed": changedFields,
-    })
-    
-    // Context automatically includes:
-    // - request_id
-    // - method (PUT/PATCH)
-    // - path (/users/123)
-    // - user_id (if authenticated)
-    
-    return c.Render(http.StatusOK, r.JSON(user))
+func handleUserUpdate(app *pocketbase.PocketBase) echo.HandlerFunc {
+    return func(c echo.Context) error {
+        userID := c.Param("id")
+        
+        // Log the action
+        app.Logger().Info("User update request",
+            "user_id", userID,
+            "ip", c.RealIP(),
+        )
+        
+        // Your logic here
+        
+        return c.JSON(200, map[string]string{"status": "ok"})
+    }
 }
 ```
 
-### Specialized Logging Types
-
-#### Audit Logging
-For administrative and security-critical events:
-
-```go
-logging.Audit("admin_user_deletion", logging.Fields{
-    "admin_user_id": adminID,
-    "target_user_id": targetUserID,
-    "reason": "policy_violation",
-})
-```
+### Logging Best Practices
 
 #### Security Events
-For security-related incidents:
-
 ```go
-logging.SecurityEvent(c, "failed_login_attempt", logging.Fields{
-    "username": username,
-    "ip_address": c.Request().RemoteAddr,
-    "attempt_number": attemptCount,
-})
+// Failed login attempt
+app.Logger().Warn("Failed login attempt",
+    "username", username,
+    "ip", c.RealIP(),
+    "attempt", attemptCount,
+)
 ```
 
 #### User Actions
-For tracking user behavior and activities:
-
 ```go
-logging.UserAction(c, "login", "session", logging.Fields{
-    "login_method": "password",
-    "remember_me": rememberMe,
-})
+// Successful login
+app.Logger().Info("User login",
+    "user_id", user.Id,
+    "username", user.Username(),
+    "method", "password",
+)
+```
+
+#### System Events
+```go
+// Application startup
+app.Logger().Info("Application started",
+    "port", 8090,
+    "environment", os.Getenv("GO_ENV"),
+)
 ```
 
 ## Configuration
@@ -118,277 +112,208 @@ logging.UserAction(c, "login", "session", logging.Fields{
 | Variable | Description | Default | Examples |
 |----------|-------------|---------|----------|
 | `LOG_LEVEL` | Minimum log level | `info` | `debug`, `info`, `warn`, `error` |
-| `LOG_FORMAT` | Output format | `text` | `text`, `json` |
-| `LOG_OUTPUT` | Output destination | `stdout` | `stdout`, `file`, `both` |
-| `LOG_FILE_PATH` | Log file path (when using file output) | `./logs/app.log` | `/var/log/app.log` |
+
+### Log Storage Location
+
+- **Database**: `/pb_data/logs.db` (SQLite)
+- **Automatic Cleanup**: PocketBase manages log retention
+- **Admin Access**: View logs at `http://localhost:8090/_/logs`
 
 ### Example Configurations
 
 #### Development
 ```bash
 LOG_LEVEL=debug
-LOG_FORMAT=text
-LOG_OUTPUT=stdout
+./sound-cistern serve --dev
 ```
 
 #### Production
 ```bash
 LOG_LEVEL=info
-LOG_FORMAT=json
-LOG_OUTPUT=both
-LOG_FILE_PATH=/var/log/saas-app/app.log
+./sound-cistern serve
 ```
 
 ## Log Levels
 
-- **Debug**: Detailed information for debugging issues
-- **Info**: General information about application flow
-- **Warn**: Warning messages for potentially harmful situations
-- **Error**: Error events that might still allow the application to continue
-- **Fatal**: Very severe error events that will presumably lead the application to abort
+PocketBase supports standard log levels:
 
-## Structured Fields
+- **Debug**: Detailed debugging information (use `--dev` flag)
+- **Info**: General informational messages
+- **Warn**: Warning messages for potential issues
+- **Error**: Error events requiring attention
 
-### Standard Fields
+## Viewing Logs
 
-The logging system automatically includes standard fields in appropriate contexts:
+### Admin Dashboard
+1. Start application: `./sound-cistern serve`
+2. Navigate to: `http://localhost:8090/_/`
+3. Login with admin credentials
+4. Go to Logs section
+5. Filter by level, date, or search terms
 
-- `request_id`: Unique identifier for each HTTP request
-- `method`: HTTP method (GET, POST, etc.)
-- `path`: Request path
-- `user_id`: Currently authenticated user ID
-- `timestamp`: ISO 8601 formatted timestamp
-- `level`: Log level
-- `msg`: Log message
-
-### Custom Fields
-
-Add context-specific information using the `Fields` type:
-
+### Programmatic Access
 ```go
-logging.Info("Processing payment", logging.Fields{
-    "user_id": userID,
-    "amount": paymentAmount,
-    "currency": "USD",
-    "payment_method": "credit_card",
-    "transaction_id": transactionID,
-})
+// Query logs.db directly if needed (advanced)
+// PocketBase admin API provides log access endpoints
 ```
+
+### Production Log Access
+- SSH to server
+- View logs in `/pb_data/logs.db`
+- Use PocketBase admin UI (recommended)
+- Export logs for analysis
 
 ## Integration Points
 
 ### Application Startup
-- `cmd/app/main.go`: Server startup and fatal error logging
-- `models/models.go`: Database connection error logging
+- `main.go`: Server startup and initialization logging
+- PocketBase bootstrap events automatically logged
 
 ### Authentication System
-- `actions/auth.go`: Login/logout events, failed authentication attempts
-- Security event logging for suspicious activities
+- PocketBase built-in auth automatically logged
+- Custom auth handlers can add additional logging
+- Failed authentication attempts tracked
 
-### User Management
-- `actions/users.go`: User registration, profile updates, authentication checks
-- User action logging for audit trails
-
-### Admin Operations
-- `actions/admin.go`: Administrative actions, user management operations
-- Audit logging for all admin activities
+### API Routes
+- All HTTP requests automatically logged by PocketBase
+- Custom route handlers can add business logic logging
+- Response times and status codes tracked
 
 ## Security Considerations
 
 ### Sensitive Data
-- Never log passwords, tokens, or other sensitive credentials
-- Use field filtering for PII (personally identifiable information)
-- Consider data retention policies for audit logs
+- Never log passwords, tokens, or API secrets
+- Be careful with PII (personally identifiable information)
+- PocketBase admin UI access should be restricted in production
 
 ### Log Access
-- Restrict access to log files in production
-- Consider log aggregation services for centralized management
-- Implement log rotation to manage disk space
-
-## Testing
-
-The logging system includes comprehensive tests:
-
-```bash
-# Run logging system tests
-buffalo test pkg/logging
-
-# Run all tests including logging integration
-buffalo test
-```
-
-Test coverage includes:
-- Configuration loading and validation
-- All logging methods (Info, Debug, Warn, Error, Fatal, Audit, UserAction, SecurityEvent)
-- Field combination and context extraction
-- Error handling and edge cases
+- Protect `/pb_data/logs.db` file permissions
+- Secure admin panel with strong password
+- Consider firewall rules to restrict `/_/` access in production
+- Use HTTPS in production for admin access
 
 ## Performance Considerations
 
 ### Log Levels
-- Set appropriate log levels in production to avoid performance impact
-- Debug logging should be disabled in production environments
+- Use `info` or `warn` in production
+- Enable `debug` only during development with `--dev` flag
 
-### Structured Fields
-- Use consistent field names across the application
-- Avoid deeply nested objects in log fields
-- Consider field cardinality for log aggregation systems
+### Database Size
+- Monitor `/pb_data/logs.db` size
+- PocketBase handles log rotation automatically
+- Consider periodic cleanup for very high-traffic applications
 
-### File Output
-- Enable log rotation when using file output
-- Monitor disk space usage
-- Consider asynchronous logging for high-throughput applications
+### Query Performance
+- Logs indexed by PocketBase for fast searches
+- Use admin UI filters for efficient log retrieval
 
 ## Best Practices
 
-### Naming Conventions
-- Use snake_case for field names: `user_id`, `request_id`
-- Use descriptive but concise field names
-- Maintain consistency across similar operations
+### Logging Key-Value Pairs
+```go
+// Good: Clear key-value pairs
+app.Logger().Info("User action", 
+    "action", "profile_update",
+    "user_id", userID,
+)
 
-### Message Content
-- Write clear, actionable log messages
-- Include relevant context in the message
-- Use structured fields for variable data
+// Avoid: Mixing message and data
+app.Logger().Info(fmt.Sprintf("User %s updated profile", userID))
+```
 
 ### Error Logging
-- Always include error details in structured fields
-- Log errors at the point where they can be best contextualized
-- Include recovery actions or next steps where appropriate
+```go
+// Always include error details
+if err != nil {
+    app.Logger().Error("Operation failed",
+        "error", err.Error(),
+        "operation", "user_update",
+        "user_id", userID,
+    )
+    return err
+}
+```
 
-### Security Logging
-- Log all authentication attempts (success and failure)
+### Security Events
+- Log authentication attempts (success and failure)
 - Log authorization failures
-- Log administrative actions
-- Include relevant security context (IP addresses, user agents)
+- Track IP addresses for suspicious activity
+- Monitor admin actions
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Missing Log Output
+#### No Logs Appearing
+- Check that application is running
+- Verify `/pb_data/logs.db` exists
 - Check LOG_LEVEL environment variable
-- Verify LOG_OUTPUT configuration
-- Ensure file permissions for file output
+- Access admin UI to confirm logs are being written
 
-#### Performance Issues
-- Review log level settings
-- Check for excessive debug logging in production
-- Monitor log file sizes and rotation
-
-#### Missing Context
-- Ensure Buffalo context is passed to UserAction/SecurityEvent methods
-- Verify middleware is properly configured
-- Check authentication middleware for user context
+#### Can't Access Admin UI
+- Ensure admin user created (first startup)
+- Check URL: `http://localhost:8090/_/`
+- Verify port 8090 is accessible
+- Check for firewall/network issues
 
 ### Debugging
 
-Enable debug logging temporarily:
+Enable debug logging:
 ```bash
-LOG_LEVEL=debug buffalo dev
+LOG_LEVEL=debug ./sound-cistern serve --dev
 ```
 
-Check current configuration:
-```go
-config := logging.NewConfig()
-fmt.Printf("Config: %+v\n", config)
+Check log database:
+```bash
+ls -lh /home/josh/sound-cistern/pb_data/logs.db
 ```
 
 ## Examples
 
-### Complete Authentication Flow
+### Custom Route with Logging
 ```go
-func (a AuthResource) Attempt(c buffalo.Context) error {
-    username := c.Param("username")
-    password := c.Param("password")
-    
-    // Log login attempt
-    logging.Info("Login attempt started", logging.Fields{
-        "username": username,
-        "ip_address": c.Request().RemoteAddr,
+func registerCustomRoutes(app *pocketbase.PocketBase) {
+    app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+        e.Router.POST("/api/custom", func(c echo.Context) error {
+            app.Logger().Info("Custom API called",
+                "ip", c.RealIP(),
+                "user_agent", c.Request().UserAgent(),
+            )
+            
+            // Your business logic here
+            
+            return c.JSON(200, map[string]string{"status": "ok"})
+        })
+        
+        return nil
     })
+}
+```
+
+### Error Handling with Logging
+```go
+func handleOperation(app *pocketbase.PocketBase, c echo.Context) error {
+    userID := c.Param("id")
     
-    user, err := models.FindUserByUsername(username)
+    user, err := app.Dao().FindRecordById("users", userID)
     if err != nil {
-        // Log failed lookup
-        logging.SecurityEvent(c, "failed_login_attempt", logging.Fields{
-            "username": username,
-            "reason": "user_not_found",
-        })
-        return c.Render(http.StatusUnauthorized, r.JSON(map[string]string{
-            "error": "Invalid credentials",
-        }))
-    }
-    
-    if !user.ValidatePassword(password) {
-        // Log invalid password
-        logging.SecurityEvent(c, "failed_login_attempt", logging.Fields{
-            "username": username,
-            "user_id": user.ID,
-            "reason": "invalid_password",
-        })
-        return c.Render(http.StatusUnauthorized, r.JSON(map[string]string{
-            "error": "Invalid credentials",
-        }))
-    }
-    
-    // Successful login
-    c.Session().Set("user_id", user.ID)
-    
-    logging.UserAction(c, "login", "session", logging.Fields{
-        "user_id": user.ID,
-        "username": user.Username,
-        "login_method": "password",
-    })
-    
-    return c.Render(http.StatusOK, r.JSON(user))
-}
-```
-
-### Admin User Management
-```go
-func (a AdminResource) DeleteUser(c buffalo.Context) error {
-    userID := c.Param("user_id")
-    adminUser := c.Value("current_user").(*models.User)
-    
-    // Log admin action
-    logging.Audit("admin_user_deletion_attempt", logging.Fields{
-        "admin_user_id": adminUser.ID,
-        "target_user_id": userID,
-    })
-    
-    user := &models.User{}
-    if err := models.DB.Find(user, userID); err != nil {
-        logging.Error("Failed to find user for deletion", err, logging.Fields{
-            "user_id": userID,
-            "admin_user_id": adminUser.ID,
-        })
-        return c.Render(http.StatusNotFound, r.JSON(map[string]string{
+        app.Logger().Error("User lookup failed",
+            "error", err.Error(),
+            "user_id", userID,
+            "ip", c.RealIP(),
+        )
+        return c.JSON(404, map[string]string{
             "error": "User not found",
-        }))
-    }
-    
-    if err := models.DB.Destroy(user); err != nil {
-        logging.Error("Failed to delete user", err, logging.Fields{
-            "user_id": userID,
-            "admin_user_id": adminUser.ID,
         })
-        return c.Render(http.StatusInternalServerError, r.JSON(map[string]string{
-            "error": "Failed to delete user",
-        }))
     }
     
-    // Log successful deletion
-    logging.Audit("admin_user_deleted", logging.Fields{
-        "admin_user_id": adminUser.ID,
-        "deleted_user_id": userID,
-        "deleted_username": user.Username,
-    })
+    app.Logger().Info("User operation successful",
+        "user_id", userID,
+        "operation", "profile_view",
+    )
     
-    return c.Render(http.StatusOK, r.JSON(map[string]string{
-        "message": "User deleted successfully",
-    }))
+    return c.JSON(200, user)
 }
 ```
 
-This structured logging system provides comprehensive observability into your application's behavior, security events, and user actions, making it easier to monitor, debug, and audit your SaaS application.
+This logging system leverages PocketBase's built-in capabilities while allowing custom application logging for business logic, providing comprehensive observability into your application's behavior.

@@ -2,41 +2,55 @@ openapi: 3.0.0
 info:
   title: Sound Cistern Feed
   version: 1.0.0
+  description: PocketBase routes for feed display and filtering (HTMX + JSON)
 paths:
   /feed:
     get:
-      summary: Get user's Soundcloud feed
+      summary: Render user's Soundcloud feed (HTML)
+      description: Custom PocketBase route (registered in main.go), renders views/feed.templ
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
-          description: List of tracks
+          description: HTML page with feed
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/feed:
+    get:
+      summary: Get user's Soundcloud feed (JSON)
+      description: Custom PocketBase route for API access
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: JSON list of tracks
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Track'
-  /filter:
+  /api/feed/filter:
     post:
-      summary: Filter feed by criteria
+      summary: Filter feed by criteria (HTMX target)
+      description: Custom PocketBase route, returns HTML fragment for HTMX swap
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/FilterCriteria'
       responses:
         '200':
-          description: Filtered list of tracks
+          description: HTML fragment with filtered tracks
           content:
-            application/json:
+            text/html:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Track'
+                type: string
 components:
   schemas:
     Track:
@@ -73,6 +87,8 @@ components:
         query:
           type: string
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: pb_auth
+      description: PocketBase session cookie

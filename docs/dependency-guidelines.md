@@ -1,4 +1,4 @@
-# Project Guidelines: External Dependencies and CMS Solutions
+# Project Guidelines: External Dependencies and Solutions
 
 ## CRITICAL DEPENDENCY RULES 🚨
 
@@ -29,11 +29,11 @@
 ### What TO Recommend
 
 ✅ **Go-Based Open Source Solutions Only:**
-- Ponzu CMS (github.com/ponzu-cms/ponzu)
+- PocketBase (current choice - Go-based BaaS)
 - Hugo (static site generator - Go)
-- Custom Go solutions using Buffalo
-- Go-based headless CMS libraries
-- Native Buffalo/Pop database solutions
+- Custom Go solutions
+- Go-based libraries and modules
+- Native Go database solutions (SQLite via PocketBase)
 
 ### Verification Checklist
 
@@ -51,15 +51,15 @@ Before recommending ANY external dependency, verify:
 
 When user requests CMS or external service integration:
 
-1. **First**: Search GitHub for "golang cms", "go cms", "buffalo cms"
+1. **First**: Search GitHub for "golang cms", "go cms", "pocketbase"
 2. **Verify**: Check repository language, license, and activity
 3. **Validate**: Ensure it's a Go module that can be imported
-4. **Test**: Verify it works with Buffalo framework
+4. **Test**: Verify it works with PocketBase
 5. **Document**: Only proceed if all criteria are met
 
 ### Project Values
 
-This Buffalo SaaS template is built on:
+This Sound Cistern project is built on:
 - **Go-first**: All dependencies must be Go-based
 - **Open Source**: No commercial or proprietary solutions
 - **Self-hosted**: No external SaaS dependencies
@@ -78,11 +78,19 @@ If you accidentally recommend a non-Go or commercial solution:
 
 ## Implementation Notes
 
-- Always check if a solution can be implemented natively in Buffalo first
-- Prefer built-in Buffalo/Pop functionality over external dependencies
+- Always check if a solution can be implemented natively with PocketBase first
+- Prefer built-in PocketBase functionality over external dependencies
 - When external Go modules are needed, prioritize well-maintained, popular libraries
 - Document all dependencies and their purposes in the project README
 
+## Current Tech Stack
+
+- **Backend**: PocketBase v0.22.0 (Go)
+- **Templates**: Templ v0.3.960 (Go)
+- **Database**: SQLite (embedded via PocketBase)
+- **Frontend**: HTMX + Pico CSS
+- **Build**: Go 1.23
+
 ---
 
-**Remember**: This project is about Go, Buffalo, and open-source values. Stay true to these principles.
+**Remember**: This project is about Go, PocketBase, and open-source values. Stay true to these principles.

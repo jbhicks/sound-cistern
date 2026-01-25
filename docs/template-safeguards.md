@@ -1,107 +1,120 @@
-# Template Development Safeguards
+## Common Patterns
 
-This document outlines the safeguards in place to prevent template structure issues and how to maintain them.
+### HTMX Integration
+```templ
+templ HXButton(url string, target string) {
+    <button 
+        hx-get={ url }
+        hx-target={ target }
+        hx-swap="innerHTML"
+    >
+        Load Content
+    </button>
+}
+```
 
-## Problem Prevention
+### Form Components
+```templ
+templ SignInForm(action string) {
+    <form method="POST" action={ templ.URL(action) }>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required/>
+        
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required/>
+        
+        <button type="submit">Sign In</button>
+    </form>
+}
+```
 
-### What We're Preventing
-- **Missing Navigation Headers**: Admin templates without proper navigation
-- **Inconsistent Structure**: Admin pages that don't match the expected layout
-- **Silent Failures**: Template issues that aren't caught until manual testing
+### Navigation Component
+```templ
+templ Nav(currentUser *User) {
+    <nav class="container-fluid">
+        <ul>
+            <li><a href="/">Home</a></li>
+            if currentUser != nil {
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/logout">Logout</a></li>
+            } else {
+                <li><a href="/signin">Sign In</a></li>
+                <li><a href="/signup">Sign Up</a></li>
+            }
+        </ul>
+    </nav>
+}
+```
 
-### How We Prevent It
+## Error Prevention
 
-#### 1. Automated Template Validation
-- **File**: `actions/template_validation_test.go`
-- **Function**: `Test_AdminTemplateStructure`
-- **What it checks**:
-  - All admin templates have required navigation elements
-  - Navigation comes before main content
-  - Proper HTML structure is maintained
+### 1. Type Safety
+- Templ catches type errors at compile time
+- No runtime template parsing errors
+- Go compiler enforces correctness
 
-#### 2. Development Workflow Integration
-- **Make Command**: `make validate-templates` 
-- **Test Integration**: Runs automatically with `make test`
-- **Quick Feedback**: Immediate validation during development
+### 2. Build Process
+```bash
+# Always regenerate templates after changes
+make templ
 
-#### 3. Pre-commit Hook Support
-- **Script**: `scripts/validate-templates.sh`
-- **Optional Setup**: Can be installed as git pre-commit hook
-- **Prevents Bad Commits**: Catches issues before they enter the repository
+# Build will fail if templates have errors
+make build
+```
 
-## Template Development Guidelines
-
-### When Creating New Admin Templates
-
-1. **Always start with navigation**:
-   ```html
-   <nav class="container-fluid dashboard-nav">
-     <!-- Navigation content -->
-   </nav>
-   ```
-
-2. **Include main container**:
-   ```html
-   <main class="container">
-     <!-- Page content -->
-   </main>
-   ```
-
-3. **Test structure immediately**:
-   ```bash
-   make validate-templates
-   ```
-
-### When Modifying Existing Templates
-
-1. **Preserve navigation structure**
-2. **Run validation after changes**
-3. **Check both direct access and HTMX loading**
+### 3. Testing Templates
+```go
+// Test template rendering
+func TestUserCard(t *testing.T) {
+    user := User{Name: "John", Age: 30}
+    
+    var buf bytes.Buffer
+    err := views.UserCard(user).Render(context.Background(), &buf)
+    
+    assert.NoError(t, err)
+    assert.Contains(t, buf.String(), "John")
+}
+```
 
 ## Troubleshooting
 
-### Template Validation Fails
+### Template Won't Generate
+```bash
+# Clean and regenerate
+rm views/*_templ.go
+make templ
+```
 
-If `make validate-templates` fails:
+### Compile Errors After Template Changes
+1. Run `make templ` to regenerate
+2. Check for syntax errors in `.templ` files
+3. Verify all referenced Go types exist
+4. Check imports in template file
 
-1. **Check the error message** - it will specify which template and what's missing
-2. **Run with verbose output**: `buffalo test -v -run Test_AdminTemplateStructure`
-3. **Compare with working templates** in `templates/admin/`
-4. **Refer to documentation**: `docs/admin-template-requirements.md`
+### Missing Imports
+```templ
+package views
 
-### Adding New Template Types
+import "strconv"
 
-If you add a new category of admin templates:
+templ MyComponent(count int) {
+    <p>Count: { strconv.Itoa(count) }</p>
+}
+```
 
-1. **Update the test** in `template_validation_test.go` if needed
-2. **Add exclude patterns** for partials or special cases
-3. **Test the validation** to ensure new templates are covered
+## Resources
 
-## Maintenance
+- **Templ Documentation**: https://templ.guide/
+- **Templ GitHub**: https://github.com/a-h/templ
+- **Pico CSS** (used for styling): https://picocss.com/
+- **HTMX** (for dynamic interactions): https://htmx.org/
 
-### Regular Checks
-- Template validation runs with every test
-- Should pass before any commit
-- Automated in CI/CD if configured
+## Migration Notes
 
-### Updating Safeguards
-- Modify `template_validation_test.go` for new requirements
-- Update `scripts/validate-templates.sh` for new checks
-- Keep documentation current with actual implementation
+### From Plush/Buffalo Templates
+- Replace `<%= %>` with `{ }` for expressions
+- Move logic to Go code or templ conditionals
+- Convert helpers to Go functions
+- Use type-safe props instead of context maps
 
-## Integration Points
-
-### With Buffalo Development
-- Works with Buffalo's hot reload
-- Compatible with existing test suite
-- No impact on development server performance
-
-### With Git Workflow
-- Optional pre-commit hook available
-- Can be integrated into CI/CD pipelines
-- Provides clear error messages for fixes
-
-### With VS Code
-- Language server respects these validations
-- Test failures show in Problems panel
-- Quick fixes available through Go extension
+This type-safe template system prevents many common template errors at compile time, making development faster and more reliable.

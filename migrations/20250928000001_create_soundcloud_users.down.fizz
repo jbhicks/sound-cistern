@@ -1,1 +1,0 @@
-drop_table("soundcloud_users")

@@ -1,2 +1,0 @@
-add_column("posts", "image", "string", {"null": true})
-add_column("posts", "image_alt", "string", {"null": true})

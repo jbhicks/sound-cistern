@@ -1,0 +1,144 @@
+package views
+
+import (
+	"time"
+)
+
+type Post struct {
+	ID          string
+	Title       string
+	Slug        string
+	Content     string
+	Excerpt     string
+	Image       string
+	ImageAlt    string
+	CreatedAt   time.Time
+	AuthorID    string
+	AuthorName  string
+}
+
+templ BlogIndex(data PageData, posts []Post) {
+	@Layout(data) {
+		<nav class="container-fluid">
+			<ul>
+				<li><strong>Sound Cistern</strong></li>
+			</ul>
+			<ul>
+				<li><a href="/">Home</a></li>
+				<li><a href="/blog">Blog</a></li>
+				if data.User != nil {
+					<li><a href="/dashboard">Dashboard</a></li>
+					<li><a href="/signout">Sign out</a></li>
+				} else {
+					<li><a href="/signin">Sign in</a></li>
+					<li><a href="/signup" role="button">Sign up</a></li>
+				}
+			</ul>
+		</nav>
+		<main class="container">
+			<section>
+				<hgroup>
+					<h1>
+						<svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
+						</svg>
+						Blog
+					</h1>
+					<p>Latest posts and articles</p>
+				</hgroup>
+			</section>
+			if len(posts) > 0 {
+				<div class="grid">
+					for _, post := range posts {
+						<article>
+							if post.Image != "" {
+								<img src={ post.Image } alt={ post.ImageAlt } style="width: 100%; height: 200px; object-fit: cover; border-radius: var(--pico-border-radius);"/>
+							}
+							<header>
+								<h2><a href={ templ.URL("/blog/" + post.Slug) } class="unstyled-link">{ post.Title }</a></h2>
+								<p>
+									<small>
+										<time datetime={ post.CreatedAt.Format("2006-01-02") }>
+											{ post.CreatedAt.Format("January 2, 2006") }
+										</time>
+										if post.AuthorName != "" {
+											{ " by " + post.AuthorName }
+										}
+									</small>
+								</p>
+							</header>
+							if post.Excerpt != "" {
+								<p>{ post.Excerpt }</p>
+							}
+							<footer>
+								<a href={ templ.URL("/blog/" + post.Slug) } role="button" class="outline">Read More</a>
+							</footer>
+						</article>
+					}
+				</div>
+			} else {
+				<article>
+					<header>
+						<h2>No Posts Yet</h2>
+					</header>
+					<p>No blog posts have been published yet. Check back soon for new content!</p>
+				</article>
+			}
+		</main>
+	}
+}
+
+templ BlogShow(data PageData, post Post) {
+	@Layout(data) {
+		<nav class="container-fluid">
+			<ul>
+				<li><strong>Sound Cistern</strong></li>
+			</ul>
+			<ul>
+				<li><a href="/">Home</a></li>
+				<li><a href="/blog">Blog</a></li>
+				if data.User != nil {
+					<li><a href="/dashboard">Dashboard</a></li>
+					<li><a href="/signout">Sign out</a></li>
+				} else {
+					<li><a href="/signin">Sign in</a></li>
+					<li><a href="/signup" role="button">Sign up</a></li>
+				}
+			</ul>
+		</nav>
+		<main class="container">
+			<article>
+				<header>
+					<h1>{ post.Title }</h1>
+					<p>
+						<small>
+							By <strong>{ post.AuthorName }</strong>
+							{ " on " }
+							<time datetime={ post.CreatedAt.Format("2006-01-02") }>{ post.CreatedAt.Format("January 2, 2006") }</time>
+						</small>
+					</p>
+				</header>
+				if post.Image != "" {
+					<img src={ post.Image } alt={ post.ImageAlt } style="width: 100%; height: 300px; object-fit: cover; border-radius: var(--pico-border-radius); margin-bottom: 1rem;"/>
+				}
+				<div class="content">
+					@templ.Raw(post.Content)
+				</div>
+				<footer>
+					<nav>
+						<ul>
+							<li>
+								<a href="/blog" role="button" class="secondary">
+									<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+									</svg>
+									Back to Blog
+								</a>
+							</li>
+						</ul>
+					</nav>
+				</footer>
+			</article>
+		</main>
+	}
+}

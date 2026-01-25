@@ -31,26 +31,26 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Primary requirement: Provide robust filtering of Soundcloud feed. Technical approach: Use Go Buffalo framework with my-go-saas-template for authentication and database, integrate Soundcloud API, use Pico.css for styling. See research.md for detailed decisions.
+Primary requirement: Provide robust filtering of Soundcloud feed. Technical approach: Use Go with PocketBase v0.22.0 for backend/database, Templ v0.3.960 for type-safe templates, integrate Soundcloud API, use Pico.css for styling. See research.md for detailed decisions.
 
 ## Technical Context
-**Language/Version**: Go 1.21
-**Primary Dependencies**: Buffalo framework, PostgreSQL, Soundcloud API (see research.md)
-**Storage**: PostgreSQL
+**Language/Version**: Go 1.23
+**Primary Dependencies**: PocketBase v0.22.0, Templ v0.3.960, Soundcloud API (see research.md)
+**Storage**: SQLite (embedded with PocketBase)
 **Testing**: Go testing
 **Target Platform**: Linux server
 **Project Type**: web
 **Performance Goals**: Feed loading <2s
-**Constraints**: Stick to Buffalo OOTB, no JS frameworks, use Pico.css (see research.md)
+**Constraints**: Use PocketBase patterns, minimal JavaScript (HTMX for interactivity), use Pico.css (see research.md)
 **Scale/Scope**: Small, 1000 users, 200 tracks per user
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- Must adhere to Buffalo Framework Adherence: Using Buffalo OOTB capabilities.
+- Must adhere to Framework Best Practices: Using PocketBase v0.22.0 built-in capabilities and patterns.
 - Performance Optimization: Feed loading <2s.
 - Freemium Model: Base application free.
-- Continuous Data Management: Cache feeds in database.
+- Continuous Data Management: Cache feeds in SQLite database.
 - Simplicity and Efficiency: Simple, fast service.
 
 ## Project Structure
@@ -68,21 +68,16 @@ specs/[###-feature]/
 
 ### Source Code (repository root)
 ```
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   ├── handlers/
-│   └── templates/
-├── assets/
-│   └── css/
-└── tests/
-   ├── contract/
-   ├── integration/
-   └── unit/
+views/              # Templ templates (*.templ)
+pb_migrations/      # Database migrations (Go files)
+pb_data/            # SQLite database and logs
+public/             # Static assets (CSS, JS, images)
+  css/              # Pico.css and custom styles
+  js/               # Minimal JavaScript (HTMX)
+main.go             # PocketBase app initialization and routes
 ```
 
-**Structure Decision**: Use backend structure for Go Buffalo web application with server-side rendering and Pico.css for styling. See data-model.md for entity models.
+**Structure Decision**: Use PocketBase single-binary structure with Templ templates for type-safe server-side rendering and Pico.css for styling. See data-model.md for entity models.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:

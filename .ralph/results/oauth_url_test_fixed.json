@@ -1,0 +1,13 @@
+{
+  "test_name": "oauth_url_test",
+  "status": "failed",
+  "score": 0,
+  "timestamp": "2026-01-25T16:23:34-07:00",
+  "failed_checks": ["[server_error]","Server not responding on localhost:8090","[Check server is running,","Verify route implementation in main.go]"],
+  "feedback": "",
+  "next_actions": [""],
+  "details": {
+    "server": "http://localhost:8090",
+    "database": "pb_data/data.db"
+  }
+}

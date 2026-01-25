@@ -1,21 +1,30 @@
+# Docker Compose for Sound Cistern (PocketBase)
+# Note: PocketBase uses embedded SQLite, no external database needed
+
+version: '3.8'
+
 services:
-  postgres:
-    image: docker.io/postgres:15
-    container_name: sound_cistern_postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sound_cistern_development
+  app:
+    build: .
+    container_name: sound_cistern
     ports:
-      - "5432:5432"
+      - "8090:8090"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Persist PocketBase data
+      - pb_data:/app/pb_data
+      # Optional: mount local public assets for development
+      # - ./public:/app/public
+    environment:
+      # PocketBase runs in production mode by default
+      # Add --dev flag in command for development mode
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
-  postgres_data:
+  pb_data:
+    driver: local

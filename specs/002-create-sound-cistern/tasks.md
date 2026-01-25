@@ -37,76 +37,77 @@
 - Include exact file paths in descriptions
 
 ## Path Conventions
-- **Web app**: `backend/src/`, `backend/tests/`
-- Paths adjusted based on plan.md structure
+- **PocketBase app**: `views/` (Templ templates), `pb_migrations/` (Go migrations)
+- `main.go` for PocketBase app initialization and route registration
+- `public/` for static assets (CSS, JS, images)
 
 ## Phase 3.1: Setup
-- [x] T001 Create project structure per implementation plan (backend/src/models, services, handlers, templates, assets/css, tests/)
-- [x] T002 Clone my-go-saas-template and initialize Buffalo project with dependencies
-- [x] T003 [P] Configure linting and formatting tools (gofmt, go vet)
+- [x] T001 Create project structure (views/, pb_migrations/, public/css, public/js)
+- [x] T002 Initialize PocketBase project with dependencies (Go 1.23, Templ v0.3.960)
+- [x] T003 [P] Configure linting and formatting tools (gofmt, go vet, templ fmt)
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
-- [x] T004 [P] Contract test for /auth/soundcloud in backend/tests/contract/test_auth_soundcloud.go
-- [x] T005 [P] Contract test for /auth/callback in backend/tests/contract/test_auth_callback.go
-- [x] T006 [P] Contract test for /feed in backend/tests/contract/test_feed.go
-- [x] T007 [P] Contract test for /filter in backend/tests/contract/test_filter.go
-- [x] T008 [P] Integration test for authentication flow in backend/tests/integration/test_auth_flow.go
-- [x] T009 [P] Integration test for feed display in backend/tests/integration/test_feed_display.go
-- [x] T010 [P] Integration test for filtering in backend/tests/integration/test_filtering.go
-- [x] T011 [P] Integration test for error handling (API failure) in backend/tests/integration/test_error_handling.go
-- [x] T012 [P] Integration test for performance (<2s) in backend/tests/integration/test_performance.go
+- [ ] T004 [P] Contract test for /auth/soundcloud in main_test.go
+- [ ] T005 [P] Contract test for /auth/callback in main_test.go
+- [ ] T006 [P] Contract test for /feed in main_test.go
+- [ ] T007 [P] Contract test for /filter in main_test.go
+- [ ] T008 [P] Integration test for authentication flow in main_test.go
+- [ ] T009 [P] Integration test for feed display in main_test.go
+- [ ] T010 [P] Integration test for filtering in main_test.go
+- [ ] T011 [P] Integration test for error handling (API failure) in main_test.go
+- [ ] T012 [P] Integration test for performance (<2s) in main_test.go
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
-- [x] T013 [P] User model in backend/src/models/user.go
-- [x] T014 [P] Track model in backend/src/models/track.go
-- [x] T015 [P] Feed model in backend/src/models/feed.go
-- [x] T016 SoundcloudService for API integration in backend/src/services/soundcloud_service.go
-- [x] T017 FeedService for caching and filtering in backend/src/services/feed_service.go
-- [x] T018 Auth handlers in backend/src/handlers/auth.go
-- [x] T019 Feed handlers in backend/src/handlers/feed.go
-- [x] T020 Login template in backend/src/templates/login.html
-- [x] T021 Feed template in backend/src/templates/feed.html
-- [x] T022 Filter template in backend/src/templates/filter.html
-- [x] T023 Add Pico.css to backend/assets/css/
+- [x] T013 [P] SoundcloudUser collection migration in pb_migrations/1696000001_create_soundcloud_users.go
+- [x] T014 [P] SoundcloudTrack collection migration in pb_migrations/1696000002_create_soundcloud_tracks.go
+- [x] T015 [P] SoundcloudFeed collection migration in pb_migrations/1696000003_create_soundcloud_feeds.go
+- [ ] T016 SoundcloudService using PocketBase RecordService pattern (fetch/cache via Soundcloud API)
+- [ ] T017 FeedService using PocketBase RecordService pattern (query, filter, cache)
+- [ ] T018 PocketBase route: POST /api/auth/soundcloud (OAuth initiate), GET /api/auth/callback (OAuth complete)
+- [ ] T019 PocketBase route: GET /feed (render Templ), GET /api/feed (JSON), POST /api/feed/filter (HTMX)
+- [x] T020 Templ template in views/signin.templ (existing)
+- [ ] T021 Templ template for feed display in views/feed.templ
+- [ ] T022 HTMX-powered filter component in views/feed.templ
+- [x] T023 Pico.css in public/css/ (existing)
 
 ## Phase 3.4: Integration
-- [x] T024 Connect services to PostgreSQL
-- [x] T025 Add auth middleware
-- [x] T026 Add logging
+- [x] T024 PocketBase SQLite DB initialized (pb_data/data.db)
+- [ ] T025 PocketBase auth middleware for protected routes (app.OnBeforeServe hook)
+- [ ] T026 Structured logging via PocketBase logger hooks
 
 ## Phase 3.5: Polish
-- [x] T027 [P] Unit tests for models in backend/tests/unit/test_models.go
-- [x] T028 [P] Unit tests for services in backend/tests/unit/test_services.go
-- [x] T029 Performance optimization (<2s)
-- [x] T030 Update docs
-- [x] T031 Run quickstart tests
+- [ ] T027 [P] Unit tests for collections in main_test.go
+- [ ] T028 [P] Unit tests for services in main_test.go
+- [ ] T029 Performance optimization (<2s)
+- [ ] T030 Update docs
+- [ ] T031 Run quickstart tests
 
 ## Dependencies
 - Setup (T001-T003) before everything
 - Tests (T004-T012) before implementation (T013-T023)
-- Models (T013-T015) before services (T016-T017)
-- Services (T016-T017) before handlers (T018-T019)
-- Handlers (T018-T019) before templates (T020-T022)
+- Migrations (T013-T015) before services (T016-T017)
+- Services (T016-T017) before route handlers (T018-T019)
+- Route handlers (T018-T019) before Templ templates (T020-T022)
 - T024 blocks T025, T026
-- Implementation before polish (T027-T031)
+- Implementation (T013-T026) before polish (T027-T031)
 
 ## Parallel Example
 ```
 # Launch T004-T007 together:
-Task: "Contract test for /auth/soundcloud in backend/tests/contract/test_auth_soundcloud.go"
-Task: "Contract test for /auth/callback in backend/tests/contract/test_auth_callback.go"
-Task: "Contract test for /feed in backend/tests/contract/test_feed.go"
-Task: "Contract test for /filter in backend/tests/contract/test_filter.go"
+Task: "Contract test for /auth/soundcloud in main_test.go"
+Task: "Contract test for /auth/callback in main_test.go"
+Task: "Contract test for /feed in main_test.go"
+Task: "Contract test for /filter in main_test.go"
 
 # Launch T013-T015 together:
-Task: "User model in backend/src/models/user.go"
-Task: "Track model in backend/src/models/track.go"
-Task: "Feed model in backend/src/models/feed.go"
+Task: "SoundcloudUser collection in pb_migrations/1696000001_create_soundcloud_users.go"
+Task: "SoundcloudTrack collection in pb_migrations/1696000002_create_soundcloud_tracks.go"
+Task: "SoundcloudFeed collection in pb_migrations/1696000003_create_soundcloud_feeds.go"
 
 # Launch T027-T028 together:
-Task: "Unit tests for models in backend/tests/unit/test_models.go"
-Task: "Unit tests for services in backend/tests/unit/test_services.go"
+Task: "Unit tests for collections in main_test.go"
+Task: "Unit tests for services in main_test.go"
 ```
 
 ## Notes
@@ -120,18 +121,18 @@ Task: "Unit tests for services in backend/tests/unit/test_services.go"
 
 1. **From Contracts**:
     - Each contract file → contract test task [P]
-    - Each endpoint → implementation task
+    - Each endpoint → PocketBase route implementation task
 
 2. **From Data Model**:
-    - Each entity → model creation task [P]
-    - Relationships → service layer tasks
+    - Each entity → PocketBase collection migration task [P]
+    - Relationships → RecordService layer tasks
 
 3. **From User Stories**:
     - Each story → integration test [P]
     - Quickstart scenarios → validation tasks
 
 4. **Ordering**:
-    - Setup → Tests → Models → Services → Endpoints → Polish
+    - Setup → Tests → Migrations → Services → Routes → Templ Templates → Polish
     - Dependencies block parallel execution
 
 ## Validation Checklist

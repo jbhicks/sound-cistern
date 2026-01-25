@@ -1,0 +1,43 @@
+package views
+
+type PageData struct {
+	Title       string
+	Description string
+	CurrentPath string
+	User        interface{}
+}
+
+templ Layout(data PageData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>
+				if data.Title != "" {
+					{ data.Title } - Sound Cistern
+				} else {
+					Sound Cistern - Audio Feed Aggregator
+				}
+			</title>
+			<meta name="title" content={ data.Title + " - Sound Cistern" }/>
+			<meta name="description" content={ data.Description }/>
+			<meta name="robots" content="index, follow"/>
+			<meta property="og:type" content="website"/>
+			<meta property="og:url" content={ "https://yourdomain.com" + data.CurrentPath }/>
+			<meta property="og:title" content={ data.Title + " - Sound Cistern" }/>
+			<meta property="og:description" content={ data.Description }/>
+			<link rel="canonical" href={ "https://yourdomain.com" + data.CurrentPath }/>
+			<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+			<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+			<link rel="stylesheet" href="/css/custom.css"/>
+			<script src="/js/icons.js"></script>
+			<script src="/js/theme.js"></script>
+			<script src="/js/htmx.min.js"></script>
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}
