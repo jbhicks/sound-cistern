@@ -5,6 +5,10 @@
 # Build outputs
 /bin/
 /tmp/
+sound-cistern
+
+# PocketBase data
+pb_data/
 
 # Logs
 *.log
@@ -33,3 +37,8 @@ test_output.txt
 # Temporary files
 *.tmp
 *.swp
+
+# Ralph progress files
+.ralph/progress/
+pb_data/data.db-*
+pb_data/logs.db-*
