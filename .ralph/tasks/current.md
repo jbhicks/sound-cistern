@@ -1,26 +1,26 @@
-# Stream Display Task
+# Track Metadata Enhancement Task
 
-## Current Task: stream_display
+## Current Task: track_metadata
 **Status**: In Progress
 **Started**: 2026-01-29
 **Iteration**: 1
 
 ### Success Criteria
-- [ ] Track Fetching: Fetch tracks from Soundcloud API using stored tokens
-- [ ] Stream Display: Display tracks chronologically with proper metadata
-- [ ] Dynamic Updates: HTMX-powered filtering and updates
+- [ ] Rich Metadata: Display comprehensive track information
+- [ ] Advanced Filtering: Multiple filter types with combinations
+- [ ] Search Functionality: Search across track titles and descriptions
 
 ### Implementation Progress
-- [ ] API endpoint to fetch user's Soundcloud tracks
-- [ ] Database integration for track storage and caching
-- [ ] Template for displaying tracks chronologically
-- [ ] HTMX integration for dynamic loading and filtering
+- [ ] Rich track metadata display
+- [ ] Advanced filtering options
+- [ ] Metadata caching for performance
+- [ ] Search functionality
 
 ### Blockers
-- [ ] Implement /api/stream endpoint
-- [ ] Add track fetching logic
-- [ ] Update stream.templ with track display
-- [ ] Add HTMX for dynamic updates
+- [ ] Enhance stream.templ with more metadata
+- [ ] Add filter controls (genre, date, duration)
+- [ ] Implement search endpoint
+- [ ] Add pagination for large libraries
 
 ---
 
