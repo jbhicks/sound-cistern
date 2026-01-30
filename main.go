@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -472,11 +473,6 @@ func main() {
 
 		// Soundcloud OAuth endpoints
 		e.Router.GET("/auth/soundcloud", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-			if authRecord == nil {
-				return c.Redirect(http.StatusTemporaryRedirect, "/signin?error=oauth_requires_auth")
-			}
-
 			clientID := os.Getenv("SOUNDCLOUD_CLIENT_ID")
 			redirectURI := os.Getenv("SOUNDCLOUD_REDIRECT_URI")
 
@@ -507,7 +503,7 @@ func main() {
 			stateRecord := models.NewRecord(oauthStatesCollection)
 			stateRecord.Set("state", state)
 			stateRecord.Set("code_verifier", codeVerifier)
-			stateRecord.Set("user_id", authRecord.Id)
+			// No user_id since no auth required
 			stateRecord.Set("expires_at", time.Now().Add(10*time.Minute).Format(time.RFC3339))
 
 			if err := app.Dao().SaveRecord(stateRecord); err != nil {
@@ -533,9 +529,9 @@ func main() {
 				}.Encode(),
 			}
 
-			log.Printf("Redirecting user %s to Soundcloud OAuth with state: %s", authRecord.Id, state)
+			log.Printf("Redirecting to Soundcloud OAuth with state: %s", state)
 			return c.Redirect(http.StatusTemporaryRedirect, authURL.String())
-		}, apis.RequireRecordAuth())
+		}, apis.ActivityLogger(app))
 
 		// Soundcloud OAuth callback endpoint
 		e.Router.GET("/auth/soundcloud/callback", func(c echo.Context) error {
@@ -573,32 +569,11 @@ func main() {
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_state")
 			}
 
-			// Check if state has expired
-			expiresAtStr := stateRecord.GetString("expires_at")
-			if expiresAtStr != "" {
-				expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
-				if err == nil && time.Now().After(expiresAt) {
-					log.Printf("OAuth state expired for state: %s", state)
-					// Clean up expired state record
-					if err := app.Dao().DeleteRecord(stateRecord); err != nil {
-						log.Printf("Warning: Failed to clean up expired state record: %v", err)
-					}
-					return c.Redirect(http.StatusTemporaryRedirect, "/?error=state_expired")
-				}
-			}
-
 			// Get the code verifier
 			codeVerifier := stateRecord.GetString("code_verifier")
 			if codeVerifier == "" {
 				log.Printf("Missing code verifier for state: %s", state)
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=missing_verifier")
-			}
-
-			// Get the user ID from the state record
-			userID := stateRecord.GetString("user_id")
-			if userID == "" {
-				log.Printf("Missing user ID for state: %s", state)
-				return c.Redirect(http.StatusTemporaryRedirect, "/?error=missing_user")
 			}
 
 			// Exchange authorization code for access token
@@ -702,11 +677,49 @@ func main() {
 				map[string]any{"soundcloud_id": userInfo.Username},
 			)
 
+			var user *models.Record
+			if err != nil {
+				// Soundcloud user does not exist, create new PocketBase user
+				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				if err != nil {
+					log.Printf("Failed to find users collection: %v", err)
+					return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
+				}
+
+				user = models.NewRecord(usersCollection)
+				user.Set("email", userInfo.Username+"@soundcloud.local")
+				user.Set("password", "soundcloud_default") // In production, generate secure password
+				user.Set("first_name", userInfo.DisplayName)
+				user.Set("username", userInfo.Username)
+
+				if err := app.Dao().SaveRecord(user); err != nil {
+					log.Printf("Failed to create PocketBase user: %v", err)
+					return c.Redirect(http.StatusTemporaryRedirect, "/?error=user_create_failed")
+				}
+
+				log.Printf("Created new PocketBase user: %s for Soundcloud user: %s", user.Id, userInfo.Username)
+			} else {
+				// Get the associated PocketBase user
+				userID := existingUser.GetString("user_id")
+				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				if err != nil {
+					log.Printf("Failed to find users collection: %v", err)
+					return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
+				}
+
+				user, err = app.Dao().FindRecordById(usersCollection.Id, userID)
+				if err != nil {
+					log.Printf("Failed to find PocketBase user: %v", err)
+					return c.Redirect(http.StatusTemporaryRedirect, "/?error=user_not_found")
+				}
+			}
+
+			// Create or update Soundcloud user record
 			if err != nil {
 				// Create new Soundcloud user record
 				soundcloudUser := models.NewRecord(authCollection)
 				soundcloudUser.Set("soundcloud_id", userInfo.Username)
-				soundcloudUser.Set("user_id", userID)
+				soundcloudUser.Set("user_id", user.Id)
 				soundcloudUser.Set("access_token", tokenResponse.AccessToken)
 				if tokenResponse.RefreshToken != "" {
 					soundcloudUser.Set("refresh_token", tokenResponse.RefreshToken)
@@ -720,10 +733,10 @@ func main() {
 					return c.Redirect(http.StatusTemporaryRedirect, "/?error=save_user_failed")
 				}
 
-				log.Printf("Created new Soundcloud user: %s for PocketBase user: %s", userInfo.Username, userID)
+				log.Printf("Created new Soundcloud user: %s for PocketBase user: %s", userInfo.Username, user.Id)
 			} else {
 				// Update existing Soundcloud user record
-				existingUser.Set("user_id", userID)
+				existingUser.Set("user_id", user.Id)
 				existingUser.Set("access_token", tokenResponse.AccessToken)
 				if tokenResponse.RefreshToken != "" {
 					existingUser.Set("refresh_token", tokenResponse.RefreshToken)
@@ -737,8 +750,34 @@ func main() {
 					return c.Redirect(http.StatusTemporaryRedirect, "/?error=update_user_failed")
 				}
 
-				log.Printf("Updated existing Soundcloud user: %s for PocketBase user: %s", userInfo.Username, userID)
+				log.Printf("Updated existing Soundcloud user: %s for PocketBase user: %s", userInfo.Username, user.Id)
 			}
+
+			// Set auth context for the session
+			c.Set(apis.ContextAuthRecordKey, user)
+
+			// Generate JWT token for auth cookie
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+				"id":   user.Id,
+				"type": "authRecord",
+				"exp":  time.Now().Add(24 * time.Hour).Unix(),
+			})
+			tokenString, err := token.SignedString([]byte(app.Settings().RecordAuthToken.Secret))
+			if err != nil {
+				log.Printf("Failed to generate auth token: %v", err)
+				return c.Redirect(http.StatusTemporaryRedirect, "/?error=token_gen_failed")
+			}
+
+			// Set auth cookie
+			c.SetCookie(&http.Cookie{
+				Name:     "pb_auth",
+				Value:    tokenString,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   strings.HasPrefix(c.Request().Host, "https"),
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   86400, // 24 hours
+			})
 
 			// Clean up the state record
 			if err := app.Dao().DeleteRecord(stateRecord); err != nil {
