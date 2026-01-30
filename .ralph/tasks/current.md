@@ -1,31 +1,26 @@
-# Soundcloud Authentication Task
+# Stream Display Task
 
-## Current Task: soundcloud-auth
+## Current Task: stream_display
 **Status**: In Progress
-**Started**: 2026-01-26
+**Started**: 2026-01-29
 **Iteration**: 1
 
 ### Success Criteria
-- [ ] Login splash page shows when not authenticated
-- [ ] Soundcloud OAuth button initiates login flow
-- [ ] OAuth callback properly handles user creation/linking
-- [ ] Authenticated users see main application
-- [ ] No local email/password authentication available
-- [ ] Session management works correctly
+- [ ] Track Fetching: Fetch tracks from Soundcloud API using stored tokens
+- [ ] Stream Display: Display tracks chronologically with proper metadata
+- [ ] Dynamic Updates: HTMX-powered filtering and updates
 
 ### Implementation Progress
-- [x] Create login splash page template
-- [x] Modify sign-in page to be Soundcloud-only
-- [x] Add authentication middleware to protect routes
-- [x] Remove local auth routes and forms
-- [ ] Update navigation to show login/logout
-- [ ] Test OAuth flow end-to-end
+- [ ] API endpoint to fetch user's Soundcloud tracks
+- [ ] Database integration for track storage and caching
+- [ ] Template for displaying tracks chronologically
+- [ ] HTMX integration for dynamic loading and filtering
 
 ### Blockers
-- [x] Authentication middleware implementation
-- [ ] User session handling after OAuth
-- [ ] Error handling for OAuth failures
-- [ ] UI updates for authenticated vs unauthenticated states
+- [ ] Implement /api/stream endpoint
+- [ ] Add track fetching logic
+- [ ] Update stream.templ with track display
+- [ ] Add HTMX for dynamic updates
 
 ---
 
