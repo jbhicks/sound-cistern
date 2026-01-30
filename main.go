@@ -27,6 +27,9 @@ import (
 	"github.com/jbhicks/sound-cistern/views"
 )
 
+// Test mode flag - set via environment variable
+var isTestMode = os.Getenv("TEST_MODE") == "true"
+
 // generateCodeVerifier generates a random code verifier for PKCE
 func generateCodeVerifier() string {
 	b := make([]byte, 32)
@@ -52,6 +55,220 @@ func generateRandomString(length int) string {
 	return strings.ReplaceAll(base64.URLEncoding.EncodeToString(b), "=", "")[:length]
 }
 
+// createTestUser creates or retrieves a test user for testing
+func createTestUser(app *pocketbase.PocketBase) *models.Record {
+	usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+	if err != nil {
+		log.Printf("Failed to find users collection: %v", err)
+		return nil
+	}
+
+	// Try to find existing test user
+	testUser, err := app.Dao().FindFirstRecordByFilter(
+		usersCollection.Id,
+		"email = 'test@example.com'",
+	)
+
+	if err == nil {
+		// Test user exists, return it
+		return testUser
+	}
+
+	// Create new test user
+	testUser = models.NewRecord(usersCollection)
+	testUser.Set("email", "test@example.com")
+	testUser.Set("first_name", "Test")
+	testUser.Set("last_name", "User")
+	testUser.Set("password", "testpassword123") // In production, hash this
+
+	if err := app.Dao().SaveRecord(testUser); err != nil {
+		log.Printf("Failed to create test user: %v", err)
+		return nil
+	}
+
+	// Create associated Soundcloud user for testing
+	soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+	if err == nil {
+		soundcloudUser := models.NewRecord(soundcloudUsersCollection)
+		soundcloudUser.Set("soundcloud_id", "testuser")
+		soundcloudUser.Set("user_id", testUser.Id)
+		soundcloudUser.Set("access_token", "mock_access_token_12345")
+		soundcloudUser.Set("expires_at", time.Now().Add(24*time.Hour).Format(time.RFC3339))
+
+		if err := app.Dao().SaveRecord(soundcloudUser); err != nil {
+			log.Printf("Failed to create test Soundcloud user: %v", err)
+		}
+	}
+
+	log.Printf("Created test user: %s", testUser.Id)
+	return testUser
+}
+
+// testAuthMiddleware automatically authenticates requests in test mode
+func testAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !isTestMode {
+				return next(c)
+			}
+
+			// Skip auth for admin routes and health checks
+			if strings.HasPrefix(c.Path(), "/_") || c.Path() == "/health" {
+				return next(c)
+			}
+
+			// Create/get test user and set auth context
+			testUser := createTestUser(app)
+			if testUser != nil {
+				c.Set(apis.ContextAuthRecordKey, testUser)
+			}
+
+			return next(c)
+		}
+	}
+}
+
+// authRedirectMiddleware redirects unauthenticated users to login page
+func authRedirectMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			if authRecord == nil {
+				return c.Redirect(http.StatusTemporaryRedirect, "/login")
+			}
+			return next(c)
+		}
+	}
+}
+
+// soundcloudAuthMiddleware redirects users without Soundcloud auth to login page
+func soundcloudAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			if authRecord == nil {
+				return c.Redirect(http.StatusTemporaryRedirect, "/login")
+			}
+
+			// Check if user has Soundcloud auth
+			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			if err != nil {
+				log.Printf("Failed to find soundcloud_users collection: %v", err)
+				return c.Redirect(http.StatusTemporaryRedirect, "/login")
+			}
+
+			_, err = app.Dao().FindFirstRecordByFilter(
+				soundcloudUsersCollection.Id,
+				"user_id = {:user_id}",
+				map[string]any{"user_id": authRecord.Id},
+			)
+			if err != nil {
+				// No Soundcloud auth, redirect to login
+				return c.Redirect(http.StatusTemporaryRedirect, "/login")
+			}
+
+			return next(c)
+		}
+	}
+}
+
+// mockSoundcloudMiddleware intercepts Soundcloud API calls in test mode
+func mockSoundcloudMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !isTestMode {
+				return next(c)
+			}
+
+			// Intercept external HTTP calls to Soundcloud API
+			if strings.Contains(c.Request().URL.String(), "api.soundcloud.com") {
+				switch {
+				case strings.Contains(c.Request().URL.Path, "/me/activities"):
+					return mockSoundcloudActivitiesResponse(c)
+				case strings.Contains(c.Request().URL.Path, "/me"):
+					return mockSoundcloudUserResponse(c)
+				case strings.Contains(c.Request().URL.Path, "/oauth2/token"):
+					return mockSoundcloudTokenResponse(c)
+				}
+			}
+
+			return next(c)
+		}
+	}
+}
+
+// Mock Soundcloud API responses for testing
+func mockSoundcloudActivitiesResponse(c echo.Context) error {
+	response := map[string]interface{}{
+		"collection": []map[string]interface{}{
+			{
+				"type": "track",
+				"origin": map[string]interface{}{
+					"track": map[string]interface{}{
+						"id":            123456789,
+						"title":         "Test Electronic Track",
+						"description":   "A test track for e2e testing",
+						"duration":      180000,
+						"genre":         "Electronic",
+						"created_at":    "2024-01-26T10:00:00Z",
+						"permalink_url": "https://soundcloud.com/test/test-track",
+						"artwork_url":   "https://i1.sndcdn.com/artworks-123456789-large.jpg",
+						"user": map[string]interface{}{
+							"id":       987654321,
+							"username": "testartist",
+						},
+					},
+				},
+				"created_at": "2024-01-26T10:00:00Z",
+			},
+			{
+				"type": "track",
+				"origin": map[string]interface{}{
+					"track": map[string]interface{}{
+						"id":            123456790,
+						"title":         "Another Test Track",
+						"description":   "Another test track",
+						"duration":      240000,
+						"genre":         "Hip Hop",
+						"created_at":    "2024-01-25T15:30:00Z",
+						"permalink_url": "https://soundcloud.com/test/another-track",
+						"artwork_url":   "https://i1.sndcdn.com/artworks-123456790-large.jpg",
+						"user": map[string]interface{}{
+							"id":       987654322,
+							"username": "anotherartist",
+						},
+					},
+				},
+				"created_at": "2024-01-25T15:30:00Z",
+			},
+		},
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+func mockSoundcloudUserResponse(c echo.Context) error {
+	response := map[string]interface{}{
+		"id":           987654321,
+		"username":     "testuser",
+		"display_name": "Test User",
+		"avatar_url":   "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg",
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+func mockSoundcloudTokenResponse(c echo.Context) error {
+	response := map[string]interface{}{
+		"access_token":  "mock_access_token_12345",
+		"refresh_token": "mock_refresh_token_67890",
+		"expires_in":    3600,
+		"scope":         "non-expiring",
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
 func main() {
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
@@ -70,18 +287,26 @@ func main() {
 	jsvm.MustRegister(app, jsvm.Config{})
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		// Add test mode middleware early
+		if isTestMode {
+			e.Router.Pre(testAuthMiddleware(app))
+			e.Router.Pre(mockSoundcloudMiddleware())
+		}
+
 		// Security headers middleware
 		e.Router.Use(middleware.Secure())
 
-		// CSRF protection
-		e.Router.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-			TokenLength: 32,
-			TokenLookup: "form:csrf_token",
-			Skipper: func(c echo.Context) bool {
-				// Skip CSRF for PocketBase admin routes
-				return strings.HasPrefix(c.Path(), "/_") || strings.HasPrefix(c.Path(), "/api/admins/")
-			},
-		}))
+		// CSRF protection (skip in test mode for easier testing)
+		if !isTestMode {
+			e.Router.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+				TokenLength: 32,
+				TokenLookup: "form:csrf_token",
+				Skipper: func(c echo.Context) bool {
+					// Skip CSRF for PocketBase admin routes
+					return strings.HasPrefix(c.Path(), "/_") || strings.HasPrefix(c.Path(), "/api/admins/")
+				},
+			}))
+		}
 
 		// Static file serving
 		e.Router.Use(middleware.StaticWithConfig(middleware.StaticConfig{
@@ -109,7 +334,7 @@ func main() {
 			}
 
 			return views.Home(data).Render(c.Request().Context(), c.Response().Writer)
-		}, apis.ActivityLogger(app))
+		}, soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
 
 		// Stream page
 		e.Router.GET("/stream", func(c echo.Context) error {
@@ -128,28 +353,17 @@ func main() {
 			}
 
 			return views.Stream(data).Render(c.Request().Context(), c.Response().Writer)
-		}, apis.ActivityLogger(app))
+		}, soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
 
-		// Sign in page
-		e.Router.GET("/signin", func(c echo.Context) error {
+		// Login splash page
+		e.Router.GET("/login", func(c echo.Context) error {
 			data := views.PageData{
-				Title:       "Sign In",
-				Description: "Sign in to your account",
-				CurrentPath: "/signin",
+				Title:       "Welcome to Sound Cistern",
+				Description: "Connect your Soundcloud account to get started",
+				CurrentPath: "/login",
 			}
 
-			return views.SignIn(data).Render(c.Request().Context(), c.Response().Writer)
-		}, apis.ActivityLogger(app))
-
-		// Sign up page
-		e.Router.GET("/signup", func(c echo.Context) error {
-			data := views.PageData{
-				Title:       "Sign Up",
-				Description: "Create your account",
-				CurrentPath: "/signup",
-			}
-
-			return views.SignUp(data).Render(c.Request().Context(), c.Response().Writer)
+			return views.LoginSplash(data).Render(c.Request().Context(), c.Response().Writer)
 		}, apis.ActivityLogger(app))
 
 		// Blog index page (without enhanced features)
@@ -885,7 +1099,7 @@ func main() {
 			}
 
 			return views.Favorites(data).Render(c.Request().Context(), c.Response().Writer)
-		}, apis.ActivityLogger(app))
+		}, soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
 
 		// Favorites toggle endpoint
 		e.Router.POST("/api/favorites/toggle", func(c echo.Context) error {
