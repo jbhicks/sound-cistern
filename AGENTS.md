@@ -46,59 +46,21 @@ Go 1.23: Follow standard conventions
 
 ## Ralph Wiggum Autonomous Loop Support
 
-This project supports Ralph Wiggum-style autonomous development loops for complex, iterative tasks.
+This project supports Ralph Wiggum-style autonomous development loops. The skills are discovered automatically but must be loaded on-demand - see:
+- `ralph-autonomous-loops` skill for loop implementation
+- `ralph-commands` skill for user control commands
 
-### Available Ralph Skills
+## Available Agent Skills
 
-- **ralph-autonomous-loops** - Custom implementation for OpenCode-based Ralph loops
-- **pocketbase-templ** - PocketBase + Templ development patterns
-- **pocketbase-htmx** - HTMX integration with PocketBase applications
-- **soundcloud-oauth** - Complete Soundcloud OAuth 2.0/2.1 integration
-- **go-saas-template** - Multi-tenant SaaS application patterns
+The following skills are available for development assistance (use `/skill <name>` to load):
 
-### Ralph Project Structure
-```
-.ralph/
-├── config/           # Loop configuration and settings
-├── tasks/            # Task definitions and backlog
-├── verify/            # Automated verification scripts
-├── context/            # Context persistence between iterations
-├── progress/          # Session tracking and history
-└── state/             # Lock files and current state
-```
+1. **pocketbase-templ** - PocketBase development with Templ templates
+2. **go-saas-template** - Building SaaS applications with Go and PocketBase
+3. **soundcloud-oauth** - Soundcloud OAuth 2.0/2.1 integration
+4. **pocketbase-htmx** - HTMX integration with PocketBase
+5. **sound-cistern-ux** - UI/UX design system using Pico.css and Primer design principles
 
-### Ralph Usage Examples
-
-**Start autonomous development loop:**
-```bash
-opencode ralph-autonomous-loops "Implement Soundcloud OAuth integration" \
-    --max-iterations 30 \
-    --cost-limit 15.00
-```
-
-**Monitor loop progress:**
-```bash
-ralph --status
-```
-
-**Add context guidance:**
-```bash
-ralph --add-context "Focus on OAuth callback implementation"
-```
-
-### Ralph Benefits
-
-- **Autonomous Development**: AI can work for hours without intervention
-- **Iterative Improvement**: Each iteration builds on previous work
-- **Context Persistence**: Maintain state across development sessions
-- **Quality Assurance**: Automated testing and verification gates
-- **Cost Control**: Built-in iteration limits and cost monitoring
-
-### Documentation References
-
-- **Ralph Philosophy**: Based on Geoffrey Huntley's "bash loop" methodology
-- **OpenCode Integration**: Specific patterns for opencode CLI agents
-- **Best Practices**: Safety controls, progress tracking, troubleshooting
+**Note:** Skills are discovered automatically from `.agents/skills/` but must be loaded into context using the `/skill` command when needed.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

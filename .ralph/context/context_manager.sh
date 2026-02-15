@@ -16,13 +16,14 @@ update_shared_state() {
     local field="$1"
     local value="$2"
     
-    # Use yq or similar to update YAML
-    # For now, simple text replacement
+    # Handle nested fields with dot notation (e.g., "tasks.oauth.status")
     if command -v yq &> /dev/null; then
         yq eval ".$field = \"$value\"" -i .ralph/context/shared_state.yaml
     else
-        echo "⚠️  yq not installed, using basic sed"
-        sed -i "s/  $field:.*/  $field: \"$value\"/" .ralph/context/shared_state.yaml
+        echo "⚠️  yq not installed, using basic sed replacement"
+        # Simple replacement for top-level fields only
+        local field_name=$(echo "$field" | cut -d. -f1)
+        sed -i "s/^  $field_name:.*/  $field_name: \"$value\"/" .ralph/context/shared_state.yaml
     fi
 }
 
@@ -103,20 +104,28 @@ EOF
 # Check if loop should continue
 should_continue_loop() {
     local completed_tasks=$(grep -c "status:.*completed" .ralph/context/shared_state.yaml || echo "0")
-    local total_tasks=$(grep -c "status:" .ralph/context/shared_state.yaml | grep -v "status:.*loop_state" || echo "3")
+    local total_tasks=$(grep -c "status:" .ralph/context/shared_state.yaml | grep -v "status:.*loop_state" | grep -v "budget:" | grep -v "verification_results:" | grep -v "sub_agents:" | grep -v "user_interventions:" | grep -v "git_checkpoints:" || echo "3")
     
     if [ "$completed_tasks" -eq "$total_tasks" ]; then
         echo "🎉 All tasks completed!"
         return 1  # Don't continue
     fi
     
-    # Check budget
+    # Check budget with fallback if bc not available
     local spent=$(grep "total_spent:" .ralph/context/shared_state.yaml | cut -d: -f2 | tr -d ' ')
     local allocated=$(grep "total_allocated:" .ralph/context/shared_state.yaml | cut -d: -f2 | tr -d ' ')
     
-    if (( $(echo "$spent > $allocated" | bc -l) )); then
-        echo "💰 Budget exceeded!"
-        return 1  # Don't continue
+    if command -v bc &> /dev/null; then
+        if (( $(echo "$spent > $allocated" | bc -l) )); then
+            echo "💰 Budget exceeded!"
+            return 1  # Don't continue
+        fi
+    else
+        # Simple string comparison for integer amounts
+        if [ "$spent" = "$allocated" ] || [ "${spent%.*}" -ge "${allocated%.*}" ]; then
+            echo "💰 Budget exceeded!"
+            return 1  # Don't continue
+        fi
     fi
     
     return 0  # Continue loop

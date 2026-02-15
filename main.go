@@ -29,7 +29,7 @@ import (
 )
 
 // Test mode flag - set via environment variable
-var isTestMode = os.Getenv("TEST_MODE") == "true"
+var isTestMode bool = os.Getenv("TEST_MODE") == "true"
 
 // generateCodeVerifier generates a random code verifier for PKCE
 func generateCodeVerifier() string {
@@ -278,7 +278,7 @@ func main() {
 
 	app := pocketbase.New()
 
-	var publicDir string = "./pb_public"
+	var publicDir string = "./public"
 
 	isGoRun := true
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
@@ -309,11 +309,11 @@ func main() {
 			}))
 		}
 
-		// Static file serving
+		// Static file serving (no HTML5 fallback - prevents index.html errors on unknown paths)
 		e.Router.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 			Root:   publicDir,
 			Browse: false,
-			HTML5:  true,
+			HTML5:  false,
 		}))
 
 		// Health check endpoint
@@ -457,6 +457,46 @@ func main() {
 				AuthorName: authorName,
 			}
 
+			// Fetch previous post (newer, created after this one)
+			var prevPost *views.Post
+			prevRecords, err := app.Dao().FindRecordsByFilter(
+				postsCollection.Id,
+				"published = true && created > {:created}",
+				"-created",
+				1,
+				0,
+				map[string]any{"created": record.Created.Time()},
+			)
+			if err == nil && len(prevRecords) > 0 {
+				prevRecord := prevRecords[0]
+				prevPost = &views.Post{
+					ID:        prevRecord.Id,
+					Title:     prevRecord.GetString("title"),
+					Slug:      prevRecord.GetString("slug"),
+					CreatedAt: prevRecord.Created.Time(),
+				}
+			}
+
+			// Fetch next post (older, created before this one)
+			var nextPost *views.Post
+			nextRecords, err := app.Dao().FindRecordsByFilter(
+				postsCollection.Id,
+				"published = true && created < {:created}",
+				"created",
+				1,
+				0,
+				map[string]any{"created": record.Created.Time()},
+			)
+			if err == nil && len(nextRecords) > 0 {
+				nextRecord := nextRecords[0]
+				nextPost = &views.Post{
+					ID:        nextRecord.Id,
+					Title:     nextRecord.GetString("title"),
+					Slug:      nextRecord.GetString("slug"),
+					CreatedAt: nextRecord.Created.Time(),
+				}
+			}
+
 			data := views.PageData{
 				Title:       post.Title,
 				Description: post.Excerpt,
@@ -468,7 +508,7 @@ func main() {
 				data.User = authRecord
 			}
 
-			return views.BlogShow(data, post).Render(c.Request().Context(), c.Response().Writer)
+			return views.BlogShow(data, post, prevPost, nextPost).Render(c.Request().Context(), c.Response().Writer)
 		}, apis.ActivityLogger(app))
 
 		// Soundcloud OAuth endpoints
@@ -788,9 +828,6 @@ func main() {
 			log.Printf("OAuth flow completed successfully for Soundcloud user: %s", userInfo.Username)
 			return c.Redirect(http.StatusTemporaryRedirect, "/stream")
 		}, apis.ActivityLogger(app))
-
-		// Public assets
-		e.Router.GET("/public/*", apis.StaticDirectoryHandler(os.DirFS(publicDir), false))
 
 		// API routes (protected)
 		e.Router.GET("/api/user", func(c echo.Context) error {

@@ -447,13 +447,85 @@ templ generate --watch
 ```
 
 ### Development Server Setup
-Use PocketBase's development mode for auto-reload:
 
+#### For Human Developers (Interactive)
 ```bash
-# Development with hot reload
+# Development with hot reload (foreground - blocks terminal)
 make dev
 
 # This runs: ./sound-cistern serve --dev
+```
+
+#### For AI Agents (Non-Blocking)
+**⚠️ CRITICAL:** AI agents MUST use background commands to avoid blocking:
+
+```bash
+# Start dev server in background (non-blocking)
+make dev-bg
+
+# Check if running
+make dev-status
+
+# View logs when needed
+make dev-logs
+
+# Stop when done
+make dev-stop
+```
+
+**Why this matters:** The standard `make dev` blocks the terminal indefinitely. Agents using blocking commands will hang and become unable to execute further tasks.
+
+**Agent Workflow Pattern:**
+```bash
+# 1. Start the server ONCE at the beginning
+make dev-bg
+
+# 2. Verify it's running
+make dev-status
+
+# 3. Edit files as needed - air auto-detects changes and rebuilds!
+#    - Edit .go files → air rebuilds and restarts automatically
+#    - Edit .templ files → air runs templ generate and rebuilds
+#    - Wait 1-2 seconds after saving for rebuild to complete
+
+# 4. Check logs ONLY if something seems wrong
+make dev-logs  # Press Ctrl+C to exit log view when done
+
+# 5. Clean up when finished
+make dev-stop
+```
+
+**⚠️ IMPORTANT - Let Air Do Its Job:**
+- ✅ Start `make dev-bg` **once** at the beginning of your session
+- ✅ Edit files freely - air watches and auto-rebuilds
+- ❌ **NEVER** manually stop/restart the server after making code changes
+- ❌ **NEVER** run `make build` manually when dev server is running
+- ✅ If you see "build complete" in logs, the server has auto-restarted
+- ✅ Only restart if you change `.air.toml` config itself
+
+**Monitoring Auto-Rebuild:**
+```bash
+# Watch air's activity (shows builds and restarts)
+make dev-logs | grep -E "(building|running|rebuild)"
+```
+
+**Why this matters:** The standard `make dev` blocks the terminal indefinitely with `air` watching for file changes. Agents using blocking commands will hang and become unable to execute further tasks.
+
+**Agent Workflow Pattern:**
+```bash
+# 1. Start the server
+make dev-bg
+
+# 2. Verify it's running
+make dev-status
+
+# 3. Do your work (edit files, etc.)
+
+# 4. Check logs if issues arise
+make dev-logs  # Press Ctrl+C to exit log view when done
+
+# 5. Clean up when finished
+make dev-stop
 ```
 
 ### Error Handling Patterns

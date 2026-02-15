@@ -10,9 +10,17 @@ output_verification_result() {
     local feedback="${11}"
     local next_actions=("${@:12}")  # Remaining args are next actions
     
-    # Convert arrays to JSON arrays
-    local failed_checks_json=$(printf '"%s",' "${failed_checks[@]}" | sed 's/,$//')
-    local next_actions_json=$(printf '"%s",' "${next_actions[@]}" | sed 's/,$//')
+    # Convert arrays to JSON arrays - handle empty arrays properly
+    local failed_checks_json=""
+    local next_actions_json=""
+    
+    if [ ${#failed_checks[@]} -gt 0 ]; then
+        failed_checks_json=$(printf '"%s",' "${failed_checks[@]}" | sed 's/,$//')
+    fi
+    
+    if [ ${#next_actions[@]} -gt 0 ]; then
+        next_actions_json=$(printf '"%s",' "${next_actions[@]}" | sed 's/,$//')
+    fi
     
     # Create JSON output
     cat << EOF

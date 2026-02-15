@@ -1,0 +1,46 @@
+package views
+
+templ LoginSplash(data PageData) {
+	@Layout(data) {
+		<main class="auth-container" role="main" aria-label="Welcome page">
+			<article class="auth-card auth-card--splash">
+				<header class="auth-card__header">
+					<div class="auth-brand">
+						<svg class="auth-brand__icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+							<path d="M3 12l5 5 5-5-5-5-5 5z"/>
+							<path d="M13 12l5 5 5-5-5-5-5 5z"/>
+						</svg>
+					</div>
+					<h1 class="auth-card__title">Welcome to Sound Cistern</h1>
+					<p class="auth-card__subtitle">Your personal Soundcloud audio feed aggregator</p>
+				</header>
+				
+				<section class="auth-card__body">
+					<p class="auth-value-prop">
+						Discover, collect, and manage your favorite Soundcloud content in one beautiful interface. 
+						Connect your account to get started.
+					</p>
+					
+					<a 
+						href="/auth/soundcloud" 
+						role="button" 
+						class="soundcloud-btn soundcloud-btn--large"
+						aria-label="Continue with Soundcloud authentication"
+						hx-indicator="#oauth-loading"
+					>
+						<svg class="soundcloud-btn__icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+							<path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+						</svg>
+						<span class="soundcloud-btn__text">Continue with Soundcloud</span>
+						<span id="oauth-loading" class="htmx-indicator soundcloud-btn__spinner" aria-hidden="true">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" opacity="0.3"/>
+								<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+							</svg>
+						</span>
+					</a>
+				</section>
+			</article>
+		</main>
+	}
+}

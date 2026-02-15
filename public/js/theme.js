@@ -3,6 +3,12 @@
  * Handles dark/light/auto theme switching with localStorage persistence
  */
 
+/**
+ * Theme switching functionality for Pico.css
+ * Handles dark/light/auto theme switching with localStorage persistence
+ * Includes ARIA accessibility attributes for screen readers
+ */
+
 function setTheme(theme) {
   // Try to get the header icon first, then the general one if it exists.
   let themeIcon = document.getElementById('theme-icon-header');
@@ -10,26 +16,48 @@ function setTheme(theme) {
     themeIcon = document.getElementById('theme-icon'); 
   }
 
+  // Update aria-pressed state for accessibility
+  const themeButtons = document.querySelectorAll('.theme-toggle-btn');
+  
   if (theme === 'auto') {
     localStorage.removeItem('picoPreferredColorScheme');
     document.documentElement.removeAttribute('data-theme');
+    
+    // Update aria-pressed state - auto is not pressed
+    themeButtons.forEach(btn => {
+      btn.setAttribute('aria-pressed', 'false');
+      btn.setAttribute('aria-label', 'Toggle between light and dark mode (currently auto)');
+    });
+    
     if (themeIcon) { // Check if themeIcon was found
-      themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z"></path>
       </svg>`; // Auto icon (desktop monitor)
     }
   } else {
     localStorage.setItem('picoPreferredColorScheme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    
+    // Update aria-pressed state - the active theme is "pressed"
+    themeButtons.forEach(btn => {
+      btn.setAttribute('aria-pressed', 'true');
+    });
+    
     if (themeIcon) { // Check if themeIcon was found
       if (theme === 'dark') {
-        themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
         </svg>`; // Dark icon (moon)
+        themeButtons.forEach(btn => {
+          btn.setAttribute('aria-label', 'Toggle to light mode (currently dark)');
+        });
       } else { // light
-        themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        themeIcon.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
         </svg>`; // Light icon (sun)
+        themeButtons.forEach(btn => {
+          btn.setAttribute('aria-label', 'Toggle to dark mode (currently light)');
+        });
       }
     }
   }
@@ -39,11 +67,11 @@ window.toggleTheme = function() { // Explicitly global
   const currentTheme = localStorage.getItem('picoPreferredColorScheme');
   
   if (!currentTheme || currentTheme === 'auto') {
-    setTheme('light');
-  } else if (currentTheme === 'light') {
     setTheme('dark');
-  } else {
+  } else if (currentTheme === 'dark') {
     setTheme('light');
+  } else {
+    setTheme('dark');
   }
 }
 
@@ -85,18 +113,19 @@ document.addEventListener('DOMContentLoaded', function() {
   
   setTheme(initialTheme); 
   
-  // Add event listener to all theme toggle buttons found on initial load.
-  // For dynamically added or hx-preserved buttons with inline onclick, this is a fallback or supplementary.
+  // Ensure all theme toggle buttons have proper accessibility attributes
   themeToggleButtons.forEach(button => {
-    button.addEventListener('click', function(event) {
-      // If the button already has an inline onclick that calls toggleTheme(), 
-      // this listener might be redundant or could even cause issues if not handled carefully.
-      // However, for buttons *without* an inline onclick, this makes them work.
-      // To prevent double-calls if an inline onclick exists AND this listener fires, 
-      // we can check if the event was already handled or stop propagation, 
-      // but for now, let's assume inline onclick is the primary method for the preserved header.
-      // console.log("Theme toggle button clicked via DOMContentLoaded listener");
-      // toggleTheme(); // This might cause toggleTheme to run twice if inline onclick is also present.
+    // Ensure button is keyboard accessible
+    if (!button.hasAttribute('tabindex')) {
+      button.setAttribute('tabindex', '0');
+    }
+    
+    // Add keyboard support (Enter and Space)
+    button.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggleTheme();
+      }
     });
   });
 });

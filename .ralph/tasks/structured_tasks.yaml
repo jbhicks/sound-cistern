@@ -137,23 +137,440 @@ tasks:
         description: "Search across track titles and descriptions"
         verification: "search_test"
 
+  ux_design_tokens:
+    name: "UX Design Token Foundation"
+    description: "Implement core design system tokens (spacing, colors, typography)"
+    priority: "high"
+    estimated_iterations: 2
+    estimated_cost: 2.50
+    
+    subagent_prompt: >
+      Implement the core design system tokens in public/css/custom.css.
+      
+      Focus on:
+      1. Base-8 spacing scale (space-1 through space-12)
+      2. Semantic color tokens (canvas, fg, accent, states)
+      3. Typography scale (text-xs through text-3xl)
+      4. Border radius, shadows, and animation variables
+      5. Dark/light theme support with data-theme attribute
+      
+      Requirements:
+      - Add CSS custom properties to :root for light theme
+      - Add [data-theme="dark"] overrides
+      - Ensure all tokens follow Primer Design System naming
+      - Support smooth theme transitions
+      - Maintain compatibility with existing Pico.css
+      
+      Do NOT:
+      - Modify pico.min.css
+      - Break existing component styles
+      - Remove existing custom.css styles (refactor to use tokens)
+      
+      Deliverables:
+      - Updated public/css/custom.css with design tokens
+      - Documentation of token usage in comments
+      - Theme toggle integration with new tokens
+      
+    dependencies: []
+    
+    success_criteria:
+      - name: "Spacing Tokens"
+        description: "Base-8 spacing scale implemented (--space-1 to --space-12)"
+        verification: "spacing_tokens_test"
+        
+      - name: "Color Tokens"
+        description: "Semantic color tokens for light and dark themes"
+        verification: "color_tokens_test"
+        
+      - name: "Typography Tokens"
+        description: "Typography scale with font sizes and weights"
+        verification: "typography_tokens_test"
+        
+      - name: "Theme Support"
+        description: "Dark/light theme switching with smooth transitions"
+        verification: "theme_support_test"
+
+  ux_global_layout:
+    name: "UX Global Layout & Navigation"
+    description: "Review and update layout, nav, and global components"
+    priority: "high"
+    estimated_iterations: 2
+    estimated_cost: 2.50
+    
+    subagent_prompt: >
+      Review and update global layout components for consistency and accessibility.
+      
+      Focus on:
+      1. layout.templ - semantic HTML structure with proper landmarks
+      2. Navigation bar - mobile responsive, accessible, consistent states
+      3. Theme toggle - proper ARIA labels, focus states
+      4. Container system - consistent widths and responsive breakpoints
+      5. Global utility classes - icon sizing, touch targets
+      
+      Requirements:
+      - Use semantic HTML (<nav>, <main>, <header>, etc.)
+      - Ensure 44x44px minimum touch targets
+      - Implement visible focus indicators
+      - Add ARIA labels and roles
+      - Follow Pico.css semantic approach
+      - Use design tokens from Story 1
+      
+      Components to review:
+      - views/layout.templ (base layout)
+      - Navigation component in all pages
+      - Theme toggle button
+      - Footer (if exists)
+      
+    dependencies: ["ux_design_tokens"]
+    
+    success_criteria:
+      - name: "Semantic HTML"
+        description: "Proper semantic elements and ARIA landmarks"
+        verification: "semantic_html_test"
+        
+      - name: "Navigation UX"
+        description: "Accessible navigation with proper focus states"
+        verification: "navigation_ux_test"
+        
+      - name: "Responsive Layout"
+        description: "Mobile-first responsive container system"
+        verification: "responsive_layout_test"
+        
+      - name: "Theme Toggle"
+        description: "Accessible theme toggle with ARIA labels"
+        verification: "theme_toggle_test"
+
+  ux_auth_pages:
+    name: "UX Authentication Pages"
+    description: "Review and standardize authentication page UX"
+    priority: "medium"
+    estimated_iterations: 2
+    estimated_cost: 2.00
+    
+    subagent_prompt: >
+      Review all authentication-related pages for consistency and UX best practices.
+      
+      Focus on:
+      1. login_splash.templ - unauthenticated landing experience
+      2. signin.templ - Soundcloud OAuth flow page
+      3. signup.templ - account creation form
+      
+      Requirements:
+      - Consistent form styling using design tokens
+      - Clear error states and validation messages
+      - Accessible form labels and error announcements
+      - Proper heading hierarchy (h1 for page title)
+      - Soundcloud brand button styling
+      - Clear CTAs and value propositions
+      - Mobile-responsive layouts
+      
+      Accessibility:
+      - Form field associations (<label for="id">)
+      - Error message linking (aria-describedby)
+      - Focus management on errors
+      - Loading states for buttons
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout"]
+    
+    success_criteria:
+      - name: "Form Consistency"
+        description: "All auth forms use consistent styling and patterns"
+        verification: "form_consistency_test"
+        
+      - name: "Error Handling"
+        description: "Accessible error states with clear messaging"
+        verification: "error_handling_test"
+        
+      - name: "Mobile Auth"
+        description: "Auth pages work well on mobile devices"
+        verification: "mobile_auth_test"
+
+  ux_stream_page:
+    name: "UX Stream Page Review"
+    description: "Review and enhance main stream page UX"
+    priority: "high"
+    estimated_iterations: 2
+    estimated_cost: 2.50
+    
+    subagent_prompt: >
+      Review the main Stream page - the core content experience.
+      
+      Focus on:
+      1. stream.templ - overall page structure
+      2. Track card component - artwork, metadata, actions
+      3. Filter bar - search, sorting, filtering UI
+      4. Empty states - no tracks, no results
+      5. Loading states - initial load, pagination
+      
+      Requirements:
+      - Use semantic HTML for track listings
+      - Implement proper heading hierarchy
+      - Accessible filter controls
+      - Clear visual hierarchy for track info
+      - Proper button states and feedback
+      - Responsive grid layout
+      - Use design tokens consistently
+      
+      Components:
+      - Track card (artwork, title, artist, duration, actions)
+      - Filter bar (search input, genre filters, sort)
+      - Empty state illustrations/messaging
+      - Loading skeletons or spinners
+      - Pagination or infinite scroll controls
+      
+      Accessibility:
+      - Track cards as articles or list items
+      - Proper alt text for artwork
+      - Keyboard navigation through tracks
+      - Screen reader announcements for updates
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout"]
+    
+    success_criteria:
+      - name: "Track Cards"
+        description: "Consistent, accessible track card design"
+        verification: "track_cards_test"
+        
+      - name: "Filter UX"
+        description: "Intuitive filtering with clear feedback"
+        verification: "filter_ux_test"
+        
+      - name: "Empty States"
+        description: "Helpful empty state designs"
+        verification: "empty_states_test"
+        
+      - name: "Loading States"
+        description: "Clear loading indicators and skeletons"
+        verification: "loading_states_test"
+
+  ux_favorites_page:
+    name: "UX Favorites Page Review"
+    description: "Review and standardize favorites page UX"
+    priority: "medium"
+    estimated_iterations: 1
+    estimated_cost: 1.50
+    
+    subagent_prompt: >
+      Review the Favorites page for consistency with Stream page.
+      
+      Focus on:
+      1. favorites.templ - page structure and layout
+      2. Track card consistency - same component as Stream
+      3. Empty state - no favorites message
+      4. Bulk actions - remove multiple favorites (if applicable)
+      5. Organization - sorting, filtering saved tracks
+      
+      Requirements:
+      - Consistent with Stream page layout
+      - Reuse TrackCard component
+      - Clear "no favorites" empty state
+      - Easy access to unfavorite action
+      - Consider organization features (folders, tags)
+      
+      Accessibility:
+      - Same standards as Stream page
+      - Clear favorite/unfavorite feedback
+      - Confirm destructive actions
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout", "ux_stream_page"]
+    
+    success_criteria:
+      - name: "Favorites Consistency"
+        description: "Favorites page matches Stream page UX patterns"
+        verification: "favorites_consistency_test"
+        
+      - name: "Empty Favorites"
+        description: "Helpful empty state when no favorites exist"
+        verification: "empty_favorites_test"
+
+  ux_blog_pages:
+    name: "UX Blog Pages Review"
+    description: "Review blog index and individual post UX"
+    priority: "low"
+    estimated_iterations: 2
+    estimated_cost: 2.00
+    
+    subagent_prompt: >
+      Review blog pages for content readability and navigation.
+      
+      Focus on:
+      1. blog.templ - index and show views
+      2. Blog post card component
+      3. Individual post layout
+      4. Reading experience - typography, line length
+      5. Navigation between posts
+      
+      Requirements:
+      - Clean, readable typography for long-form content
+      - Optimal line length (60-75 characters)
+      - Proper heading hierarchy within posts
+      - Clear publish dates and author info
+      - Related posts or navigation
+      - Mobile-friendly reading experience
+      - Use design tokens for consistent spacing
+      
+      Accessibility:
+      - Article markup for posts
+      - Skip links for long content
+      - Proper contrast for text
+      - Accessible navigation between posts
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout"]
+    
+    success_criteria:
+      - name: "Blog Readability"
+        description: "Optimal reading experience with good typography"
+        verification: "blog_readability_test"
+        
+      - name: "Blog Navigation"
+        description: "Clear navigation between posts and index"
+        verification: "blog_navigation_test"
+
+  ux_interactive_components:
+    name: "UX Interactive Components & HTMX"
+    description: "Review dynamic interactions and feedback"
+    priority: "medium"
+    estimated_iterations: 2
+    estimated_cost: 2.00
+    
+    subagent_prompt: >
+      Review all dynamic interactions for UX consistency and feedback.
+      
+      Focus on:
+      1. Favorite toggle buttons - states, feedback, accessibility
+      2. Load more / pagination controls
+      3. Filter interactions - live updates, debouncing
+      4. Toast notifications - success/error messages
+      5. Loading indicators - HTMX request states
+      6. Modal dialogs (if any)
+      
+      Requirements:
+      - Clear visual feedback for all actions
+      - Accessible state changes (aria-live regions)
+      - Proper loading indicators during HTMX requests
+      - Smooth transitions and animations
+      - Error handling with user-friendly messages
+      - Confirmation for destructive actions
+      
+      HTMX Integration:
+      - Loading states (hx-indicator)
+      - Error handling (hx-on::error)
+      - Swap animations (hx-swap)
+      - Target specificity (hx-target)
+      
+      Accessibility:
+      - Screen reader announcements for updates
+      - Focus management after dynamic updates
+      - Keyboard accessibility for all interactions
+      - Reduced motion support
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout", "ux_stream_page"]
+    
+    success_criteria:
+      - name: "Interactive Feedback"
+        description: "Clear feedback for all user interactions"
+        verification: "interactive_feedback_test"
+        
+      - name: "HTMX Accessibility"
+        description: "Accessible dynamic updates with screen reader support"
+        verification: "htmx_accessibility_test"
+        
+      - name: "Loading States"
+        description: "Clear loading indicators for async operations"
+        verification: "loading_indicators_test"
+
+  ux_accessibility_audit:
+    name: "UX Accessibility & Responsive Audit"
+    description: "Comprehensive accessibility and responsive testing"
+    priority: "high"
+    estimated_iterations: 2
+    estimated_cost: 2.50
+    
+    subagent_prompt: >
+      Perform comprehensive accessibility and responsive design audit.
+      
+      Focus on:
+      1. Color contrast verification (WCAG AA 4.5:1 minimum)
+      2. Keyboard navigation testing (Tab, Enter, Space, Escape)
+      3. Screen reader testing (NVDA, VoiceOver, or axe)
+      4. Mobile responsiveness (320px, 768px, 1280px+)
+      5. Touch target sizing (44x44px minimum)
+      6. Focus visibility and management
+      7. Reduced motion support (prefers-reduced-motion)
+      8. Form accessibility (labels, errors, required fields)
+      
+      Testing Checklist:
+      - [ ] All pages pass axe-core automated tests
+      - [ ] All interactive elements keyboard accessible
+      - [ ] Focus order is logical
+      - [ ] Color is not the only indicator
+      - [ ] Images have alt text
+      - [ ] Forms have proper labels
+      - [ ] Dynamic content announces to screen readers
+      - [ ] Site works at 200% zoom
+      - [ ] Mobile touch targets are adequate
+      - [ ] Landscape and portrait orientations work
+      
+      Deliverables:
+      - Accessibility audit report
+      - List of issues with severity ratings
+      - Recommended fixes for each issue
+      - Verification that all issues are resolved
+      
+    dependencies: ["ux_design_tokens", "ux_global_layout", "ux_auth_pages", "ux_stream_page", "ux_favorites_page", "ux_blog_pages", "ux_interactive_components"]
+    
+    success_criteria:
+      - name: "WCAG Compliance"
+        description: "All pages meet WCAG 2.1 AA standards"
+        verification: "wcag_compliance_test"
+        
+      - name: "Keyboard Navigation"
+        description: "Full keyboard accessibility across all pages"
+        verification: "keyboard_navigation_test"
+        
+      - name: "Screen Reader Support"
+        description: "Content accessible to screen readers"
+        verification: "screen_reader_test"
+        
+      - name: "Mobile Responsive"
+        description: "All pages work on mobile, tablet, and desktop"
+        verification: "mobile_responsive_test"
+
 # Global Configuration
 completion_promise: "User can authenticate with Soundcloud and see their stream with rich metadata and filtering capabilities"
 
 cost_limits:
-  total: 15.00
+  total: 35.00
   per_task:
     oauth_implementation: 4.50
     stream_display: 3.00
     track_metadata: 2.50
-  buffer: 5.00
+    # UX Review Stories
+    ux_design_tokens: 2.50
+    ux_global_layout: 2.50
+    ux_auth_pages: 2.00
+    ux_stream_page: 2.50
+    ux_favorites_page: 1.50
+    ux_blog_pages: 2.00
+    ux_interactive_components: 2.00
+    ux_accessibility_audit: 2.50
+  buffer: 8.00
 
 iteration_limits:
-  total: 30
+  total: 50
   per_task:
     oauth_implementation: 8
     stream_display: 6
     track_metadata: 6
+    # UX Review Stories
+    ux_design_tokens: 4
+    ux_global_layout: 4
+    ux_auth_pages: 4
+    ux_stream_page: 4
+    ux_favorites_page: 3
+    ux_blog_pages: 4
+    ux_interactive_components: 4
+    ux_accessibility_audit: 4
 
 escalation_policy:
   hint_after_iterations: 3

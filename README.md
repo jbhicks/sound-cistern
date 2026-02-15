@@ -197,18 +197,113 @@ if userToDelete.ID == currentUser.ID {
 }
 ```
 
-## 🛠️ Development Commands
+## 🧪 Testing Infrastructure
 
-### Quick Reference
+This project includes a comprehensive testing strategy designed for OAuth-protected applications with external API dependencies.
 
-| Command | Purpose | Description |
-|---------|---------|-------------|
-| `make setup` | First-time setup | Creates database, runs migrations |
-| `make dev` | Development mode | Starts database + Buffalo dev server |
-| `make admin` | Admin setup | Promotes first user to admin role |
-| `make test` | Run tests | Executes full test suite with database |
-| `make clean` | Cleanup | Stops services and cleans containers |
-| `make db-status` | Health check | Shows database container status |
+### Testing Philosophy
+
+**Go-Native Testing Approach**: Combines unit tests, integration tests, and browser automation using Chromedp for fast, reliable testing without external dependencies.
+
+### Test Types
+
+#### 🌐 Browser Automation Tests (Chromedp)
+- **Headless Chrome testing** of complete user journeys
+- **Mocked OAuth** - No real Soundcloud accounts needed
+- **CI/CD ready** - Runs in headless mode for automation
+- **Go-native** - No Node.js dependencies
+
+#### 🔗 Integration Tests
+- **API endpoint testing** with HTTP requests
+- **Authentication testing** - Protected routes validation
+- **Data validation** - Response structure and content
+
+#### 🧪 Unit Tests
+- **Go function testing** - Business logic validation
+- **Mock data testing** - API response simulation
+
+### Quick Test Commands
+
+```bash
+# Run all tests
+make test              # Go unit tests
+make test-integration  # Go integration tests
+make test-all          # All Go tests
+make test-browser      # Browser automation tests (Chromedp)
+
+# Test tags
+go test -tags=unit ./...      # Unit tests only
+go test -tags=integration ./... # Integration tests only
+go test -tags=browser ./...   # Browser tests only
+```
+
+### Test Mode Architecture
+
+**Test Mode** (`TEST_MODE=true`) enables:
+- ✅ **Automatic test user creation** - No manual account setup
+- ✅ **Mocked Soundcloud API** - Consistent test data
+- ✅ **Bypassed authentication** - Direct access to protected features
+- ✅ **Disabled CSRF protection** - Easier automated testing
+- ✅ **Isolated test database** - No interference with development data
+
+### Test File Structure
+
+```
+sound-cistern/
+├── main_unit_test.go         # Go unit tests
+├── main_integration_test.go  # Go integration tests
+├── main_browser_test.go      # Chromedp browser tests
+└── README.md                 # This documentation
+```
+
+### Writing New Tests
+
+#### Adding Browser Tests
+```go
+// main_browser_test.go
+func TestNewFeature(t *testing.T) {
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    opts := append(chromedp.DefaultExecAllocatorOptions[:],
+        chromedp.DisableGPU,
+        chromedp.NoDefaultBrowserCheck,
+        chromedp.Flag("headless", true),
+    )
+
+    allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
+    defer cancelAlloc()
+
+    taskCtx, cancelTask := chromedp.NewContext(allocCtx, chromedp.WithLogf(t.Logf))
+    defer cancelTask()
+
+    // Your Chromedp test code here
+    err := chromedp.Run(taskCtx,
+        chromedp.Navigate("http://localhost:8090"),
+        // Add your test actions
+    )
+
+    if err != nil {
+        t.Fatalf("Test failed: %v", err)
+    }
+}
+```
+
+#### Adding Unit Tests
+```go
+// main_unit_test.go
+func TestNewFeature(t *testing.T) {
+    // Your Go test code here
+}
+```
+
+### Performance & Reliability
+
+- **Fast Execution**: < 10 seconds for full test suite
+- **No External Dependencies**: All APIs mocked, no Node.js
+- **Parallel Execution**: Tests run simultaneously
+- **Flaky Test Prevention**: Consistent mock data
+- **CI/CD Optimized**: Headless mode for automation
 
 ### Development Workflow
 
@@ -235,11 +330,27 @@ make dev
 
 #### Testing & Quality Assurance
 ```console
-# Run all tests
+# Run Go unit tests
 make test
 
-# Clean up after development
-make clean
+# Run E2E tests (setup + run)
+make e2e
+
+# Setup E2E testing environment
+make e2e-setup
+
+# Run E2E tests with browser visible
+make e2e-headed
+
+# Debug E2E tests
+make e2e-debug
+
+# View test reports
+make e2e-report
+
+# Manual verification scripts
+./test_stream_endpoint.sh
+./ralph_verify.sh feature
 ```
 
 ### Advanced Commands

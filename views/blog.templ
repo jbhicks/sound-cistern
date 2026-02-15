@@ -1,6 +1,8 @@
 package views
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -17,128 +19,235 @@ type Post struct {
 	AuthorName  string
 }
 
+// calculateReadingTime estimates reading time based on word count
+func calculateReadingTime(content string) int {
+	words := len(strings.Fields(content))
+	minutes := words / 200
+	if minutes < 1 {
+		return 1
+	}
+	return minutes
+}
+
+// formatReadingTime formats the reading time with proper singular/plural
+func formatReadingTime(minutes int) string {
+	if minutes == 1 {
+		return "1 minute read"
+	}
+	return fmt.Sprintf("%d minute read", minutes)
+}
+
 templ BlogIndex(data PageData, posts []Post) {
 	@Layout(data) {
-		<nav class="container-fluid">
-			<ul>
-				<li><strong>Sound Cistern</strong></li>
-			</ul>
-			<ul>
-				<li><a href="/">Home</a></li>
-				<li><a href="/blog">Blog</a></li>
-				if data.User != nil {
-					<li><a href="/dashboard">Dashboard</a></li>
-					<li><a href="/signout">Sign out</a></li>
-				} else {
-					<li><a href="/signin">Sign in</a></li>
-					<li><a href="/signup" role="button">Sign up</a></li>
-				}
-			</ul>
-		</nav>
-		<main class="container">
-			<section>
+		<div class="blog-container">
+			<header class="blog-header">
 				<hgroup>
-					<h1>
-						<svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+					<h1 class="blog-title">
+						<svg class="blog-icon" width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
 						</svg>
 						Blog
 					</h1>
-					<p>Latest posts and articles</p>
+					<p class="blog-subtitle">Latest posts and articles about audio, music discovery, and more</p>
 				</hgroup>
-			</section>
+			</header>
+			
 			if len(posts) > 0 {
-				<div class="grid">
+				<div class="blog-grid" role="list">
 					for _, post := range posts {
-						<article>
+						<article class="blog-card" role="listitem">
 							if post.Image != "" {
-								<img src={ post.Image } alt={ post.ImageAlt } style="width: 100%; height: 200px; object-fit: cover; border-radius: var(--pico-border-radius);"/>
+								<figure class="blog-card-image-wrapper">
+									<img 
+										src={ post.Image } 
+										alt={ post.ImageAlt } 
+										class="blog-card-image"
+										loading="lazy"
+									/>
+								</figure>
 							}
-							<header>
-								<h2><a href={ templ.URL("/blog/" + post.Slug) } class="unstyled-link">{ post.Title }</a></h2>
-								<p>
-									<small>
-										<time datetime={ post.CreatedAt.Format("2006-01-02") }>
+							<div class="blog-card-content">
+								<header class="blog-card-header">
+									<h2 class="blog-card-title">
+										<a href={ templ.URL("/blog/" + post.Slug) } class="blog-card-link">
+											{ post.Title }
+										</a>
+									</h2>
+									<div class="blog-card-meta">
+										<time datetime={ post.CreatedAt.Format("2006-01-02T15:04:05Z") } class="blog-date">
+											<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+											</svg>
 											{ post.CreatedAt.Format("January 2, 2006") }
 										</time>
 										if post.AuthorName != "" {
-											{ " by " + post.AuthorName }
+											<span class="blog-author" aria-label={ "Author: " + post.AuthorName }>
+												<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+												</svg>
+												{ post.AuthorName }
+											</span>
 										}
-									</small>
-								</p>
-							</header>
-							if post.Excerpt != "" {
-								<p>{ post.Excerpt }</p>
-							}
-							<footer>
-								<a href={ templ.URL("/blog/" + post.Slug) } role="button" class="outline">Read More</a>
-							</footer>
+										<span class="blog-reading-time" aria-label={ formatReadingTime(calculateReadingTime(post.Content)) }>
+											<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+											</svg>
+											{ formatReadingTime(calculateReadingTime(post.Content)) }
+										</span>
+									</div>
+								</header>
+								if post.Excerpt != "" {
+									<p class="blog-card-excerpt">{ post.Excerpt }</p>
+								}
+								<footer class="blog-card-footer">
+									<a href={ templ.URL("/blog/" + post.Slug) } class="blog-read-more">
+										Read More
+										<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+										</svg>
+									</a>
+								</footer>
+							</div>
 						</article>
 					}
 				</div>
 			} else {
-				<article>
-					<header>
-						<h2>No Posts Yet</h2>
-					</header>
+				<div class="blog-empty-state">
+					<svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+					</svg>
+					<h2>No Posts Yet</h2>
 					<p>No blog posts have been published yet. Check back soon for new content!</p>
-				</article>
+				</div>
 			}
-		</main>
+		</div>
 	}
 }
 
-templ BlogShow(data PageData, post Post) {
+templ BlogShow(data PageData, post Post, prevPost *Post, nextPost *Post) {
 	@Layout(data) {
-		<nav class="container-fluid">
-			<ul>
-				<li><strong>Sound Cistern</strong></li>
-			</ul>
-			<ul>
-				<li><a href="/">Home</a></li>
-				<li><a href="/blog">Blog</a></li>
-				if data.User != nil {
-					<li><a href="/dashboard">Dashboard</a></li>
-					<li><a href="/signout">Sign out</a></li>
-				} else {
-					<li><a href="/signin">Sign in</a></li>
-					<li><a href="/signup" role="button">Sign up</a></li>
-				}
-			</ul>
-		</nav>
-		<main class="container">
-			<article>
-				<header>
-					<h1>{ post.Title }</h1>
-					<p>
-						<small>
-							By <strong>{ post.AuthorName }</strong>
-							{ " on " }
-							<time datetime={ post.CreatedAt.Format("2006-01-02") }>{ post.CreatedAt.Format("January 2, 2006") }</time>
-						</small>
-					</p>
+		<div class="blog-container">
+			<nav aria-label="Breadcrumb" class="blog-breadcrumb">
+				<ol>
+					<li>
+						<a href="/blog" class="breadcrumb-link">
+							<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+							</svg>
+							Blog
+						</a>
+					</li>
+					<li aria-current="page">
+						<span class="breadcrumb-current">{ post.Title }</span>
+					</li>
+				</ol>
+			</nav>
+			
+			<article class="blog-post">
+				<header class="blog-post-header">
+					<h1 class="blog-post-title">{ post.Title }</h1>
+					<div class="blog-post-meta">
+						if post.AuthorName != "" {
+							<span class="blog-post-author">
+								<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+								</svg>
+								By <strong>{ post.AuthorName }</strong>
+							</span>
+						}
+						<time datetime={ post.CreatedAt.Format("2006-01-02T15:04:05Z") } class="blog-post-date">
+							<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+							</svg>
+							{ post.CreatedAt.Format("January 2, 2006") }
+						</time>
+						<span class="blog-post-reading-time" aria-label={ formatReadingTime(calculateReadingTime(post.Content)) }>
+							<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							{ formatReadingTime(calculateReadingTime(post.Content)) }
+						</span>
+					</div>
 				</header>
+				
 				if post.Image != "" {
-					<img src={ post.Image } alt={ post.ImageAlt } style="width: 100%; height: 300px; object-fit: cover; border-radius: var(--pico-border-radius); margin-bottom: 1rem;"/>
+					<figure class="blog-post-image-wrapper">
+						<img 
+							src={ post.Image } 
+							alt={ post.ImageAlt } 
+							class="blog-post-image"
+						/>
+						if post.ImageAlt != "" {
+							<figcaption class="blog-post-image-caption">{ post.ImageAlt }</figcaption>
+						}
+					</figure>
 				}
-				<div class="content">
+				
+				<div class="blog-post-content">
 					@templ.Raw(post.Content)
 				</div>
-				<footer>
-					<nav>
-						<ul>
-							<li>
-								<a href="/blog" role="button" class="secondary">
-									<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-									</svg>
-									Back to Blog
-								</a>
+				
+				<footer class="blog-post-footer">
+					<nav aria-label="Post navigation" class="blog-post-navigation">
+						<ul class="post-nav-list">
+							<li class="post-nav-item post-nav-prev">
+								if prevPost != nil {
+									<a href={ templ.URL("/blog/" + prevPost.Slug) } class="post-nav-link post-nav-link--prev" rel="prev">
+										<span class="post-nav-label">
+											<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+											</svg>
+											Previous Post
+										</span>
+										<span class="post-nav-title">{ prevPost.Title }</span>
+									</a>
+								} else {
+									<span class="post-nav-link post-nav-link--disabled" aria-disabled="true">
+										<span class="post-nav-label">
+											<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+											</svg>
+											Previous Post
+										</span>
+										<span class="post-nav-title">No previous post</span>
+									</span>
+								}
+							</li>
+							
+							<li class="post-nav-item post-nav-next">
+								if nextPost != nil {
+									<a href={ templ.URL("/blog/" + nextPost.Slug) } class="post-nav-link post-nav-link--next" rel="next">
+										<span class="post-nav-label">
+											Next Post
+											<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+											</svg>
+										</span>
+										<span class="post-nav-title">{ nextPost.Title }</span>
+									</a>
+								} else {
+									<span class="post-nav-link post-nav-link--disabled" aria-disabled="true">
+										<span class="post-nav-label">
+											Next Post
+											<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+											</svg>
+										</span>
+										<span class="post-nav-title">No next post</span>
+									</span>
+								}
 							</li>
 						</ul>
 					</nav>
+					
+					<a href="/blog" class="blog-back-link">
+						<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+						</svg>
+						Back to Blog
+					</a>
 				</footer>
 			</article>
-		</main>
+		</div>
 	}
 }
