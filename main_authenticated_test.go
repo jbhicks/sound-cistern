@@ -280,6 +280,120 @@ func TestStreamPageDisplaysTracks(t *testing.T) {
 	t.Logf("API returned %d tracks", len(tracks))
 }
 
+func TestStreamDataStructureMatchesMock(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	token := os.Getenv("TEST_JWT_TOKEN")
+	if token == "" {
+		t.Skip("TEST_JWT_TOKEN not set")
+	}
+
+	domain := strings.Replace(serverURL, "https://", "", 1)
+
+	cookie := &http.Cookie{
+		Name:     "pb_auth",
+		Value:    token,
+		Path:     "/",
+		Domain:   domain,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400,
+	}
+
+	jar, _ := cookiejar.New(nil)
+	jar.SetCookies(&url.URL{Scheme: "https", Host: domain}, []*http.Cookie{cookie})
+	client := &http.Client{Jar: jar}
+
+	resp, err := client.Get(serverURL + "/api/stream")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	bodyStr := string(body)
+	if len(bodyStr) > 2000 {
+		bodyStr = bodyStr[:2000]
+	}
+	t.Logf("Raw JSON response (first 2000 chars):\n%s", bodyStr)
+
+	var liveData map[string]interface{}
+	err = json.Unmarshal(body, &liveData)
+	require.NoError(t, err)
+
+	// Expected structure based on mock data
+	expectedTopLevel := []string{"filters", "pagination", "tracks"}
+	for _, key := range expectedTopLevel {
+		assert.Contains(t, liveData, key, "Live data missing required top-level key: %s", key)
+	}
+
+	// Check filters structure
+	if filters, ok := liveData["filters"].(map[string]interface{}); ok {
+		expectedFilters := []string{"date_from", "date_to", "duration_max", "duration_min", "favorites", "genre", "genres", "search", "sort"}
+		for _, key := range expectedFilters {
+			assert.Contains(t, filters, key, "Live filters missing key: %s", key)
+		}
+		t.Logf("Filters structure OK: %+v", filters)
+	} else {
+		t.Error("filters is not an object")
+	}
+
+	// Check pagination structure
+	if pagination, ok := liveData["pagination"].(map[string]interface{}); ok {
+		expectedPagination := []string{"has_more", "limit", "page", "total", "total_pages"}
+		for _, key := range expectedPagination {
+			assert.Contains(t, pagination, key, "Live pagination missing key: %s", key)
+		}
+		t.Logf("Pagination structure OK: %+v", pagination)
+	} else {
+		t.Error("pagination is not an object")
+	}
+
+	// Check tracks structure
+	if tracks, ok := liveData["tracks"].([]interface{}); ok {
+		assert.Greater(t, len(tracks), 0, "Should have at least one track")
+
+		if len(tracks) > 0 {
+			firstTrack, ok := tracks[0].(map[string]interface{})
+			require.True(t, ok, "First track should be an object")
+
+			expectedTrackFields := []string{
+				"artist_name",
+				"artwork_url",
+				"created_at",
+				"genre",
+				"is_favorited",
+				"permalink_url",
+				"track_duration",
+				"track_id",
+				"track_title",
+			}
+
+			for _, field := range expectedTrackFields {
+				assert.Contains(t, firstTrack, field, "Live track missing field: %s", field)
+			}
+
+			t.Logf("First track structure OK with fields: %v", getKeys(firstTrack))
+			t.Logf("Sample track data: %+v", firstTrack)
+		}
+
+		t.Logf("Total tracks returned: %d", len(tracks))
+	} else {
+		t.Error("tracks is not an array")
+	}
+}
+
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
