@@ -1011,11 +1011,18 @@ func main() {
 			// Set auth context for the session
 			c.Set(apis.ContextAuthRecordKey, user)
 
+			tokenDuration := 30 * 24 * time.Hour // Default 30 days
+			if dur := os.Getenv("AUTH_TOKEN_DURATION_HOURS"); dur != "" {
+				if hours, err := strconv.Atoi(dur); err == nil && hours > 0 {
+					tokenDuration = time.Duration(hours) * time.Hour
+				}
+			}
+
 			// Generate JWT token for auth cookie
 			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 				"id":   user.Id,
 				"type": "authRecord",
-				"exp":  time.Now().Add(24 * time.Hour).Unix(),
+				"exp":  time.Now().Add(tokenDuration).Unix(),
 			})
 			tokenString, err := token.SignedString([]byte(app.Settings().RecordAuthToken.Secret))
 			if err != nil {
@@ -1032,7 +1039,7 @@ func main() {
 				HttpOnly: true,
 				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
-				MaxAge:   86400, // 24 hours
+				MaxAge:   int(tokenDuration.Seconds()),
 			})
 
 			// Clean up the state record
