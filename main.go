@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -297,6 +298,51 @@ func main() {
 		// Security headers middleware
 		e.Router.Use(middleware.Secure())
 
+		// Auth context loading middleware - reads pb_auth cookie and sets auth record
+		e.Router.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				cookie, err := c.Cookie("pb_auth")
+				if err != nil || cookie == nil {
+					return next(c)
+				}
+
+				tokenString := cookie.Value
+				token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+					if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+					}
+					return []byte(app.Settings().RecordAuthToken.Secret), nil
+				})
+
+				if err != nil || !token.Valid {
+					return next(c)
+				}
+
+				claims, ok := token.Claims.(jwt.MapClaims)
+				if !ok {
+					return next(c)
+				}
+
+				userID, ok := claims["id"].(string)
+				if !ok || userID == "" {
+					return next(c)
+				}
+
+				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				if err != nil {
+					return next(c)
+				}
+
+				user, err := app.Dao().FindRecordById(usersCollection.Id, userID)
+				if err != nil {
+					return next(c)
+				}
+
+				c.Set(apis.ContextAuthRecordKey, user)
+				return next(c)
+			}
+		})
+
 		// CSRF protection (skip in test mode for easier testing)
 		if !isTestMode {
 			e.Router.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
@@ -556,21 +602,26 @@ func main() {
 			// Build Soundcloud OAuth URL with PKCE
 			authURL := url.URL{
 				Scheme: "https",
-				Host:   "api.soundcloud.com",
-				Path:   "/connect",
+				Host:   "secure.soundcloud.com",
+				Path:   "/authorize",
 				RawQuery: url.Values{
 					"response_type":         {"code"},
 					"client_id":             {clientID},
 					"redirect_uri":          {redirectURI},
-					"scope":                 {"non-expiring"},
+					"scope":                 {""},
 					"state":                 {state},
 					"code_challenge":        {codeChallenge},
 					"code_challenge_method": {"S256"},
 				}.Encode(),
 			}
 
-			log.Printf("Redirecting to Soundcloud OAuth with state: %s", state)
-			return c.Redirect(http.StatusTemporaryRedirect, authURL.String())
+			authURLString := authURL.String()
+			log.Printf("Redirecting to Soundcloud OAuth:")
+			log.Printf("  Full URL: %s", authURLString)
+			log.Printf("  State: %s", state)
+			log.Printf("  Code Challenge: %s", codeChallenge)
+			log.Printf("  Code Verifier (stored): %s", codeVerifier)
+			return c.Redirect(http.StatusTemporaryRedirect, authURLString)
 		}, apis.ActivityLogger(app))
 
 		// Soundcloud OAuth callback endpoint
@@ -582,8 +633,11 @@ func main() {
 
 			// Handle OAuth errors from Soundcloud
 			if errorParam != "" {
-				log.Printf("OAuth error from Soundcloud: %s", errorParam)
-				return c.Redirect(http.StatusTemporaryRedirect, "/?error=oauth_failed")
+				errorDesc := c.QueryParam("error_description")
+				log.Printf("❌ OAuth error from Soundcloud: %s", errorParam)
+				log.Printf("❌ Error description: %s", errorDesc)
+				log.Printf("❌ Full callback URL: %s", c.Request().URL.String())
+				return c.Redirect(http.StatusTemporaryRedirect, "/?error=oauth_failed&error_msg="+url.QueryEscape(errorParam))
 			}
 
 			if code == "" || state == "" {
@@ -638,7 +692,7 @@ func main() {
 
 			// Make POST request to Soundcloud token endpoint
 			resp, err := http.PostForm(
-				"https://api.soundcloud.com/oauth2/token",
+				"https://secure.soundcloud.com/oauth/token",
 				tokenData,
 			)
 			if err != nil {
@@ -648,7 +702,11 @@ func main() {
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
-				log.Printf("Token exchange failed with status: %d", resp.StatusCode)
+				body, _ := io.ReadAll(resp.Body)
+				log.Printf("❌ Token exchange failed with status: %d", resp.StatusCode)
+				log.Printf("❌ Response body: %s", string(body))
+				log.Printf("❌ Request data: client_id=%s, redirect_uri=%s, code_verifier=%s",
+					clientID[:10]+"...", redirectURI, codeVerifier[:10]+"...")
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=token_exchange_failed")
 			}
 
@@ -808,13 +866,14 @@ func main() {
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=token_gen_failed")
 			}
 
-			// Set auth cookie
+			// Set auth cookie - make it work across all jbhicks.dev subdomains
 			c.SetCookie(&http.Cookie{
 				Name:     "pb_auth",
 				Value:    tokenString,
 				Path:     "/",
+				Domain:   ".jbhicks.dev",
 				HttpOnly: true,
-				Secure:   strings.HasPrefix(c.Request().Host, "https"),
+				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
 				MaxAge:   86400, // 24 hours
 			})
@@ -824,9 +883,9 @@ func main() {
 				log.Printf("Warning: Failed to clean up state record: %v", err)
 			}
 
-			// Redirect to success page
+			// Redirect to soundcistern subdomain
 			log.Printf("OAuth flow completed successfully for Soundcloud user: %s", userInfo.Username)
-			return c.Redirect(http.StatusTemporaryRedirect, "/stream")
+			return c.Redirect(http.StatusTemporaryRedirect, "https://soundcistern.jbhicks.dev/")
 		}, apis.ActivityLogger(app))
 
 		// API routes (protected)

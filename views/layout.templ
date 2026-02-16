@@ -7,6 +7,7 @@ type PageData struct {
 	Description string
 	CurrentPath string
 	User        interface{}
+	HideNav     bool
 }
 
 templ Layout(data PageData) {
@@ -44,10 +45,12 @@ templ Layout(data PageData) {
 			@components.SkipToContent()
 			
 			<!-- Main navigation with semantic HTML and ARIA landmarks -->
-			@components.MainNavigation(components.NavigationData{
-				CurrentPath: data.CurrentPath,
-				User:        data.User,
-			})
+			if !data.HideNav {
+				@components.MainNavigation(components.NavigationData{
+					CurrentPath: data.CurrentPath,
+					User:        data.User,
+				})
+			}
 			
 			<!-- Main content area with role="main" for ARIA landmark -->
 			<main id="main-content" class="main-container" role="main" tabindex="-1">

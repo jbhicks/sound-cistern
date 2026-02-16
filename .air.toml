@@ -3,7 +3,7 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  args_bin = ["serve", "--dev"]
+  args_bin = ["serve", "--dev", "--http=0.0.0.0:8090"]
   bin = "./tmp/sound-cistern"
   cmd = "templ generate && CGO_ENABLED=0 go build -o ./tmp/sound-cistern"
   delay = 1000
