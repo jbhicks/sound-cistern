@@ -54,8 +54,10 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 	client := &http.Client{
-		Jar:     jar,
-		Timeout: 30 * time.Second,
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 
 	t.Run("Home page with auth redirects to stream", func(t *testing.T) {
