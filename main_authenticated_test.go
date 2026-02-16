@@ -33,31 +33,15 @@ func getAuthCookie(t *testing.T) *http.Cookie {
 		return nil
 	}
 
-	cookieDomain := "jbhicks.dev"
-	if strings.Contains(serverURL, "localhost") {
-		cookieDomain = "localhost"
-	}
-
 	cookie := &http.Cookie{
 		Name:     "pb_auth",
 		Value:    token,
 		Path:     "/",
-		Domain:   "." + cookieDomain,
 		HttpOnly: true,
 		Secure:   !strings.Contains(serverURL, "localhost"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400,
 	}
-
-	jar, _ := cookiejar.New(nil)
-	jar.SetCookies(&url.URL{Scheme: "https", Host: cookieDomain}, []*http.Cookie{cookie})
-	client := &http.Client{Jar: jar}
-	resp, err := client.Get(serverURL + "/api/user")
-	if err != nil || resp.StatusCode == 401 {
-		t.Skip("TEST_JWT_TOKEN appears expired - please get a fresh pb_auth cookie from https://soundcistern.jbhicks.dev/stream and run: export TEST_JWT_TOKEN='<new-token>'")
-		return nil
-	}
-	resp.Body.Close()
 
 	return cookie
 }
@@ -70,10 +54,8 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 	client := &http.Client{
-		Jar: jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
+		Jar:     jar,
+		Timeout: 30 * time.Second,
 	}
 
 	t.Run("Home page with auth redirects to stream", func(t *testing.T) {
@@ -122,6 +104,12 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 		require.NoError(t, err)
 
 		html := string(body)
+		t.Logf("Response status: %d, body length: %d", resp.StatusCode, len(html))
+		previewLen := 200
+		if len(html) < previewLen {
+			previewLen = len(html)
+		}
+		t.Logf("Body preview: %s", html[:previewLen])
 		assert.Contains(t, html, "track-container", "Stream page should have track container")
 
 		hasTracks := strings.Contains(html, "track-item") || strings.Contains(html, "data-track-id")
@@ -288,6 +276,13 @@ func TestStreamPageDisplaysTracks(t *testing.T) {
 	assert.Greater(t, len(tracks), 0, "API should return tracks")
 
 	t.Logf("API returned %d tracks", len(tracks))
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func init() {
