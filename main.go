@@ -26,6 +26,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
+	"github.com/jbhicks/sound-cistern/handlers"
 	_ "github.com/jbhicks/sound-cistern/pb_migrations"
 	"github.com/jbhicks/sound-cistern/views"
 	"github.com/jbhicks/sound-cistern/views/components"
@@ -48,6 +49,20 @@ func generateCodeChallenge(codeVerifier string) string {
 	h := sha256.New()
 	h.Write([]byte(codeVerifier))
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+}
+
+// upgradeArtworkURL replaces Soundcloud's default 'large' (100x100) with 't500x500' for better quality
+func upgradeArtworkURL(url string) string {
+	if url == "" {
+		return url
+	}
+	// Replace any small size with largest available (t500x500)
+	url = strings.Replace(url, "-t50x50", "-t500x500", -1)
+	url = strings.Replace(url, "-t120x120", "-t500x500", -1)
+	url = strings.Replace(url, "-t200x200", "-t500x500", -1)
+	url = strings.Replace(url, "-t250x250", "-t500x500", -1)
+	url = strings.Replace(url, "-large.", "-t500x500.", 1)
+	return url
 }
 
 // generateRandomString generates a random string for state parameter
@@ -131,7 +146,25 @@ func testAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			// In test mode, bypass auth
+			// In test mode, inject test user as auth record if not already set
+			if c.Get(apis.ContextAuthRecordKey) == nil {
+				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				if err == nil {
+					// Find any existing user or use the first one
+					users, _ := app.Dao().FindRecordsByFilter(
+						usersCollection.Id,
+						"1=1",
+						"created",
+						1,
+						0,
+						nil,
+					)
+					if len(users) > 0 {
+						c.Set(apis.ContextAuthRecordKey, users[0])
+					}
+				}
+			}
+
 			return next(c)
 		}
 	}
@@ -154,6 +187,11 @@ func authRedirectMiddleware() echo.MiddlewareFunc {
 func soundcloudAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// In test mode, skip auth checks
+			if isTestMode {
+				return next(c)
+			}
+
 			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 			if authRecord == nil {
 				return c.Redirect(http.StatusTemporaryRedirect, "/login")
@@ -198,12 +236,67 @@ func mockSoundcloudMiddleware() echo.MiddlewareFunc {
 					return mockSoundcloudUserResponse(c)
 				case strings.Contains(c.Request().URL.Path, "/oauth2/token"):
 					return mockSoundcloudTokenResponse(c)
+				case strings.Contains(c.Request().URL.Path, "/tracks/") && !strings.Contains(c.Request().URL.Path, "/tracks/soundcloud:"):
+					// Mock track endpoint - return transcodings for audio streaming
+					return mockSoundcloudTrackResponse(c)
+				case strings.Contains(c.Request().URL.Path, "/media/playable"):
+					// Mock transcoding URL endpoint
+					return mockTranscodingResponse(c)
 				}
+			}
+
+			// Also mock the widget URLs
+			if strings.Contains(c.Request().URL.String(), "w.soundcloud.com/player") {
+				return c.String(http.StatusOK, "Mock player")
 			}
 
 			return next(c)
 		}
 	}
+}
+
+// Mock track response with transcodings for streaming
+func mockSoundcloudTrackResponse(c echo.Context) error {
+	trackID := c.PathParam("id")
+	if trackID == "" {
+		// Try to extract from URL path
+		trackID = strings.TrimPrefix(c.Request().URL.Path, "/tracks/")
+	}
+
+	response := map[string]interface{}{
+		"id":         trackID,
+		"title":      "Mock Track",
+		"duration":   180000,
+		"stream_url": "https://example.com/stream",
+		"media": map[string]interface{}{
+			"transcodings": []map[string]interface{}{
+				{
+					"preset":   "mp3_320",
+					"duration": 180,
+					"url":      "https://api.soundcloud.com/media/soundcloud:tracks:" + trackID + "/mp3_320/stream",
+				},
+				{
+					"preset":   "mp3_256",
+					"duration": 180,
+					"url":      "https://api.soundcloud.com/media/soundcloud:tracks:" + trackID + "/mp3_256/stream",
+				},
+				{
+					"preset":   "mp3_128",
+					"duration": 180,
+					"url":      "https://api.soundcloud.com/media/soundcloud:tracks:" + trackID + "/mp3_128/stream",
+				},
+			},
+		},
+	}
+	return c.JSON(http.StatusOK, response)
+}
+
+// Mock transcoding URL response - returns the actual stream URL
+func mockTranscodingResponse(c echo.Context) error {
+	response := map[string]interface{}{
+		"url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 // Mock Soundcloud API responses for testing
@@ -235,7 +328,7 @@ func getMockActivities() map[string]interface{} {
 		"tracks": []map[string]interface{}{
 			{
 				"artist_name":    "DJ PFunk",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-HVGxK1ZyjyfIrh73-ZfBskw-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/artworks-HVGxK1ZyjyfIrh73-ZfBskw-t500x500.jpg",
 				"created_at":     "2026-02-16T00:37:06Z",
 				"genre":          "Breakbeat",
 				"is_favorited":   false,
@@ -246,7 +339,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "Juicy Junglist",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-EpKQidrlhQveaMFI-FS3Bfg-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/artworks-EpKQidrlhQveaMFI-FS3Bfg-t500x500.jpg",
 				"created_at":     "2026-02-15T23:47:11Z",
 				"genre":          "BASS",
 				"is_favorited":   false,
@@ -257,7 +350,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "The Owl",
-				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
 				"created_at":     "2026-02-15T21:19:29Z",
 				"genre":          "Electronic",
 				"is_favorited":   false,
@@ -268,7 +361,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "SEVEN SEVEN DEUCE RECORDS & ENTERTAINMENT",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-uxUS371ew85S3xZs-vQj8mw-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/artworks-uxUS371ew85S3xZs-vQj8mw-t500x500.jpg",
 				"created_at":     "2026-02-15T20:18:09Z",
 				"genre":          "",
 				"is_favorited":   false,
@@ -279,7 +372,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "Nurse Noise",
-				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
 				"created_at":     "2026-02-15T20:12:30Z",
 				"genre":          " ",
 				"is_favorited":   false,
@@ -290,7 +383,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "🧱Brick Haus",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-5zhOEoo4EtToGgYd-BRZBXg-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/artworks-5zhOEoo4EtToGgYd-BRZBXg-t500x500.jpg",
 				"created_at":     "2026-02-15T19:22:13Z",
 				"genre":          "Booty Breaks",
 				"is_favorited":   false,
@@ -301,7 +394,7 @@ func getMockActivities() map[string]interface{} {
 			},
 			{
 				"artist_name":    "Tracklistings",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-fBACkkg8ainELkaB-NfXKdw-large.jpg",
+				"artwork_url":    "https://i1.sndcdn.com/artworks-fBACkkg8ainELkaB-NfXKdw-t500x500.jpg",
 				"created_at":     "2026-02-15T18:18:28Z",
 				"genre":          "TL PREMIERE",
 				"is_favorited":   false,
@@ -319,7 +412,7 @@ func mockSoundcloudUserResponse(c echo.Context) error {
 		"id":           987654321,
 		"username":     "testuser",
 		"display_name": "Test User",
-		"avatar_url":   "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg",
+		"avatar_url":   "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
 	}
 
 	return c.JSON(http.StatusOK, response)
@@ -337,12 +430,143 @@ func mockSoundcloudTokenResponse(c echo.Context) error {
 }
 
 func main() {
+	// getHighQualityStreamURL fetches the best quality stream URL from SoundCloud transcodings
+	getHighQualityStreamURL := func(accessToken, trackID string) string {
+		// In test mode, return mock stream URL
+		if isTestMode {
+			return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+		}
+
+		client := &http.Client{Timeout: 30 * time.Second}
+
+		log.Printf("[Stream] Fetching transcodings for track %s", trackID)
+
+		req, _ := http.NewRequest("GET", "https://api.soundcloud.com/tracks/"+trackID, nil)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("[Stream] Error fetching track: %v", err)
+			return ""
+		}
+		defer resp.Body.Close()
+
+		log.Printf("[Stream] Track endpoint status: %d", resp.StatusCode)
+
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			log.Printf("[Stream] Token may be expired or invalid - got %d", resp.StatusCode)
+			// Can't refresh here - need to return empty and let caller handle refresh
+			return ""
+		}
+
+		if resp.StatusCode != 200 {
+			log.Printf("[Stream] Track fetch returned status %d", resp.StatusCode)
+			return ""
+		}
+
+		var trackData map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&trackData) != nil {
+			return ""
+		}
+
+		media, ok := trackData["media"].(map[string]interface{})
+		if !ok {
+			log.Printf("[Stream] No 'media' field in track response")
+			return ""
+		}
+
+		transcodings, ok := media["transcodings"].([]interface{})
+		if !ok || len(transcodings) == 0 {
+			log.Printf("[Stream] No transcodings found for track %s", trackID)
+			log.Printf("[Stream] Media field content: %+v", media)
+			return ""
+		}
+
+		log.Printf("[Stream] Found %d transcodings for track %s", len(transcodings), trackID)
+
+		var bestTranscodingURL string
+		var bestPreset string
+
+		for _, t := range transcodings {
+			tc, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			preset, _ := tc["preset"].(string)
+			url, _ := tc["url"].(string)
+
+			log.Printf("[Stream] Transcoding: preset=%s, url=%s", preset, url)
+
+			if url == "" || preset == "" {
+				continue
+			}
+
+			if bestTranscodingURL == "" {
+				bestTranscodingURL = url
+				bestPreset = preset
+			} else if strings.HasPrefix(preset, "mp3") && !strings.HasPrefix(bestPreset, "mp3") {
+				bestTranscodingURL = url
+				bestPreset = preset
+			} else if strings.HasPrefix(preset, "mp3") && strings.HasPrefix(bestPreset, "mp3") {
+				currentBitrate := 0
+				bestBitrate := 0
+				fmt.Sscanf(preset, "mp3_%d", &currentBitrate)
+				fmt.Sscanf(bestPreset, "mp3_%d", &bestBitrate)
+				if currentBitrate > bestBitrate {
+					bestTranscodingURL = url
+					bestPreset = preset
+				}
+			}
+		}
+
+		if bestTranscodingURL == "" {
+			return ""
+		}
+
+		streamReq, _ := http.NewRequest("GET", bestTranscodingURL, nil)
+		streamReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+		log.Printf("[Stream] Requesting stream URL from: %s", bestTranscodingURL)
+		streamResp, err := client.Do(streamReq)
+		if err != nil {
+			log.Printf("[Stream] Stream URL request failed: %v", err)
+			return ""
+		}
+		if streamResp.StatusCode != 200 {
+			log.Printf("[Stream] Stream URL request returned: %d", streamResp.StatusCode)
+			return ""
+		}
+		defer streamResp.Body.Close()
+
+		var streamData map[string]interface{}
+		if json.NewDecoder(streamResp.Body).Decode(&streamData) != nil {
+			return ""
+		}
+
+		if url, ok := streamData["url"].(string); ok && url != "" {
+			log.Printf("[Stream] Got stream URL: %s", url)
+			return url
+		}
+
+		log.Printf("[Stream] No URL in stream response: %+v", streamData)
+		return ""
+	}
+
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
 	app := pocketbase.New()
+
+	// In test mode, ensure test user exists before routes are set up
+	if isTestMode {
+		app.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
+			createTestUser(app)
+			return nil
+		})
+	}
 
 	var publicDir string = "./public"
 
@@ -434,6 +658,170 @@ func main() {
 			return c.Redirect(http.StatusTemporaryRedirect, "/stream")
 		}, apis.ActivityLogger(app))
 
+		// Proto page - design experiments
+		e.Router.GET("/proto", func(c echo.Context) error {
+			// In test mode, skip auth check
+			if !isTestMode {
+				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+				if authRecord == nil {
+					return c.Redirect(http.StatusTemporaryRedirect, "/login")
+				}
+				soundcloudUsersCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				if soundcloudUsersCollection != nil {
+					_, err := app.Dao().FindFirstRecordByFilter(
+						soundcloudUsersCollection.Id,
+						"user_id = {:user_id}",
+						map[string]any{"user_id": authRecord.Id},
+					)
+					if err != nil {
+						return c.Redirect(http.StatusTemporaryRedirect, "/login")
+					}
+				}
+			}
+
+			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			if err != nil {
+				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
+			}
+
+			var tracks []views.Track
+			if tracksCollection != nil {
+				records, err := app.Dao().FindRecordsByFilter(
+					tracksCollection.Id,
+					"stream_url != ''",
+					"-created",
+					10,
+					0,
+					map[string]any{},
+				)
+				if err == nil && len(records) > 0 {
+					tracks = make([]views.Track, 0, len(records))
+					for _, record := range records {
+						artworkURL := upgradeArtworkURL(record.GetString("artwork_url"))
+						if artworkURL == "" {
+							artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
+						}
+						streamURL := record.GetString("stream_url")
+						if streamURL == "" {
+							streamURL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+						}
+
+						tracks = append(tracks, views.Track{
+							TrackID:          record.GetString("soundcloud_id"),
+							TrackTitle:       record.GetString("title"),
+							ArtistName:       record.GetString("artist_name"),
+							Genre:            record.GetString("genre"),
+							TrackDuration:    int64(record.GetInt("length")),
+							ArtworkURL:       artworkURL,
+							StreamURL:        streamURL,
+							PermalinkURL:     record.GetString("permalink_url"),
+							PlaybackCount:    int64(record.GetInt("playback_count")),
+							FavoritingsCount: int64(record.GetInt("favoritings_count")),
+							CommentCount:     int64(record.GetInt("comment_count")),
+							RepostsCount:     int64(record.GetInt("reposts_count")),
+						})
+					}
+				} else {
+					log.Printf("Proto handler: no records found, err: %v", err)
+				}
+			}
+
+			if len(tracks) == 0 {
+				tracks = []views.Track{
+					{
+						TrackID:       "1",
+						TrackTitle:    "Midnight Drive",
+						ArtistName:    "Synthwave Master",
+						ArtworkURL:    "https://picsum.photos/seed/track1/500/500",
+						TrackDuration: 245,
+						StreamURL:     "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+					},
+				}
+			}
+
+			data := views.ProtoData{
+				PageData: views.PageData{
+					Title:       "Prototype Experiments",
+					Description: "10 A3-inspired design variations for track cards",
+					CurrentPath: "/proto",
+				},
+				Tracks: tracks,
+			}
+
+			return views.Proto(data).Render(c.Request().Context(), c.Response().Writer)
+		}, apis.ActivityLogger(app))
+
+		// Helper function to fetch fresh tracks from SoundCloud API
+		fetchSoundCloudTracks := func(accessToken string, limit int) ([]views.Track, error) {
+			client := &http.Client{Timeout: 30 * time.Second}
+			req, err := http.NewRequest("GET", fmt.Sprintf("https://api.soundcloud.com/me/activities?limit=%d", limit), nil)
+			if err != nil {
+				return nil, err
+			}
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != 200 {
+				return nil, fmt.Errorf("SoundCloud API error: %d", resp.StatusCode)
+			}
+
+			var activities map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&activities); err != nil {
+				return nil, err
+			}
+
+			var tracks []views.Track
+			if collection, ok := activities["collection"].([]interface{}); ok {
+				for _, item := range collection {
+					if activity, ok := item.(map[string]interface{}); ok {
+						origin, hasOrigin := activity["origin"].(map[string]interface{})
+						if !hasOrigin {
+							continue
+						}
+						trackType, _ := origin["kind"].(string)
+						if trackType != "track" && trackType != "track-repost" {
+							continue
+						}
+
+						trackID := fmt.Sprintf("%v", origin["id"])
+						title, _ := origin["title"].(string)
+						artistName, _ := origin["user"].(map[string]interface{})["username"].(string)
+						genre, _ := origin["genre"].(string)
+						durationMs, _ := origin["duration"].(float64)
+						artworkURL, _ := origin["artwork_url"].(string)
+						if artworkURL != "" {
+							artworkURL = strings.Replace(artworkURL, "-t50x50", "-t500x500", 1)
+						}
+						permalinkURL, _ := origin["permalink_url"].(string)
+						streamURL := fmt.Sprintf("/api/track/%s/stream", trackID)
+						playbackCount, _ := origin["playback_count"].(float64)
+						favoritingsCount, _ := origin["favoritings_count"].(float64)
+						repostsCount, _ := origin["reposts_count"].(float64)
+
+						tracks = append(tracks, views.Track{
+							TrackID:          trackID,
+							TrackTitle:       title,
+							ArtistName:       artistName,
+							Genre:            genre,
+							TrackDuration:    int64(durationMs),
+							ArtworkURL:       artworkURL,
+							StreamURL:        streamURL,
+							PermalinkURL:     "https://soundcloud.com/" + permalinkURL,
+							PlaybackCount:    int64(playbackCount),
+							FavoritingsCount: int64(favoritingsCount),
+							RepostsCount:     int64(repostsCount),
+						})
+					}
+				}
+			}
+			return tracks, nil
+		}
+
 		// Stream page
 		e.Router.GET("/stream", func(c echo.Context) error {
 			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -443,12 +831,15 @@ func main() {
 					Title:       "Stream",
 					Description: "Chronological feed of your Soundcloud tracks",
 					CurrentPath: "/stream",
+					TestMode:    isTestMode,
 				},
-				Tracks:     []views.Track{},
-				ActiveTab:  "stream",
-				ViewMode:   "grid",
-				Filters:    map[string]interface{}{},
-				IsLoggedIn: "false",
+				Tracks:      []views.Track{},
+				ActiveTab:   "stream",
+				ViewMode:    "grid",
+				Filters:     map[string]interface{}{},
+				IsLoggedIn:  "false",
+				MinDuration: int64(0),
+				MaxDuration: int64(94),
 			}
 
 			if authRecord != nil {
@@ -478,56 +869,70 @@ func main() {
 					}
 				}
 
-				// Pre-load tracks server-side for initial render
-				soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+				// Pre-load tracks server-side for initial render - fetch fresh from SoundCloud
+				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
 				if err == nil {
-					soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+					soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
+						soundcloudUsersCollection.Id,
+						"user_id = {:user_id}",
+						map[string]any{"user_id": authRecord.Id},
+					)
 					if err == nil {
-						soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
-							soundcloudUsersCollection.Id,
-							"user_id = {:user_id}",
-							map[string]any{"user_id": authRecord.Id},
-						)
-						if err == nil {
-							records, err := app.Dao().FindRecordsByFilter(
-								soundcloudTracksCollection.Id,
-								"user_id = {:user_id}",
-								"-post_time",
-								20,
-								0,
-								map[string]any{"user_id": soundcloudUser.Id},
-							)
-							if err == nil {
-								favoritesCollection, _ := app.Dao().FindCollectionByNameOrId("favorites")
-								tracks := make([]views.Track, 0, len(records))
-								for _, record := range records {
-									_, err := app.Dao().FindFirstRecordByFilter(
-										favoritesCollection.Id,
-										"user_id = {:user_id} && track_id = {:track_id}",
-										map[string]any{"user_id": authRecord.Id, "track_id": record.Id},
-									)
-									isFavorited := err == nil
+						accessToken := soundcloudUser.GetString("access_token")
+						// Try to get fresh tracks from SoundCloud API
+						tracks, err := fetchSoundCloudTracks(accessToken, 20)
+						if err == nil && len(tracks) > 0 {
+							log.Printf("[Stream] Fetched %d fresh tracks from SoundCloud API", len(tracks))
+							data.Tracks = tracks
+						} else {
+							if err != nil {
+								log.Printf("[Stream] Failed to fetch from SoundCloud: %v", err)
+							}
+							// Fall back to DB
+							log.Printf("[Stream] Falling back to DB tracks")
+							soundcloudTracksCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+							if soundcloudTracksCollection != nil {
+								records, _ := app.Dao().FindRecordsByFilter(
+									soundcloudTracksCollection.Id,
+									"user_id = {:user_id}",
+									"-created",
+									20,
+									0,
+									map[string]any{"user_id": soundcloudUser.Id},
+								)
+								if len(records) > 0 {
+									favoritesCollection, _ := app.Dao().FindCollectionByNameOrId("favorites")
+									dbTracks := make([]views.Track, 0, len(records))
+									for _, record := range records {
+										_, err := app.Dao().FindFirstRecordByFilter(
+											favoritesCollection.Id,
+											"user_id = {:user_id} && track_id = {:track_id}",
+											map[string]any{"user_id": authRecord.Id, "track_id": record.Id},
+										)
+										isFavorited := err == nil
 
-									artworkURL := record.GetString("artwork_url")
-									if artworkURL == "" {
-										artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg"
+										artworkURL := upgradeArtworkURL(record.GetString("artwork_url"))
+										if artworkURL == "" {
+											artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
+										}
+
+										dbTracks = append(dbTracks, views.Track{
+											TrackID:          record.GetString("soundcloud_id"),
+											TrackTitle:       record.GetString("title"),
+											ArtistName:       record.GetString("artist_name"),
+											Genre:            record.GetString("genre"),
+											TrackDuration:    int64(record.GetInt("length")),
+											ArtworkURL:       artworkURL,
+											StreamURL:        record.GetString("stream_url"),
+											PermalinkURL:     record.GetString("permalink_url"),
+											PlaybackCount:    int64(record.GetInt("playback_count")),
+											FavoritingsCount: int64(record.GetInt("favoritings_count")),
+											RepostsCount:     int64(record.GetInt("reposts_count")),
+											IsFavorited:      isFavorited,
+										})
 									}
-
-									postTime := record.GetDateTime("post_time")
-
-									tracks = append(tracks, views.Track{
-										TrackID:       record.GetString("soundcloud_id"),
-										TrackTitle:    record.GetString("title"),
-										ArtistName:    record.GetString("artist_name"),
-										Genre:         record.GetString("genre"),
-										TrackDuration: int64(record.GetInt("length")),
-										ArtworkURL:    artworkURL,
-										CreatedAt:     postTime.Time(),
-										PermalinkURL:  record.GetString("permalink_url"),
-										IsFavorited:   isFavorited,
-									})
+									data.Tracks = dbTracks
 								}
-								data.Tracks = tracks
 							}
 						}
 					}
@@ -543,6 +948,7 @@ func main() {
 				Title:       "Welcome to Sound Cistern",
 				Description: "Connect your Soundcloud account to get started",
 				CurrentPath: "/login",
+				TestMode:    isTestMode,
 			}
 
 			return views.LoginSplash(data).Render(c.Request().Context(), c.Response().Writer)
@@ -569,6 +975,7 @@ func main() {
 				Title:       "Blog",
 				Description: "Latest posts and articles",
 				CurrentPath: "/blog",
+				TestMode:    isTestMode,
 			}
 
 			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -697,6 +1104,7 @@ func main() {
 				Title:       post.Title,
 				Description: post.Excerpt,
 				CurrentPath: "/blog/" + slug,
+				TestMode:    isTestMode,
 			}
 
 			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -1071,7 +1479,7 @@ func main() {
 					} else {
 						log.Printf("[AutoSync] Fetching activities from SoundCloud for user %s", user.Id)
 						client := &http.Client{Timeout: 30 * time.Second}
-						req, _ := http.NewRequest("GET", "https://api.soundcloud.com/me/activities?limit=50", nil)
+						req, _ := http.NewRequest("GET", "https://api.soundcloud.com/me/activities?limit=100", nil)
 						req.Header.Set("Authorization", "Bearer "+accessToken)
 						if resp, err := client.Do(req); err != nil {
 							log.Printf("[AutoSync] ERROR: Failed to fetch activities from SoundCloud: %v", err)
@@ -1165,6 +1573,11 @@ func main() {
 													// Artwork URL
 													if artwork, ok := origin["artwork_url"].(string); ok {
 														trackRecord.Set("artwork_url", artwork)
+													}
+
+													// Stream URL for playback
+													if streamURL, ok := origin["stream_url"].(string); ok {
+														trackRecord.Set("stream_url", streamURL)
 													}
 
 													// Created at (from activity, not origin)
@@ -1358,9 +1771,60 @@ func main() {
 		}, apis.RequireRecordAuth())
 
 		// Stream endpoint - fetch user's Soundcloud tracks with filtering, sorting, and pagination
-		e.Router.GET("/api/stream", func(c echo.Context) error {
-			// This endpoint requires authentication via apis.RequireRecordAuth()
+		streamHandler := func(c echo.Context) error {
+			// In test mode, return mock HTML tracks
+			if isTestMode {
+				durationMinStr := c.QueryParam("duration_min")
+				durationMin := 0
+				if d, err := strconv.Atoi(durationMinStr); err == nil {
+					durationMin = d
+				}
 
+				searchQuery := strings.ToLower(c.QueryParam("q"))
+
+				var htmlBuilder strings.Builder
+				htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
+				mockTracks := []struct {
+					id, title, artist, genre string
+					duration                 int64
+					plays, likes, reposts    int64
+				}{
+					{"1", "Test Track One", "Artist A", "Electronic", 180000, 1500, 250, 50},
+					{"2", "Another Track", "Artist B", "House", 240000, 3200, 480, 120},
+					{"3", "Short Track", "Artist C", "Techno", 60000, 890, 120, 25},
+				}
+				for _, t := range mockTracks {
+					// Filter by duration (convert ms to minutes)
+					durationMinutes := t.duration / 60000
+					if durationMin > 0 && durationMinutes < int64(durationMin) {
+						continue
+					}
+					// Filter by search query
+					if searchQuery != "" {
+						titleMatch := strings.Contains(strings.ToLower(t.title), searchQuery)
+						artistMatch := strings.Contains(strings.ToLower(t.artist), searchQuery)
+						if !titleMatch && !artistMatch {
+							continue
+						}
+					}
+					artworkURL := "https://picsum.photos/seed/" + t.id + "/500/500"
+					components.StreamFlipCard(
+						t.id,
+						t.title,
+						t.artist,
+						t.genre,
+						t.duration,
+						artworkURL,
+						t.plays,
+						t.likes,
+						t.reposts,
+					).Render(c.Request().Context(), &htmlBuilder)
+				}
+				htmlBuilder.WriteString("</div>")
+				return c.HTML(http.StatusOK, htmlBuilder.String())
+			}
+
+			// This endpoint requires authentication via apis.RequireRecordAuth()
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
 			// Parse query parameters
@@ -1538,70 +2002,37 @@ func main() {
 				genreRows.Close()
 			}
 
-			// Build response
-			tracks := make([]map[string]interface{}, 0, len(records))
-			favoritesCollection, _ := app.Dao().FindCollectionByNameOrId("favorites")
+			log.Printf("[Stream] Success: returned %d tracks for user %s", len(records), authRecord.Id)
 
+			var htmlBuilder strings.Builder
+			htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
 			for _, record := range records {
-				// Check if favorited
-				_, err := app.Dao().FindFirstRecordByFilter(
-					favoritesCollection.Id,
-					"user_id = {:user_id} && track_id = {:track_id}",
-					map[string]any{"user_id": authRecord.Id, "track_id": record.Id},
-				)
-				isFavorited := err == nil
-
-				artworkURL := record.GetString("artwork_url")
+				artworkURL := upgradeArtworkURL(record.GetString("artwork_url"))
 				if artworkURL == "" {
-					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg"
+					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
 				}
 
-				postTime := record.GetDateTime("post_time")
-				createdAt := postTime.Time().Format(time.RFC3339)
-
-				tracks = append(tracks, map[string]interface{}{
-					"track_id":       record.GetString("soundcloud_id"),
-					"track_title":    record.GetString("title"),
-					"artist_name":    record.GetString("artist_name"),
-					"track_duration": record.GetInt("length"),
-					"genre":          record.GetString("genre"),
-					"artwork_url":    artworkURL,
-					"created_at":     createdAt,
-					"permalink_url":  record.GetString("permalink_url"),
-					"is_favorited":   isFavorited,
-				})
+				components.StreamFlipCard(
+					record.GetString("soundcloud_id"),
+					record.GetString("title"),
+					record.GetString("artist_name"),
+					record.GetString("genre"),
+					int64(record.GetInt("length")),
+					artworkURL,
+					int64(record.GetInt("playback_count")),
+					int64(record.GetInt("favoritings_count")),
+					int64(record.GetInt("reposts_count")),
+				).Render(c.Request().Context(), &htmlBuilder)
 			}
+			htmlBuilder.WriteString("</div>")
 
-			// Calculate pagination info
-			totalPages := int(totalCount) / limit
-			if int(totalCount)%limit > 0 {
-				totalPages++
-			}
-			hasMore := page < totalPages
-
-			log.Printf("[Stream] Success: returned %d tracks (page %d of %d, totalCount=%d) for user %s", len(tracks), page, totalPages, totalCount, authRecord.Id)
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"tracks": tracks,
-				"pagination": map[string]interface{}{
-					"page":        page,
-					"limit":       limit,
-					"total":       totalCount,
-					"total_pages": totalPages,
-					"has_more":    hasMore,
-				},
-				"filters": map[string]interface{}{
-					"genres":       genres,
-					"search":       searchQuery,
-					"genre":        genreFilter,
-					"sort":         sortBy,
-					"date_from":    dateFrom,
-					"date_to":      dateTo,
-					"favorites":    favoritesOnly,
-					"duration_min": durationMin,
-					"duration_max": durationMax,
-				},
-			})
-		}, apis.RequireRecordAuth())
+			return c.HTML(http.StatusOK, htmlBuilder.String())
+		}
+		if isTestMode {
+			e.Router.GET("/api/stream", streamHandler)
+		} else {
+			e.Router.GET("/api/stream", streamHandler, apis.RequireRecordAuth())
+		}
 
 		// Sync endpoint - fetch tracks from SoundCloud and save to database
 		e.Router.POST("/api/sync", func(c echo.Context) error {
@@ -1625,11 +2056,16 @@ func main() {
 					map[string]any{"user_id": authRecord.Id},
 				)
 				if err != nil {
+					log.Printf("[Sync] ERROR: Could not find soundcloud_users for user_id=%s, err=%v", authRecord.Id, err)
 					return c.JSON(http.StatusNotFound, map[string]string{"error": "SoundCloud account not linked"})
 				}
 
 				accessToken := soundcloudUser.GetString("access_token")
-				if accessToken == "" {
+				refreshToken := soundcloudUser.GetString("refresh_token")
+				scUserID := soundcloudUser.GetString("soundcloud_id")
+				log.Printf("[Sync] Using token for soundcloud_id=%s, has_access_token=%v, has_refresh_token=%v", scUserID, accessToken != "", refreshToken != "")
+
+				if accessToken == "" && refreshToken == "" {
 					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "No access token"})
 				}
 
@@ -1640,12 +2076,14 @@ func main() {
 				}
 				req.Header.Set("Authorization", "Bearer "+accessToken)
 
+				log.Printf("[Sync] Making request to SoundCloud API...")
 				resp, err := client.Do(req)
 				if err != nil {
-					log.Printf("Failed to fetch SoundCloud activities: %v", err)
+					log.Printf("[Sync] ERROR: Failed to fetch SoundCloud activities: %v", err)
 					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch tracks from SoundCloud"})
 				}
 				defer resp.Body.Close()
+				log.Printf("[Sync] SoundCloud API responded with status: %d", resp.StatusCode)
 
 				if resp.StatusCode != 200 {
 					body, _ := io.ReadAll(resp.Body)
@@ -1836,9 +2274,9 @@ func main() {
 				)
 				isFavorited := err == nil
 
-				artworkURL := record.GetString("artwork_url")
+				artworkURL := upgradeArtworkURL(record.GetString("artwork_url"))
 				if artworkURL == "" {
-					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg"
+					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
 				}
 
 				tracks = append(tracks, map[string]interface{}{
@@ -1951,6 +2389,7 @@ func main() {
 					Title:       "Favorites",
 					Description: "Your favorited tracks",
 					CurrentPath: "/favorites",
+					TestMode:    isTestMode,
 				},
 				Favorites: []views.Track{}, // Load via API
 			}
@@ -2102,9 +2541,9 @@ func main() {
 				if err != nil {
 					continue
 				}
-				artworkURL := trackRecord.GetString("artwork_url")
+				artworkURL := upgradeArtworkURL(trackRecord.GetString("artwork_url"))
 				if artworkURL == "" {
-					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-large.jpg"
+					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
 				}
 				favorites = append(favorites, map[string]interface{}{
 					"track_id":       trackRecord.GetString("soundcloud_id"),
@@ -2120,6 +2559,231 @@ func main() {
 
 			return c.JSON(http.StatusOK, map[string]interface{}{"favorites": favorites})
 		}, apis.RequireRecordAuth())
+
+		// Analytics page
+		e.Router.GET("/analytics", handlers.AnalyticsPage(app), soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
+
+		// Playlist routes (require authentication)
+		e.Router.GET("/playlists", handlers.PlaylistsPage(app), soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
+		e.Router.GET("/playlists/:id", handlers.PlaylistShowPage(app), soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
+		e.Router.GET("/api/playlists", handlers.ListPlaylists(app), apis.RequireRecordAuth())
+		e.Router.POST("/api/playlists", handlers.CreatePlaylist(app), apis.RequireRecordAuth())
+		e.Router.GET("/api/playlists/:id", handlers.GetPlaylist(app), apis.RequireRecordAuth())
+		e.Router.POST("/api/playlists/:id/tracks", handlers.AddTrackToPlaylist(app), apis.RequireRecordAuth())
+		e.Router.DELETE("/api/playlists/:id/tracks/:track_id", handlers.RemoveTrackFromPlaylist(app), apis.RequireRecordAuth())
+		e.Router.DELETE("/api/playlists/:id", handlers.DeletePlaylist(app), apis.RequireRecordAuth())
+		e.Router.GET("/share/:token", handlers.GetSharedPlaylist(app)) // Public
+
+		// Export routes (require authentication)
+		e.Router.GET("/api/export/favorites/json", handlers.ExportFavoritesJSON(app), apis.RequireRecordAuth())
+		e.Router.GET("/api/export/favorites/csv", handlers.ExportFavoritesCSV(app), apis.RequireRecordAuth())
+		e.Router.GET("/api/export/playlists/json", handlers.ExportPlaylistsJSON(app), apis.RequireRecordAuth())
+
+		// RSS feed routes
+		e.Router.GET("/feed/rss", handlers.GetUserRSSFeed(app), apis.RequireRecordAuth())
+		e.Router.GET("/feed/rss/:share_token", handlers.GetSharedRSSFeed(app)) // Public
+
+		// Stream proxy endpoint - streams audio from SoundCloud using stored auth
+		e.Router.GET("/api/track/:id/stream", func(c echo.Context) error {
+			var accessToken string
+			var refreshToken string
+
+			// In test mode, skip auth check
+			if isTestMode {
+				// Use first available soundcloud user token in test mode
+				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				if err == nil {
+					records, _ := app.Dao().FindRecordsByFilter(
+						soundcloudUsersCollection.Id,
+						"access_token != ''",
+						"-created",
+						1,
+						0,
+						map[string]any{},
+					)
+					if len(records) > 0 {
+						accessToken = records[0].GetString("access_token")
+						refreshToken = records[0].GetString("refresh_token")
+					}
+				}
+			} else {
+				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+				if authRecord == nil {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Authentication required"})
+				}
+
+				// Find the soundcloud_users record for this user
+				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+				}
+
+				records, err := app.Dao().FindRecordsByFilter(
+					soundcloudUsersCollection.Id,
+					"user_id = {:user_id}",
+					"-created",
+					1,
+					0,
+					map[string]any{"user_id": authRecord.Id},
+				)
+				if err != nil || len(records) == 0 {
+					return c.JSON(http.StatusNotFound, map[string]string{"error": "No SoundCloud account connected"})
+				}
+
+				soundcloudUser := records[0]
+				accessToken = soundcloudUser.GetString("access_token")
+				refreshToken = soundcloudUser.GetString("refresh_token")
+
+				// If no access token, try to refresh
+				if accessToken == "" && refreshToken != "" {
+					tokenURL := "https://api.soundcloud.com/oauth2/token"
+					data := url.Values{}
+					data.Set("client_id", os.Getenv("SOUNDCLOUD_CLIENT_ID"))
+					data.Set("client_secret", os.Getenv("SOUNDCLOUD_CLIENT_SECRET"))
+					data.Set("grant_type", "refresh_token")
+					data.Set("refresh_token", refreshToken)
+
+					resp, err := http.PostForm(tokenURL, data)
+					if err == nil && resp.StatusCode == 200 {
+						var tokenResp struct {
+							AccessToken  string `json:"access_token"`
+							RefreshToken string `json:"refresh_token"`
+							ExpiresIn    int    `json:"expires_in"`
+						}
+						if json.NewDecoder(resp.Body).Decode(&tokenResp) == nil {
+							accessToken = tokenResp.AccessToken
+							if tokenResp.RefreshToken != "" {
+								soundcloudUser.Set("refresh_token", tokenResp.RefreshToken)
+							}
+							soundcloudUser.Set("access_token", tokenResp.AccessToken)
+							app.Dao().SaveRecord(soundcloudUser)
+						}
+						resp.Body.Close()
+					}
+				}
+			}
+
+			if accessToken == "" {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "No access token available"})
+			}
+
+			trackID := c.PathParam("id")
+			log.Printf("[Stream] Looking for track with soundcloud_id=%s", trackID)
+
+			// Find the track in our database to get the stream_url
+			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			if err != nil {
+				log.Printf("[Stream] Collection not found: %v", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Track not found"})
+			}
+
+			trackRecords, err := app.Dao().FindRecordsByFilter(
+				tracksCollection.Id,
+				"soundcloud_id = {:track_id}",
+				"-post_time",
+				1,
+				0,
+				map[string]any{"track_id": trackID},
+			)
+			if err != nil {
+				log.Printf("[Stream] Query error: %v", err)
+			}
+			log.Printf("[Stream] Found %d tracks for soundcloud_id=%s", len(trackRecords), trackID)
+			if err != nil || len(trackRecords) == 0 {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "Track not found in database"})
+			}
+
+			// Always get high-quality stream from transcodings (ignore stored stream_url)
+			// First, try to refresh token if needed
+			if !isTestMode && accessToken != "" && refreshToken != "" {
+				// Test if token is valid by making a quick API call
+				testClient := &http.Client{Timeout: 5 * time.Second}
+				testReq, _ := http.NewRequest("GET", "https://api.soundcloud.com/me", nil)
+				testReq.Header.Set("Authorization", "Bearer "+accessToken)
+				testResp, err := testClient.Do(testReq)
+
+				if err != nil {
+					log.Printf("[Stream] Token test request failed: %v", err)
+				} else {
+					log.Printf("[Stream] Token test status: %d", testResp.StatusCode)
+					testResp.Body.Close()
+
+					if testResp.StatusCode == 401 || testResp.StatusCode == 403 {
+						log.Printf("[Stream] Token expired (status %d), refreshing...", testResp.StatusCode)
+						// Token expired, refresh it
+						tokenURL := "https://api.soundcloud.com/oauth2/token"
+						data := url.Values{}
+						data.Set("client_id", os.Getenv("SOUNDCLOUD_CLIENT_ID"))
+						data.Set("client_secret", os.Getenv("SOUNDCLOUD_CLIENT_SECRET"))
+						data.Set("grant_type", "refresh_token")
+						data.Set("refresh_token", refreshToken)
+
+						resp, err := http.PostForm(tokenURL, data)
+						if err != nil {
+							log.Printf("[Stream] Token refresh POST failed: %v", err)
+						} else {
+							log.Printf("[Stream] Token refresh response status: %d", resp.StatusCode)
+
+							if resp.StatusCode == 200 {
+								var tokenResp struct {
+									AccessToken  string `json:"access_token"`
+									RefreshToken string `json:"refresh_token"`
+									ExpiresIn    int    `json:"expires_in"`
+								}
+								if json.NewDecoder(resp.Body).Decode(&tokenResp) == nil {
+									accessToken = tokenResp.AccessToken
+									log.Printf("[Stream] Token refreshed! New token: %s...", accessToken[:min(30, len(accessToken))])
+								} else {
+									log.Printf("[Stream] Token refresh JSON decode failed")
+								}
+							} else {
+								body, _ := io.ReadAll(resp.Body)
+								log.Printf("[Stream] Token refresh failed: status=%d body=%s", resp.StatusCode, string(body))
+							}
+							resp.Body.Close()
+						}
+					} else if testResp.StatusCode == 200 {
+						log.Printf("[Stream] Token is valid")
+					}
+				}
+			}
+
+			streamURL := getHighQualityStreamURL(accessToken, trackID)
+
+			// If no high-quality URL, fall back to stored stream_url
+			if streamURL == "" {
+				streamURL = trackRecords[0].GetString("stream_url")
+			}
+
+			// If still no URL, return error
+			if streamURL == "" {
+				log.Printf("[Stream] No stream URL for track %s - stored URL is empty and high-quality fetch failed", trackID)
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "No stream URL available for this track. Try syncing tracks again."})
+			}
+
+			// Proxy the stream
+			client := &http.Client{Timeout: 0}
+			req, _ := http.NewRequest("GET", streamURL, nil)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			proxyResp, err := client.Do(req)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stream"})
+			}
+			defer proxyResp.Body.Close()
+
+			if proxyResp.StatusCode != 200 {
+				log.Printf("[Stream] proxyResp.StatusCode: %d, URL: %s", proxyResp.StatusCode, streamURL)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Stream not available", "status": fmt.Sprintf("%d", proxyResp.StatusCode)})
+			}
+
+			c.Response().Header().Set("Content-Type", proxyResp.Header.Get("Content-Type"))
+			c.Response().Header().Set("Accept-Ranges", "bytes")
+			c.Response().WriteHeader(http.StatusOK)
+
+			io.Copy(c.Response(), proxyResp.Body)
+			return nil
+		})
 
 		return nil
 	})

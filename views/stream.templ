@@ -1,726 +1,945 @@
 package views
 
-import "github.com/jbhicks/sound-cistern/views/components"
+import (
+	"fmt"
+	"time"
+)
+
+func formatTrackDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format("Jan 2, 2006")
+}
+
+func formatDurationMinutes(minutes int64) string {
+	if minutes < 60 {
+		return fmt.Sprintf("%d min", minutes)
+	}
+	hours := minutes / 60
+	mins := minutes % 60
+	if mins == 0 {
+		return fmt.Sprintf("%d hr", hours)
+	}
+	return fmt.Sprintf("%d hr %d min", hours, mins)
+}
+
+func formatInt64(n int64) string {
+	return fmt.Sprintf("%d", n)
+}
+
+func formatCompact(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	if n >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(n)/1000000)
+	}
+	if n >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(n)/1000)
+	}
+	return fmt.Sprintf("%d", n)
+}
 
 type StreamData struct {
 	PageData
-	Tracks []Track
+	Tracks       []Track
+	ActiveTab    string
+	ViewMode     string
+	Filters      map[string]interface{}
+	IsLoggedIn   string
+	MinDuration  int64  // in minutes
+	MaxDuration  int64  // in minutes
 }
 
 templ Stream(data StreamData) {
 	@Layout(data.PageData) {
-		<!-- Page header section with semantic h1 -->
-		<section class="page-header" aria-labelledby="stream-title">
-			<hgroup>
-				<h1 id="stream-title" class="page-title">Your Stream</h1>
-				<p class="page-description">Chronological feed of your Soundcloud tracks</p>
-			</hgroup>
-		</section>
-		
-		<!-- Filter bar with semantic form and proper ARIA labels -->
-		<section class="filter-section" aria-label="Track filters">
+		<main class="container">
 			<form 
-				class="filter-form" 
 				id="filter-form"
 				role="search"
-				aria-label="Filter tracks"
-				hx-get="/api/search"
+				hx-get="/api/stream"
 				hx-target="#track-container"
 				hx-swap="innerHTML"
-				hx-indicator="#loading-indicator"
-				hx-trigger="change from:select, input delay:300ms from:input[type='search']"
+				hx-indicator="#loading"
+				hx-trigger="change from:select, change from:input[type='hidden'], input delay:300ms from:input[type='search']"
+				hx-on::after-swap="resetLoadMoreButton()"
 			>
-				<div class="filter-group filter-group--search">
-					<label for="search-input" class="filter-label">
-						<span class="filter-label-text">Search</span>
-					</label>
-					<div class="search-input-wrapper">
-						<input 
-							type="search" 
-							id="search-input"
-							name="q"
-							class="filter-input filter-input--search"
-							placeholder="Search tracks, artists, or genres..."
-							aria-describedby="search-help"
-							autocomplete="off"
-						/>
-						<span class="search-icon" aria-hidden="true">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<circle cx="11" cy="11" r="8"></circle>
-								<path d="m21 21-4.35-4.35"></path>
-							</svg>
-						</span>
-					</div>
-					<span id="search-help" class="filter-help">Type to filter your tracks</span>
-				</div>
-				
-				<div class="filter-group">
-					<label for="genre-filter" class="filter-label">
-						<span class="filter-label-text">Genre</span>
-					</label>
-					<select 
-						id="genre-filter"
-						name="genre"
-						class="filter-input filter-input--select"
-						aria-label="Filter by genre"
-					>
-						<option value="">All Genres</option>
-						<option value="electronic">Electronic</option>
-						<option value="hip-hop">Hip Hop</option>
-						<option value="rock">Rock</option>
-						<option value="pop">Pop</option>
-						<option value="jazz">Jazz</option>
-						<option value="classical">Classical</option>
-						<option value="ambient">Ambient</option>
-						<option value="experimental">Experimental</option>
+				<fieldset role="group">
+					<input 
+						type="search" 
+						name="q"
+						id="filter-q"
+						placeholder="Search tracks..."
+						autocomplete="off"
+					/>
+					<select name="content_type" id="filter-content-type">
+						<option value="">All</option>
+						<option value="posts">Posts</option>
+						<option value="reposts">Reposts</option>
 					</select>
-				</div>
-				
-				<div class="filter-group">
-					<label for="sort-filter" class="filter-label">
-						<span class="filter-label-text">Sort</span>
-					</label>
-					<select 
-						id="sort-filter"
-						name="sort"
-						class="filter-input filter-input--select"
-						aria-label="Sort tracks"
-					>
-						<option value="newest">Newest First</option>
-						<option value="oldest">Oldest First</option>
-						<option value="title">Title A-Z</option>
-						<option value="artist">Artist A-Z</option>
+					<select name="sort" id="filter-sort">
+						<option value="newest">Newest</option>
+						<option value="oldest">Oldest</option>
+						<option value="title">Title</option>
+						<option value="artist">Artist</option>
 						<option value="duration">Duration</option>
 					</select>
-				</div>
-				
-				<div class="filter-actions">
+					<select name="limit" id="filter-limit">
+						<option value="20" selected>20 tracks</option>
+						<option value="50">50 tracks</option>
+						<option value="100">100 tracks</option>
+					</select>
+					<button type="button" class="secondary outline" id="sync-btn" onclick="syncTracks()">🔄 Sync</button>
 					<button 
 						type="button"
-						class="btn btn-secondary filter-clear-btn"
-						onclick="clearFilters()"
-						aria-label="Clear all filters"
+						class="secondary outline"
+						hx-get="/api/stream"
+						hx-target="#track-container"
+						hx-swap="innerHTML"
+						hx-vals='{"q":"","genre":"","content_type":"","sort":"newest","duration_min":"0","limit":"20"}'
+						onclick="
+							document.getElementById('filter-form').reset();
+							document.getElementById('duration-min-input').value = 0;
+							document.getElementById('duration-min-display').textContent = formatMinutes(0);
+							updateSliderUI(0);
+							localStorage.removeItem('stream-filters');
+						"
 					>
-						<span class="btn-icon" aria-hidden="true">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M18 6 6 18"></path>
-								<path d="m6 6 12 12"></path>
-							</svg>
-						</span>
-						<span class="btn-text">Clear</span>
+						Clear
 					</button>
-				</div>
+				</fieldset>
+				
+				<fieldset class="duration-range">
+					<label>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></label>
+					<div class="youtube-slider-container" id="duration-slider">
+						<div class="youtube-track"></div>
+						<div class="youtube-range" id="youtube-range"></div>
+						<div class="youtube-handle" id="duration-handle" data-value={ formatInt64(data.MinDuration) }></div>
+					</div>
+					<input type="hidden" name="duration_min" id="duration-min-input" value={ formatInt64(data.MinDuration) } data-max={ formatInt64(data.MaxDuration) }>
+				</fieldset>
 			</form>
-			
-			<!-- Active filter indicator -->
-			<div id="active-filters" class="active-filters" aria-live="polite" aria-atomic="true"></div>
-		</section>
-		
-		<!-- Main track container with loading and empty states -->
-		<section class="tracks-section" aria-label="Track results">
-			<!-- Loading indicator with ARIA live region -->
-			<div 
-				id="loading-indicator" 
-				class="loading-indicator"
-				role="status"
-				aria-live="polite"
-				aria-busy="true"
-			>
-				<div class="loading-spinner" aria-hidden="true">
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="10">
-							<animateTransform
-								attributeName="transform"
-								attributeType="XML"
-								type="rotate"
-								from="0 12 12"
-								to="360 12 12"
-								dur="1s"
-								repeatCount="indefinite"
-							/>
-						</circle>
-					</svg>
-				</div>
-				<span class="loading-text">Loading tracks...</span>
+
+			<div id="loading" aria-busy="true" hidden>
+				<small>Loading tracks...</small>
 			</div>
-			
-			<!-- Track list container -->
-			<div id="track-container" class="track-container">
-				if len(data.Tracks) > 0 {
-					<ul class="track-list" role="list" aria-label="List of tracks">
-						for _, track := range data.Tracks {
-							<li role="listitem">
-								@components.TrackCard(
-									track.TrackID,
-									track.TrackTitle,
-									track.ArtistName,
-									track.TrackDuration,
-									track.ArtworkURL,
-									track.PermalinkURL,
-									track.CreatedAt.Format("Jan 2, 2006"),
-									track.IsFavorited,
-								)
-							</li>
-						}
-					</ul>
-				} else {
-					<!-- Empty state - shown when no tracks are available -->
-					@components.EmptyState(
-						"No tracks found",
-						"Connect your Soundcloud account to start aggregating your favorite tracks.",
-						"Connect Soundcloud",
-						"/dashboard",
-					)
+
+		<div id="track-container">
+			if len(data.Tracks) > 0 {
+				<div class="stream-flip-grid">
+					for _, track := range data.Tracks {
+						<div class="stream-flip-card" 
+							data-track-id={ track.TrackID } 
+							data-stream-url={ "/api/track/" + track.TrackID + "/stream" }
+							data-track-title={ track.TrackTitle }
+							data-artist-name={ track.ArtistName }
+							onclick="handleStreamFlip(this)">
+							<div class="stream-flip">
+								<div class="stream-flip-front">
+									<img src={ track.ArtworkURL } alt={ track.TrackTitle }/>
+									<div class="stream-flip-info">
+										<div class="stream-flip-title">{ track.TrackTitle }</div>
+										<div class="stream-flip-artist">{ track.ArtistName }</div>
+										<div class="stream-flip-stats">
+											<span class="stat-plays">▶ { formatCompact(track.PlaybackCount) }</span>
+											<span class="stat-likes">♡ { formatCompact(track.FavoritingsCount) }</span>
+											<span class="stat-reposts">↻ { formatCompact(track.RepostsCount) }</span>
+											<span class="stat-duration">{ formatDuration(track.TrackDuration) }</span>
+										</div>
+										if track.Genre != "" {
+											<div class="stream-flip-genre">{ track.Genre }</div>
+										}
+									</div>
+								</div>
+								<div class="stream-flip-back">
+									<div class="stream-flip-vinyl">
+										<div class="stream-flip-label">
+											<img src={ track.ArtworkURL } alt=""/>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					}
+				</div>
+			} else {
+					<article>
+						<hgroup>
+							<h3>No tracks yet</h3>
+							<p>Connect your Soundcloud account to see your stream.</p>
+						</hgroup>
+						<footer>
+							<a href="/dashboard" role="button">Connect Soundcloud</a>
+						</footer>
+					</article>
 				}
 			</div>
-			
-			<!-- Pagination / Load more section -->
-			<div class="load-more-section" id="load-more-section">
+
+			<div style="text-align: center; margin-top: 1rem;" id="load-more-sentinel">
 				<button 
-					type="button"
 					class="btn btn-secondary load-more-btn"
 					id="load-more-btn"
 					data-page="2"
-					hx-get="/api/stream?page=2"
+					data-loaded="0"
+					hx-get="/api/stream"
+					hx-include="#filter-form"
+					hx-vals='{"page":"2"}'
 					hx-target="#track-container"
 					hx-swap="beforeend"
+					hx-trigger="revealed"
 					hx-indicator="#load-more-indicator"
-					hx-push-url="false"
-					hx-on::before-request="this.disabled = true; this.setAttribute('aria-busy', 'true');"
-					hx-on::after-request="handleLoadMoreComplete(this, event.detail.successful, event.detail.xhr)"
+					hx-on::after-request="handleLoadMore(this, event)"
 					aria-label="Load more tracks"
 				>
-					<span class="btn-text">Load More Tracks</span>
-					<span class="btn-loading" aria-hidden="true">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="10">
-								<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-							</circle>
-						</svg>
-					</span>
+					Load More
 				</button>
-				<div 
-					id="load-more-indicator" 
-					class="load-more-indicator"
-					role="status"
-					aria-live="polite"
-					aria-busy="true"
-				>
-					<span class="loading-spinner-small" aria-hidden="true"></span>
-					<span>Loading more tracks...</span>
-				</div>
-				<div 
-					id="no-more-results" 
-					class="no-more-results"
-					role="status"
-					aria-live="polite"
-					style="display: none;"
-				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-						<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-					</svg>
-					<span>All tracks loaded</span>
-				</div>
+				<span id="load-more-indicator" class="htmx-indicator" aria-busy="true" hidden>
+					<small>Loading more...</small>
+				</span>
+				<small id="no-more" hidden>All tracks loaded</small>
 			</div>
-		</section>
-		
-		<!-- JavaScript for enhanced interactivity -->
-		<script>
-			// Pass logged-in status from template
-			window.isLoggedIn = { data.User != nil ? "true" : "false" };
-			
-			/**
-			 * Clear all filter inputs and reload tracks
-			 */
-			function clearFilters() {
-				const form = document.getElementById('filter-form');
-				const inputs = form.querySelectorAll('input, select');
-				
-				inputs.forEach(input => {
-					if (input.type === 'search') {
-						input.value = '';
-					} else if (input.tagName === 'SELECT') {
-						input.selectedIndex = 0;
-					}
-				});
-				
-				// Update ARIA live region to announce filter reset
-				const activeFilters = document.getElementById('active-filters');
-				if (activeFilters) {
-					activeFilters.textContent = 'Filters cleared';
-					setTimeout(() => {
-						activeFilters.textContent = '';
-					}, 2000);
-				}
-				
-				// Trigger HTMX request to reload with no filters
-				htmx.trigger(form, 'change');
-			}
-			
-			/**
-			 * Toggle favorite status for a track with loading states and error handling
-			 * @param {HTMLButtonElement} button - The favorite button element
-			 */
-			function toggleFavorite(button) {
-				const trackId = button.dataset.trackId;
-				const trackTitle = button.dataset.trackTitle || 'track';
-				const isFavorited = button.getAttribute('aria-pressed') === 'true';
-				const newState = !isFavorited;
-				
-				// Prevent double-clicks
-				if (button.disabled) return;
-				
-				// Show loading state
-				button.disabled = true;
-				button.setAttribute('aria-busy', 'true');
-				button.classList.add('loading');
-				
-				// Make API request
-				fetch('/api/favorites/' + trackId + '/toggle', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Requested-With': 'XMLHttpRequest'
-					}
-				})
-				.then(response => {
-					if (!response.ok) {
-						throw new Error('Failed to toggle favorite');
-					}
-					return response.json();
-				})
-				.then(data => {
-					// Update UI on success
-					button.classList.toggle('favorited', newState);
-					button.setAttribute('aria-pressed', newState ? 'true' : 'false');
-					button.setAttribute('aria-label', newState ? 
-						`Remove ${trackTitle} from favorites` : 
-						`Add ${trackTitle} to favorites`
-					);
-					
-					// Update button text
-					const btnText = button.querySelector('.btn-text');
-					if (btnText) {
-						btnText.textContent = newState ? 'Favorited' : 'Favorite';
-					}
-					
-					// Update icon
-					const icon = button.querySelector('.favorite-icon');
-					if (icon) {
-						icon.innerHTML = newState ? 
-							'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>' :
-							'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
-					}
-					
-					// Announce to screen readers
-					const announcement = document.createElement('div');
-					announcement.setAttribute('role', 'status');
-					announcement.setAttribute('aria-live', 'polite');
-					announcement.className = 'sr-only';
-					announcement.textContent = newState ? 
-						`${trackTitle} added to favorites` : 
-						`${trackTitle} removed from favorites`;
-					document.body.appendChild(announcement);
-					setTimeout(() => announcement.remove(), 1000);
-				})
-				.catch(error => {
-					console.error('Error toggling favorite:', error);
-					// Show error notification
-					if (typeof showErrorNotification === 'function') {
-						showErrorNotification('Failed to update favorite. Please try again.');
-					}
-				})
-				.finally(() => {
-					// Remove loading state
-					button.disabled = false;
-					button.removeAttribute('aria-busy');
-					button.classList.remove('loading');
-				});
-			}
-			
-			/**
-			 * Format duration from milliseconds to MM:SS
-			 * @param {number} ms - Duration in milliseconds
-			 * @returns {string} Formatted duration
-			 */
-			function formatDuration(ms) {
-				const seconds = Math.floor(ms / 1000);
-				const minutes = Math.floor(seconds / 60);
-				const remainingSeconds = seconds % 60;
-				return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-			}
-			
-			/**
-			 * Update active filters display
-			 */
-			function updateActiveFilters() {
-				const form = document.getElementById('filter-form');
-				const searchValue = form.querySelector('[name="q"]').value;
-				const genreValue = form.querySelector('[name="genre"]').value;
-				const sortValue = form.querySelector('[name="sort"]').value;
-				const activeFilters = document.getElementById('active-filters');
-				
-				const filters = [];
-				if (searchValue) filters.push(`Search: "${searchValue}"`);
-				if (genreValue) filters.push(`Genre: ${genreValue}`);
-				if (sortValue && sortValue !== 'newest') {
-					const sortLabels = {
-						'oldest': 'Oldest First',
-						'title': 'Title A-Z',
-						'artist': 'Artist A-Z',
-						'duration': 'Duration'
-					};
-					filters.push(`Sort: ${sortLabels[sortValue] || sortValue}`);
-				}
-				
-				if (filters.length > 0) {
-					activeFilters.innerHTML = '<span class="active-filters-label">Active filters:</span> ' + 
-						filters.map(f => `<span class="filter-tag">${f}</span>`).join(' ');
-				} else {
-					activeFilters.innerHTML = '';
-				}
-				
-				// Announce filter changes to screen readers
-				const announcement = document.createElement('div');
-				announcement.setAttribute('role', 'status');
-				announcement.setAttribute('aria-live', 'polite');
-				announcement.className = 'sr-only';
-				announcement.textContent = filters.length > 0 ? 
-					`Filters applied: ${filters.join(', ')}` : 
-					'All filters cleared';
-				document.body.appendChild(announcement);
-				setTimeout(() => announcement.remove(), 1000);
-			}
-			
-			/**
-			 * Handle load more button completion
-			 * @param {HTMLButtonElement} button - The load more button
-			 * @param {boolean} successful - Whether the request was successful
-			 * @param {XMLHttpRequest} xhr - The XHR object
-			 */
-			function handleLoadMoreComplete(button, successful, xhr) {
-				button.disabled = false;
-				button.removeAttribute('aria-busy');
-				
-				if (successful) {
-					// Check if response contains tracks
-					const response = xhr.response;
-					if (!response || response.trim() === '') {
-						// No more results
-						button.style.display = 'none';
-						const noMoreMsg = document.getElementById('no-more-results');
-						if (noMoreMsg) {
-							noMoreMsg.style.display = 'flex';
-						}
-					} else {
-						// Update page number for next load
-						const currentPage = parseInt(button.dataset.page || '2');
-						const nextPage = currentPage + 1;
-						button.dataset.page = nextPage;
-						button.setAttribute('hx-get', '/api/stream?page=' + nextPage);
-						
-						// Announce to screen readers
-						const announcement = document.createElement('div');
-						announcement.setAttribute('role', 'status');
-						announcement.setAttribute('aria-live', 'polite');
-						announcement.className = 'sr-only';
-						announcement.textContent = 'More tracks loaded';
-						document.body.appendChild(announcement);
-						setTimeout(() => announcement.remove(), 1000);
-					}
-				} else {
-					// Error occurred
-					button.classList.add('error');
-					setTimeout(() => button.classList.remove('error'), 3000);
-				}
-			}
-			
-			// Initialize on DOM ready
-			document.addEventListener('DOMContentLoaded', function() {
-				// Update active filters when form inputs change
-				const form = document.getElementById('filter-form');
-				if (form) {
-					form.addEventListener('input', updateActiveFilters);
-					form.addEventListener('change', updateActiveFilters);
-				}
-				
-				// Add HTMX event listeners for filter results
-				document.body.addEventListener('htmx:afterRequest', function(evt) {
-					if (evt.detail.target.id === 'track-container') {
-						updateActiveFilters();
-						
-						// Re-attach event listeners to new content
-						const favoriteButtons = document.querySelectorAll('.favorite-btn');
-						favoriteButtons.forEach(btn => {
-							btn.onclick = function() { toggleFavorite(this); };
-						});
-					}
-				});
-				
-				// Load initial tracks if user is logged in and no tracks provided
-				if (window.isLoggedIn === 'true' && !document.querySelector('.track-list')) {
-					// Trigger initial load
-					const form = document.getElementById('filter-form');
-					if (form) {
-						htmx.trigger(form, 'submit');
-					}
-				}
-			});
-		</script>
-		
+		</main>
+
+		<div id="player-container"></div>
+
 		<style>
-			/* Page header styles */
-			.page-header {
-				margin-bottom: var(--space-6);
-				padding-bottom: var(--space-4);
-				border-bottom: 1px solid var(--color-border-default);
-			}
-			
-			.page-title {
-				font-size: var(--text-3xl);
-				font-weight: var(--font-semibold);
-				color: var(--color-fg-default);
-				margin: 0 0 var(--space-2) 0;
-				line-height: var(--lh-tight);
-			}
-			
-			.page-description {
-				font-size: var(--text-lg);
-				color: var(--color-fg-muted);
-				margin: 0;
-			}
-			
-			/* Filter section styles */
-			.filter-section {
-				background: var(--color-canvas-subtle);
-				border: 1px solid var(--color-border-default);
-				border-radius: var(--radius-lg);
-				padding: var(--space-4);
-				margin-bottom: var(--space-6);
-			}
-			
-			.filter-form {
+			.player-bar {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				background: #1a1a1a;
+				color: white;
+				padding: 0.75rem 1rem;
 				display: flex;
-				flex-wrap: wrap;
-				gap: var(--space-4);
-				align-items: flex-end;
+				align-items: center;
+				gap: 1rem;
+				z-index: 1000;
+				font-family: system-ui, sans-serif;
 			}
-			
-			.filter-group {
-				display: flex;
-				flex-direction: column;
-				gap: var(--space-1);
+			.player-bar img {
+				width: 48px;
+				height: 48px;
+				border-radius: 4px;
+				object-fit: cover;
 			}
-			
-			.filter-group--search {
+			.player-bar-info {
 				flex: 1;
-				min-width: 250px;
+				min-width: 0;
+			}
+			.player-bar-title {
+				font-weight: 600;
+				font-size: 0.9rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.player-bar-artist {
+				font-size: 0.75rem;
+				color: #999;
+			}
+			.player-bar audio {
+				width: 300px;
+				height: 32px;
+			}
+			.player-bar .close-btn {
+				background: none;
+				border: none;
+				color: #666;
+				cursor: pointer;
+				font-size: 1.25rem;
+				padding: 0.25rem;
+			}
+			.player-bar .close-btn:hover {
+				color: white;
 			}
 			
-			.filter-label {
-				font-size: var(--text-sm);
-				font-weight: var(--font-medium);
-				color: var(--color-fg-default);
+			/* Flip Card Styles for Stream */
+			.stream-flip-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+				gap: 1.5rem;
+				padding: 1rem 0;
 			}
-			
-			.filter-label-text {
-				display: block;
-				margin-bottom: var(--space-1);
+			.stream-flip-card {
+				perspective: 1000px;
+				cursor: pointer;
 			}
-			
-			.filter-input {
-				padding: var(--space-2) var(--space-3);
-				font-size: var(--text-sm);
-				color: var(--color-fg-default);
-				background: var(--color-canvas-default);
-				border: 1px solid var(--color-border-default);
-				border-radius: var(--radius-md);
-				transition: border-color var(--duration-fast) var(--ease-out),
-							box-shadow var(--duration-fast) var(--ease-out);
-				min-height: 44px;
-			}
-			
-			.filter-input:focus {
-				outline: none;
-				border-color: var(--color-accent-fg);
-				box-shadow: 0 0 0 3px var(--color-accent-muted);
-			}
-			
-			.filter-input--search {
-				padding-left: var(--space-8);
-			}
-			
-			.search-input-wrapper {
+			.stream-flip {
 				position: relative;
+				width: 100%;
+				aspect-ratio: 1;
+				transform-style: preserve-3d;
+				transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 			}
-			
-			.search-icon {
+			.stream-flip.flipped {
+				transform: rotateY(180deg);
+			}
+			.stream-flip-front, .stream-flip-back {
 				position: absolute;
-				left: var(--space-3);
-				top: 50%;
-				transform: translateY(-50%);
-				color: var(--color-fg-muted);
-				pointer-events: none;
+				inset: 0;
+				backface-visibility: hidden;
+				border-radius: 12px;
+				overflow: hidden;
 			}
-			
-			.filter-help {
-				font-size: var(--text-xs);
-				color: var(--color-fg-muted);
-				margin-top: var(--space-1);
+			.stream-flip-front {
+				background: #1a1a1a;
 			}
-			
-			.filter-actions {
+			.stream-flip-front img {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+			}
+			.stream-flip-back {
+				transform: rotateY(180deg);
+				background: #0d0d0d;
 				display: flex;
-				align-items: flex-end;
-			}
-			
-			.filter-clear-btn {
-				display: inline-flex;
 				align-items: center;
-				gap: var(--space-2);
+				justify-content: center;
+				border-radius: 50%;
 			}
-			
-			/* Active filters display */
-			.active-filters {
-				margin-top: var(--space-3);
-				font-size: var(--text-sm);
+			@keyframes vinylSpin { 
+				from { transform: rotate(0deg); } 
+				to { transform: rotate(360deg); } 
 			}
-			
-			.active-filters-label {
-				color: var(--color-fg-muted);
-				margin-right: var(--space-2);
-			}
-			
-			.filter-tag {
-				display: inline-flex;
-				align-items: center;
-				padding: var(--space-1) var(--space-2);
-				background: var(--color-accent-muted);
-				color: var(--color-accent-fg);
-				border-radius: var(--radius-md);
-				font-size: var(--text-xs);
-				margin-right: var(--space-2);
-			}
-			
-			/* Loading states */
-			.loading-indicator {
-				display: none;
-				text-align: center;
-				padding: var(--space-8);
-				color: var(--color-fg-muted);
-			}
-			
-			.loading-indicator.htmx-request {
-				display: block;
-			}
-			
-			.loading-text {
-				margin-top: var(--space-3);
-				display: block;
-			}
-			
-			/* Tracks section */
-			.tracks-section {
-				min-height: 300px;
-			}
-			
-			.track-container {
-				min-height: 200px;
-			}
-			
-			/* Load more section */
-			.load-more-section {
-				text-align: center;
-				margin-top: var(--space-8);
-				padding: var(--space-4) 0;
-			}
-			
-			.load-more-btn {
-				min-width: 200px;
+			.stream-flip-vinyl {
+				width: 90%;
+				height: 90%;
+				border-radius: 50%;
 				position: relative;
+				animation: vinylSpin 1.8s linear infinite;
+				background: repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.9) 3px, rgba(40,40,40,0.9) 4px),
+					radial-gradient(circle at center, #1a1a1a 35%, #0a0a0a 100%);
+				box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.3);
 			}
-			
-			.load-more-btn:disabled {
-				opacity: 0.7;
-				cursor: wait;
-			}
-			
-			.load-more-btn .btn-loading {
-				display: none;
+			.stream-flip-vinyl::before {
+				content: '';
 				position: absolute;
 				top: 50%;
 				left: 50%;
 				transform: translate(-50%, -50%);
+				width: 38%;
+				height: 38%;
+				border-radius: 50%;
+				background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+				box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
 			}
-			
-			.load-more-btn[aria-busy="true"] .btn-text {
-				opacity: 0;
+			.stream-flip-vinyl::after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				border-radius: 50%;
+				background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, transparent 100%);
 			}
-			
-			.load-more-btn[aria-busy="true"] .btn-loading {
-				display: inline-flex;
+			.stream-flip-label {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				width: 32%;
+				height: 32%;
+				border-radius: 50%;
+				overflow: hidden;
 			}
-			
-			.load-more-btn.error {
-				animation: shake 0.5s ease-in-out;
-				border-color: var(--color-danger-fg);
+			.stream-flip-label img {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
 			}
-			
-			@keyframes shake {
-				0%, 100% { transform: translateX(0); }
-				25% { transform: translateX(-5px); }
-				75% { transform: translateX(5px); }
+			.stream-flip-info {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				padding: 1.5rem 1rem 1rem;
+				background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+				color: #fff;
 			}
-			
-			.load-more-indicator {
-				display: none;
-				color: var(--color-fg-muted);
-				margin-top: var(--space-3);
-				align-items: center;
-				justify-content: center;
-				gap: var(--space-2);
+			.stream-flip-title {
+				font-weight: 700;
+				font-size: 1rem;
+				margin-bottom: 0.25rem;
+				text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
-			
-			.load-more-indicator.htmx-request {
+			.stream-flip-artist {
+				font-size: 0.85rem;
+				opacity: 0.85;
+			}
+			.stream-flip-stats {
 				display: flex;
+				gap: 0.5rem;
+				margin-top: 0.5rem;
+				flex-wrap: wrap;
 			}
-			
-			.no-more-results {
-				color: var(--color-success-fg);
-				margin-top: var(--space-3);
-				align-items: center;
-				justify-content: center;
-				gap: var(--space-2);
-				font-size: var(--text-sm);
+			.stream-flip-stats span {
+				padding: 0.15rem 0.4rem;
+				border-radius: 10px;
+				font-size: 0.7rem;
+				font-weight: 600;
+				white-space: nowrap;
 			}
-			
-			/* Responsive adjustments */
-			@media (max-width: 768px) {
-				.filter-form {
-					flex-direction: column;
-					gap: var(--space-3);
-				}
-				
-				.filter-group {
-					width: 100%;
-				}
-				
-				.filter-group--search {
-					min-width: 100%;
-				}
-				
-				.filter-input {
-					width: 100%;
-				}
-				
-				.page-title {
-					font-size: var(--text-2xl);
-				}
-				
-				.page-description {
-					font-size: var(--text-base);
-				}
+			.stream-flip-genre {
+				font-size: 0.7rem;
+				margin-top: 0.4rem;
+				opacity: 0.85;
+				color: #c4b5fd;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				font-weight: 600;
 			}
+			.stat-plays { background: linear-gradient(135deg, #10b981, #34d399); color: #fff; }
+			.stat-likes { background: linear-gradient(135deg, #ec4899, #f472b6); color: #fff; }
+			.stat-reposts { background: linear-gradient(135deg, #f97316, #fb923c); color: #fff; }
+			.stat-duration { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: #fff; }
 		</style>
+
+		<script>
+			// Auto-sync on page load (non-blocking)
+			(function() {
+				const syncBtn = document.getElementById('sync-btn');
+				if (syncBtn) {
+					// Trigger background sync after page loads
+					setTimeout(function() {
+						fetch('/api/sync', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							}
+						}).then(function(response) {
+							if (response.ok) {
+								console.log('Background sync completed');
+								// Refresh the track list
+								htmx.trigger('#track-container', 'refresh');
+							}
+						}).catch(function(err) {
+							console.log('Background sync failed:', err);
+						});
+					}, 500); // Wait 500ms after page load
+				}
+			})();
+
+			// Sync tracks from SoundCloud (manual trigger)
+			async function syncTracks() {
+				const btn = document.getElementById('sync-btn');
+				const originalText = btn.textContent;
+				btn.textContent = 'Syncing...';
+				btn.disabled = true;
+				
+				try {
+					const response = await fetch('/api/sync', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					});
+					
+					if (response.ok) {
+						const data = await response.json();
+						btn.textContent = '✅ Synced!';
+						setTimeout(() => {
+							btn.textContent = originalText;
+							btn.disabled = false;
+						}, 2000);
+						
+						// Reload the track container
+						htmx.trigger('#track-container', 'refresh');
+						location.reload();
+					} else {
+						const error = await response.json();
+						alert('Sync failed: ' + (error.error || 'Unknown error'));
+						btn.textContent = originalText;
+						btn.disabled = false;
+					}
+				} catch (err) {
+					alert('Sync failed: ' + err.message);
+					btn.textContent = originalText;
+					btn.disabled = false;
+				}
+			}
+
+			// Save filter state to localStorage
+			function saveFilterState() {
+				const filters = {
+					q: document.getElementById('filter-q')?.value || '',
+					content_type: document.getElementById('filter-content-type')?.value || '',
+					sort: document.getElementById('filter-sort')?.value || 'newest',
+					limit: document.getElementById('filter-limit')?.value || '20',
+					duration_min: document.getElementById('duration-min-input')?.value || '0'
+				};
+				localStorage.setItem('stream-filters', JSON.stringify(filters));
+			}
+
+			// Load filter state from localStorage
+			function loadFilterState() {
+				const saved = localStorage.getItem('stream-filters');
+				if (!saved) return false;
+				
+				try {
+					const filters = JSON.parse(saved);
+					
+					if (filters.q !== undefined) {
+						const qInput = document.getElementById('filter-q');
+						if (qInput) qInput.value = filters.q;
+					}
+					
+					if (filters.content_type !== undefined) {
+						const ctSelect = document.getElementById('filter-content-type');
+						if (ctSelect) ctSelect.value = filters.content_type;
+					}
+					
+					if (filters.sort !== undefined) {
+						const sortSelect = document.getElementById('filter-sort');
+						if (sortSelect) sortSelect.value = filters.sort;
+					}
+					
+					if (filters.limit !== undefined) {
+						const limitSelect = document.getElementById('filter-limit');
+						if (limitSelect) limitSelect.value = filters.limit;
+					}
+					
+					if (filters.duration_min !== undefined) {
+						const durInput = document.getElementById('duration-min-input');
+						if (durInput) {
+							durInput.value = filters.duration_min;
+							updateSliderUI(filters.duration_min);
+						}
+					}
+					
+					return true;
+				} catch (e) {
+					console.error('Failed to load filter state:', e);
+					return false;
+				}
+			}
+
+			// Setup event listeners to save filter state
+			function setupFilterListeners() {
+				const form = document.getElementById('filter-form');
+				if (!form) return;
+				
+				form.addEventListener('input', saveFilterState);
+				form.addEventListener('change', saveFilterState);
+			}
+
+			function formatMinutes(minutes) {
+				const mins = parseInt(minutes);
+				if (mins < 60) {
+					return mins + ' min';
+				}
+				const hours = Math.floor(mins / 60);
+				const remainingMins = mins % 60;
+				if (remainingMins === 0) {
+					return hours + ' hr';
+				}
+				return hours + ' hr ' + remainingMins + ' min';
+			}
+
+			function updateSliderUI(value) {
+				const container = document.getElementById('duration-slider');
+				const range = document.getElementById('youtube-range');
+				const handle = document.getElementById('duration-handle');
+				const display = document.getElementById('duration-min-display');
+				const input = document.getElementById('duration-min-input');
+				const maxDuration = parseInt(input.getAttribute('data-max')) || 94;
+				
+				const percent = (value / maxDuration) * 100;
+				handle.style.left = percent + '%';
+				range.style.left = '0%';
+				range.style.width = percent + '%';
+				display.textContent = formatMinutes(value);
+				input.value = value;
+			}
+
+			(function() {
+				const container = document.getElementById('duration-slider');
+				const range = document.getElementById('youtube-range');
+				const handle = document.getElementById('duration-handle');
+				const display = document.getElementById('duration-min-display');
+				const input = document.getElementById('duration-min-input');
+				const maxDuration = parseInt(input.getAttribute('data-max')) || 94;
+				
+				if (!container || !handle) return;
+				
+				let currentVal = parseInt(input.value) || 0;
+				let dragging = false;
+				let dragStartX = 0;
+				let dragStartVal = 0;
+				
+				function updateSlider() {
+					const percent = (currentVal / maxDuration) * 100;
+					handle.style.left = percent + '%';
+					range.style.left = '0%';
+					range.style.width = percent + '%';
+					display.textContent = formatMinutes(currentVal);
+					input.value = currentVal;
+				}
+				
+				function getValueFromPosition(clientX) {
+					const rect = container.getBoundingClientRect();
+					const x = clientX - rect.left;
+					const percent = Math.max(0, Math.min(1, x / rect.width));
+					return Math.round(percent * maxDuration);
+				}
+				
+				function handleStart(e) {
+					e.preventDefault();
+					dragging = true;
+					dragStartX = e.clientX || e.touches[0].clientX;
+					dragStartVal = currentVal;
+					handle.style.transform = 'translate(-50%, -50%) scale(1.1)';
+				}
+				
+				function handleMove(e) {
+					if (!dragging) return;
+					
+					const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+					if (!clientX) return;
+					
+					currentVal = Math.max(0, Math.min(maxDuration, getValueFromPosition(clientX)));
+					updateSlider();
+				}
+				
+				function handleEnd() {
+					if (dragging) {
+						handle.style.transform = '';
+						const event = new Event('change', { bubbles: true });
+						input.dispatchEvent(event);
+					}
+					dragging = false;
+				}
+				
+				function handleClick(e) {
+					if (e.target === handle) return;
+					currentVal = getValueFromPosition(e.clientX);
+					updateSlider();
+					const event = new Event('change', { bubbles: true });
+					input.dispatchEvent(event);
+				}
+				
+				handle.addEventListener('mousedown', handleStart);
+				container.addEventListener('click', handleClick);
+				document.addEventListener('mousemove', handleMove);
+				document.addEventListener('mouseup', handleEnd);
+				
+				handle.addEventListener('touchstart', (e) => handleStart(e), { passive: false });
+				document.addEventListener('touchmove', handleMove, { passive: false });
+				document.addEventListener('touchend', handleEnd);
+				
+				updateSlider();
+			})();
+
+			// Audio player functionality
+			let currentAudio = null;
+			let currentPlayerBar = null;
+
+			document.addEventListener('click', function(e) {
+				// Check for vcard play buttons (new style)
+				const vcardBtn = e.target.closest('.vcard-play');
+				if (vcardBtn) {
+					const card = vcardBtn.closest('.vcard-3');
+					if (!card) return;
+					
+					const trackID = card.dataset.trackId;
+					const streamUrl = card.dataset.streamUrl || '';
+					const titleEl = card.querySelector('.vcard-title');
+					const title = titleEl ? titleEl.textContent : 'Unknown Track';
+					const artistEl = card.querySelector('.vcard-artist');
+					const artist = artistEl ? artistEl.textContent : 'Unknown Artist';
+					const artworkEl = card.querySelector('.vcard-art');
+					const artworkUrl = artworkEl ? artworkEl.src : '';
+					
+					console.log('Playing:', trackID, title, artist, streamUrl);
+					
+					// Remove existing player
+					if (currentPlayerBar) {
+						currentPlayerBar.remove();
+					}
+					if (currentAudio) {
+						currentAudio.pause();
+					}
+					
+					// Create player bar HTML
+					const playerHtml = `
+						<div class="player-bar" id="player-bar">
+							<img src="${artworkUrl}" alt="" />
+							<div class="player-bar-info">
+								<div class="player-bar-title">${title}</div>
+								<div class="player-bar-artist">${artist}</div>
+							</div>
+							<audio controls autoplay>
+								<source src="/api/track/${trackID}/stream" type="audio/mpeg">
+								Your browser does not support audio
+							</audio>
+							<button class="close-btn" onclick="this.parentElement.remove()">×</button>
+						</div>
+					`;
+					
+					const container = document.getElementById('player-container');
+					if (container) {
+						container.innerHTML = playerHtml;
+						currentPlayerBar = container.querySelector('.player-bar');
+						currentAudio = currentPlayerBar.querySelector('audio');
+					}
+					return;
+				}
+			
+				// Check for track-card-pill-play buttons (old style)
+				const btn = e.target.closest('.track-card-pill-play');
+				if (!btn) return;
+
+				const card = btn.closest('.track-card-pill');
+				const artworkUrl = btn.style.backgroundImage.replace('url(', '').replace(')', '').replace(/"/g, '');
+				const title = card.dataset.title || card.querySelector('.track-card-pill-title')?.textContent || 'Unknown Track';
+				const artist = card.dataset.artist || card.querySelector('.track-card-pill-artist')?.textContent || 'Unknown Artist';
+				const streamUrl = card.dataset.streamUrl || '';
+
+				if (!streamUrl) {
+					alert('Demo mode: Stream URL not available. Connect your SoundCloud account and sync to enable playback.');
+					return;
+				}
+
+				// Remove existing player
+				if (currentPlayerBar) {
+					currentPlayerBar.remove();
+				}
+				if (currentAudio) {
+					currentAudio.pause();
+				}
+
+				// Create player bar HTML
+				const playerHtml = `
+					<div class="player-bar" id="player-bar">
+						<img src="${artworkUrl}" alt="" />
+						<div class="player-bar-info">
+							<div class="player-bar-title">${title}</div>
+							<div class="player-bar-artist">${artist}</div>
+						</div>
+						<audio controls autoplay>
+							<source src="${streamUrl}" type="audio/mpeg">
+							Your browser does not support audio
+						</audio>
+						<button class="close-btn" onclick="this.parentElement.remove()">×</button>
+					</div>
+				`;
+
+				document.getElementById('player-container').innerHTML = playerHtml;
+				currentPlayerBar = document.getElementById('player-bar');
+				currentAudio = currentPlayerBar.querySelector('audio');
+			});
+
+			// Handle load more with limit tracking
+			function handleLoadMore(btn, event) {
+				const limit = parseInt(document.getElementById('filter-limit')?.value) || 20;
+				const currentLoaded = parseInt(btn.getAttribute('data-loaded')) || 0;
+				const batchSize = 20;
+				const newLoaded = currentLoaded + batchSize;
+				
+				btn.setAttribute('data-loaded', newLoaded);
+				
+				if (newLoaded >= limit) {
+					btn.hidden = true;
+					document.getElementById('no-more').hidden = false;
+					return;
+				}
+				
+				const currentPage = parseInt(btn.getAttribute('data-page'));
+				btn.setAttribute('data-page', currentPage + 1);
+				btn.setAttribute('hx-vals', JSON.stringify({page: currentPage + 1}));
+			}
+
+			// Reset load more button when filters change
+			function resetLoadMoreButton() {
+				const loadMoreBtn = document.getElementById('load-more-btn');
+				const trackContainer = document.getElementById('track-container');
+				const noMore = document.getElementById('no-more');
+				
+				if (loadMoreBtn && trackContainer) {
+					const initialTracks = trackContainer.querySelectorAll('.track-card-pill').length;
+					loadMoreBtn.setAttribute('data-loaded', initialTracks);
+					loadMoreBtn.setAttribute('data-page', '2');
+					loadMoreBtn.setAttribute('hx-vals', JSON.stringify({page: 2}));
+					
+					const limit = parseInt(document.getElementById('filter-limit')?.value) || 20;
+					if (initialTracks >= limit) {
+						loadMoreBtn.hidden = true;
+						if (noMore) noMore.hidden = false;
+					} else {
+						loadMoreBtn.hidden = false;
+						if (noMore) noMore.hidden = true;
+					}
+				}
+			}
+
+			// Initialize filter state on page load
+			(function() {
+				loadFilterState();
+				setupFilterListeners();
+				
+				// Enhance all artwork to highest quality
+				document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
+					img.src = upgradeArtwork(img.src);
+				});
+				
+				// Initialize loaded count from initial tracks
+				const loadMoreBtn = document.getElementById('load-more-btn');
+				const trackContainer = document.getElementById('track-container');
+				if (loadMoreBtn && trackContainer) {
+					const initialTracks = trackContainer.querySelectorAll('.stream-flip-card, .track-card-pill').length;
+					loadMoreBtn.setAttribute('data-loaded', initialTracks);
+					
+					const limit = parseInt(document.getElementById('filter-limit')?.value) || 20;
+					if (initialTracks >= limit) {
+						loadMoreBtn.hidden = true;
+						document.getElementById('no-more').hidden = false;
+					}
+				}
+			})();
+
+			// Flip card handler for stream page
+			function handleStreamFlip(card) {
+				const isFlipped = card.querySelector('.stream-flip').classList.toggle('flipped');
+				
+				if (isFlipped) {
+					const trackID = card.dataset.trackId;
+					const streamURL = card.dataset.streamUrl;
+					const trackTitle = card.dataset.trackTitle;
+					const artistName = card.dataset.artistName;
+					
+					console.log('Playing:', trackTitle, 'by', artistName);
+					
+					// Get or create player
+					let player = document.getElementById('stream-player-bar');
+					if (!player) {
+						player = document.createElement('div');
+						player.id = 'stream-player-bar';
+						player.className = 'player-bar';
+						player.innerHTML = `
+							<img id="stream-player-art" src="" alt="" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover;"/>
+							<div class="player-bar-info">
+								<div id="stream-player-title" class="player-bar-title"></div>
+								<div id="stream-player-artist" class="player-bar-artist"></div>
+							</div>
+							<button class="player-btn" id="stream-player-play" style="background: #8b5cf6; border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+								<svg id="stream-play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+								<svg id="stream-pause-icon" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+							</button>
+							<div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+								<div class="player-bar" style="position: relative; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; padding: 0; cursor: pointer;" id="stream-progress-bar">
+									<div id="stream-progress-fill" style="height: 100%; background: linear-gradient(90deg, #8b5cf6, #a78bfa); border-radius: 3px; width: 0%;"></div>
+								</div>
+								<div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: rgba(255,255,255,0.6);">
+									<span id="stream-current-time">0:00</span>
+									<span id="stream-duration">0:00</span>
+								</div>
+							</div>
+							<button class="close-btn" onclick="closeStreamPlayer()" style="background: none; border: none; color: #666; cursor: pointer; font-size: 1.25rem; padding: 0.25rem;">✕</button>
+							<audio id="stream-audio" preload="none"></audio>
+						`;
+						document.body.appendChild(player);
+						
+						// Add event listeners
+						document.getElementById('stream-player-play').addEventListener('click', toggleStreamPlay);
+						document.getElementById('stream-progress-bar').addEventListener('click', seekStreamProgress);
+						const audio = document.getElementById('stream-audio');
+						audio.addEventListener('timeupdate', updateStreamProgress);
+					}
+					
+					const playerArt = document.getElementById('stream-player-art');
+					const playerTitle = document.getElementById('stream-player-title');
+					const playerArtist = document.getElementById('stream-player-artist');
+					const audio = document.getElementById('stream-audio');
+					
+					// Upgrade artwork to highest quality for player
+					playerArt.src = upgradeArtwork(card.querySelector('img').src);
+					playerTitle.textContent = trackTitle;
+					playerArtist.textContent = artistName;
+					audio.src = streamURL;
+					audio.play().then(() => {
+						document.getElementById('stream-play-icon').style.display = 'none';
+						document.getElementById('stream-pause-icon').style.display = 'block';
+					}).catch(err => console.error('Play error:', err));
+				}
+			}
+
+			function toggleStreamPlay() {
+				const audio = document.getElementById('stream-audio');
+				const playIcon = document.getElementById('stream-play-icon');
+				const pauseIcon = document.getElementById('stream-pause-icon');
+				if (audio.paused) {
+					audio.play();
+					playIcon.style.display = 'none';
+					pauseIcon.style.display = 'block';
+				} else {
+					audio.pause();
+					playIcon.style.display = 'block';
+					pauseIcon.style.display = 'none';
+				}
+			}
+
+			function seekStreamProgress(e) {
+				const audio = document.getElementById('stream-audio');
+				const bar = document.getElementById('stream-progress-bar');
+				const rect = bar.getBoundingClientRect();
+				const pos = (e.clientX - rect.left) / rect.width;
+				audio.currentTime = pos * audio.duration;
+			}
+
+			function updateStreamProgress() {
+				const audio = document.getElementById('stream-audio');
+				const fill = document.getElementById('stream-progress-fill');
+				const current = document.getElementById('stream-current-time');
+				const duration = document.getElementById('stream-duration');
+				if (audio.duration) {
+					fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+					current.textContent = formatStreamTime(audio.currentTime);
+					duration.textContent = formatStreamTime(audio.duration);
+				}
+			}
+
+			function formatStreamTime(seconds) {
+				if (!seconds || isNaN(seconds)) return '0:00';
+				const mins = Math.floor(seconds / 60);
+				const secs = Math.floor(seconds % 60);
+				return mins + ':' + secs.toString().padStart(2, '0');
+			}
+
+			function closeStreamPlayer() {
+				const player = document.getElementById('stream-player-bar');
+				const audio = document.getElementById('stream-audio');
+				if (player) {
+					audio.pause();
+					player.remove();
+				}
+			}
+
+			function formatCompact(num) {
+				if (!num) return '0';
+				if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+				if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+				return num.toString();
+			}
+
+			function formatDuration(ms) {
+				if (!ms) return '0:00';
+				const totalSeconds = Math.floor(ms / 1000);
+				const mins = Math.floor(totalSeconds / 60);
+				const secs = totalSeconds % 60;
+				return mins + ':' + secs.toString().padStart(2, '0');
+			}
+
+			// Upgrade artwork to highest quality
+			function upgradeArtwork(url) {
+				if (!url) return url;
+				// Replace any small size with largest available (t500x500)
+				return url.replace(/-t\d+x\d+/g, '-t500x500').replace('-large.', '-t500x500.');
+			}
+		</script>
 	}
 }

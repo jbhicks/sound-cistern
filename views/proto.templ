@@ -1,0 +1,919 @@
+package views
+
+type ProtoData struct {
+	PageData
+	Tracks []Track
+}
+
+templ Proto(data ProtoData) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Track Card Prototypes - Sound Cistern</title>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+		<link rel="stylesheet" href="/css/custom.css"/>
+			<script src="/js/htmx.min.js"></script>
+			<style>
+			/* Proto card container */
+			.proto-card { min-width: 300px; background: var(--pico-background-color); border-radius: 16px; overflow: hidden; }
+			.proto-title { padding: 1rem 1rem 0.25rem; font-size: 1rem; font-weight: 600; margin: 0; }
+			.proto-desc { padding: 0 1rem 1rem; color: var(--pico-muted-color); font-size: 0.85rem; margin: 0; }
+			
+			/* Shared image styles */
+			.proto-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+			
+			/* HOVER PLAY BUTTON shared */
+			.proto-hover { position: relative; cursor: pointer; }
+			.proto-hover-play { 
+				position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85); 
+				width: 72px; height: 72px; border-radius: 50%; background: #fff; border: none; cursor: pointer; 
+				display: flex; align-items: center; justify-content: center; 
+				opacity: 0; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); 
+				box-shadow: 0 8px 32px rgba(0,0,0,0.4); 
+				z-index: 10;
+			}
+			.proto-hover:hover .proto-hover-play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+			.proto-hover-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem 1rem 1rem; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); color: #fff; z-index: 5; }
+			.proto-hover-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 0.25rem; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+			.proto-hover-artist { font-size: 0.9rem; opacity: 0.85; }
+			.proto-hover-stats { display: flex; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.9; }
+			
+			/* Purple Neon - single color variant */
+			
+			/* SEMANTIC COLORS for stat icons */
+			.stat-plays { background: linear-gradient(135deg, #10b981, #34d399) !important; color: #fff !important; }
+			.stat-likes { background: linear-gradient(135deg, #ec4899, #f472b6) !important; color: #fff !important; }
+			.stat-reposts { background: linear-gradient(135deg, #f97316, #fb923c) !important; color: #fff !important; }
+			.stat-duration { background: linear-gradient(135deg, #3b82f6, #60a5fa) !important; color: #fff !important; }
+			
+			/* Full stats with labels */
+			.proto-hover-stats-full { display: flex; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
+			.proto-hover-stats-full span { display: flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; }
+			.proto-hover-stats-full .stat-value { font-weight: 700; }
+			.proto-hover-stats-full .stat-label { font-weight: 400; opacity: 0.85; }
+			.proto-hover-meta { display: flex; gap: 0.75rem; margin-top: 0.4rem; font-size: 0.75rem; opacity: 0.9; }
+			.proto-hover-meta span { display: flex; align-items: center; gap: 0.25rem; }
+			.meta-genre { color: #a78bfa; }
+			.meta-duration { color: #60a5fa; }
+			
+			/* Genre tag */
+			.proto-hover-genre { font-size: 0.7rem; margin-top: 0.4rem; opacity: 0.85; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+			
+			/* Corner badges */
+			.proto-corner-badges { position: relative; }
+			.corner-badge { position: absolute; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+			.corner-genre { top: 8px; left: 8px; background: rgba(139, 92, 246, 0.9); color: #fff; }
+			.corner-duration { top: 8px; right: 8px; background: rgba(59, 130, 246, 0.9); color: #fff; }
+			
+			/* Compact stats - shorter pills */
+			.proto-hover-stats-compact { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+			.proto-hover-stats-compact span { padding: 0.15rem 0.4rem; border-radius: 10px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+			
+			/* Combined Flip Card Styles */
+			.combined-flip-container { perspective: 1000px; cursor: pointer; width: 300px; }
+			.combined-flip { position: relative; width: 100%; aspect-ratio: 1; transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+			.combined-flip.flipped { transform: rotateY(180deg); }
+			.combined-flip-front, .combined-flip-back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px; overflow: hidden; }
+			.combined-flip-front { background: #1a1a1a; }
+			.combined-flip-front img { width: 100%; height: 100%; object-fit: cover; }
+			.combined-flip-back { transform: rotateY(180deg); background: #0d0d0d; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+			.combined-flip-vinyl { width: 90%; height: 90%; border-radius: 50%; position: relative; animation: vinylSpin 1.8s linear infinite; background: 
+				repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.9) 3px, rgba(40,40,40,0.9) 4px),
+				radial-gradient(circle at center, #1a1a1a 35%, #0a0a0a 100%); box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.3); }
+			.combined-flip-vinyl::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 38%; height: 38%; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #a78bfa); box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
+			.combined-flip-vinyl::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, transparent 100%); }
+			.combined-flip-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32%; height: 32%; border-radius: 50%; overflow: hidden; }
+			.combined-flip-label img { width: 100%; height: 100%; object-fit: cover; }
+			.combined-flip-front-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem 1rem 1rem; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); color: #fff; }
+			.combined-flip-front-info .proto-hover-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 0.25rem; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+			.combined-flip-front-info .proto-hover-artist { font-size: 0.9rem; opacity: 0.85; }
+			.combined-flip-front-info .proto-hover-stats { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+			.combined-flip-front-info .proto-hover-stats span { padding: 0.15rem 0.4rem; border-radius: 10px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+			.combined-flip-front-info .proto-hover-genre { font-size: 0.7rem; margin-top: 0.4rem; opacity: 0.85; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+			
+			/* Global Audio Player */
+			.global-audio-player {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				background: linear-gradient(to top, #1a1a1a, #2d2d2d);
+				border-top: 1px solid rgba(139, 92, 246, 0.3);
+				padding: 0.75rem 1rem;
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				z-index: 1000;
+				transform: translateY(100%);
+				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+				box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+			}
+			.global-audio-player.player-active, .global-audio-player.active {
+				transform: translateY(0);
+			}
+			.global-player-art {
+				width: 48px;
+				height: 48px;
+				border-radius: 8px;
+				object-fit: cover;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+			}
+			.global-player-info {
+				flex: 0 0 150px;
+				overflow: hidden;
+			}
+			.global-player-title {
+				font-weight: 600;
+				font-size: 0.9rem;
+				color: #fff;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.global-player-artist {
+				font-size: 0.75rem;
+				color: rgba(255,255,255,0.7);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.global-player-controls {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+			.global-player-btn {
+				background: none;
+				border: none;
+				color: #fff;
+				cursor: pointer;
+				padding: 0.5rem;
+				border-radius: 50%;
+				transition: background 0.2s;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.global-player-btn:hover {
+				background: rgba(255,255,255,0.1);
+			}
+			.global-player-btn--play {
+				background: #8b5cf6;
+				width: 40px;
+				height: 40px;
+			}
+			.global-player-btn--play:hover {
+				background: #7c3aed;
+			}
+			.global-player-progress {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 0.25rem;
+			}
+			.global-player-bar {
+				height: 6px;
+				background: rgba(255,255,255,0.2);
+				border-radius: 3px;
+				cursor: pointer;
+				overflow: hidden;
+			}
+			.global-player-fill {
+				height: 100%;
+				background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+				border-radius: 3px;
+				width: 0%;
+				transition: width 0.1s linear;
+			}
+			.global-player-time {
+				display: flex;
+				justify-content: space-between;
+				font-size: 0.7rem;
+				color: rgba(255,255,255,0.6);
+			}
+			.global-player-close {
+				background: none;
+				border: none;
+				color: rgba(255,255,255,0.6);
+				cursor: pointer;
+				padding: 0.5rem;
+				border-radius: 50%;
+				transition: all 0.2s;
+			}
+			.global-player-close:hover {
+				color: #fff;
+				background: rgba(255,255,255,0.1);
+			}
+			</style>
+		</head>
+		<body class="container">
+			<nav>
+				<ul>
+					<li><strong>Prototypes</strong></li>
+				</ul>
+				<ul>
+					<li><a href="/stream">← Back to App</a></li>
+				</ul>
+			</nav>
+
+			<hgroup>
+				<h1>Track Card Prototypes</h1>
+				<p>Purple Neon variations - hover to see play button</p>
+			</hgroup>
+
+			if len(data.Tracks) == 0 {
+				<p>No tracks available. Sync from SoundCloud to get tracks.</p>
+			} else {
+				<!-- Horizontal scrolling container -->
+				<div style="display: flex; gap: 1.5rem; overflow-x: auto; padding: 1rem;">
+				
+				<!-- Purple Neon - various layouts to fit more data -->
+			<!-- Using Track data - stream will be fetched via /api/track/:id/stream (gets highest quality) -->
+			
+			<!-- VARIATION 1: Compact with all stats -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">1. Compact - All Stats</h3>
+				<p class="proto-desc">Genre • Duration • All counts</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-stats">
+							<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+							<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+							<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+							<span class="stat-duration">{ formatDuration(data.Tracks[0].TrackDuration) }</span>
+						</div>
+						<div class="proto-hover-genre">{ data.Tracks[0].Genre }</div>
+					</div>
+				</article>
+			</article>
+
+			<!-- VARIATION 2: Two-row stats -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">2. Two Rows</h3>
+				<p class="proto-desc">Stats above, genre below</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-stats">
+							<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+							<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+							<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+						</div>
+						<div class="proto-hover-genre">{ data.Tracks[0].Genre } • { formatDuration(data.Tracks[0].TrackDuration) }</div>
+					</div>
+				</article>
+			</article>
+
+			<!-- VARIATION 3: Stats in corners -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">3. Corner Badges</h3>
+				<p class="proto-desc">Genre top-left, duration top-right</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple proto-corner-badges">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-stats">
+							<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+							<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+							<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+						</div>
+					</div>
+					<div class="corner-badge corner-genre">{ data.Tracks[0].Genre }</div>
+					<div class="corner-badge corner-duration">{ formatDuration(data.Tracks[0].TrackDuration) }</div>
+				</article>
+			</article>
+
+			<!-- VARIATION 4: Minimal compact -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">4. Minimal</h3>
+				<p class="proto-desc">Just essentials, small pills</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-genre">{ data.Tracks[0].Genre }</div>
+					</div>
+				</article>
+			</article>
+
+			<!-- VARIATION 5: Full info compact -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">5. Full Info Compact</h3>
+				<p class="proto-desc">Short pills + genre</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-stats-compact">
+							<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+							<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+							<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+							<span class="stat-duration">⏱ { formatDuration(data.Tracks[0].TrackDuration) }</span>
+						</div>
+						<div class="proto-hover-meta">
+							<span class="meta-genre">🎵 { data.Tracks[0].Genre }</span>
+						</div>
+					</div>
+				</article>
+				</article>
+
+			<!-- VARIATION 5: Full info compact -->
+			<article class="proto-card proto-purple">
+				<h3 class="proto-title">5. Full Info Compact</h3>
+				<p class="proto-desc">Short pills + genre</p>
+				<article data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName } class="proto-hover proto-purple">
+					<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle } class="proto-img"/>
+					<button aria-label="Play" class="proto-hover-play" data-track-id={ data.Tracks[0].TrackID } data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" } data-track-title={ data.Tracks[0].TrackTitle } data-artist-name={ data.Tracks[0].ArtistName }>
+						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<div class="proto-hover-info">
+						<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+						<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+						<div class="proto-hover-stats-compact">
+							<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+							<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+							<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+							<span class="stat-duration">⏱ { formatDuration(data.Tracks[0].TrackDuration) }</span>
+						</div>
+						<div class="proto-hover-meta">
+							<span class="meta-genre">🎵 { data.Tracks[0].Genre }</span>
+						</div>
+					</div>
+				</article>
+			</article>
+
+			<!-- Your Latest Tracks with Combined Flip Card -->
+			<article class="proto-card" style="flex: 0 0 auto;">
+				<h3 class="proto-title">Your Latest Tracks</h3>
+				<p class="proto-desc">Click to flip & play</p>
+				<div class="combined-flip-container" 
+					data-track-id={ data.Tracks[0].TrackID } 
+					data-stream-url={ "/api/track/" + data.Tracks[0].TrackID + "/stream" }
+					data-track-title={ data.Tracks[0].TrackTitle }
+					data-artist-name={ data.Tracks[0].ArtistName }
+					onclick="handleCombinedFlip(this)">
+					<div class="combined-flip">
+						<div class="combined-flip-front">
+							<img src={ data.Tracks[0].ArtworkURL } alt={ data.Tracks[0].TrackTitle }/>
+							<div class="combined-flip-front-info">
+								<div class="proto-hover-title">{ data.Tracks[0].TrackTitle }</div>
+								<div class="proto-hover-artist">{ data.Tracks[0].ArtistName }</div>
+								<div class="proto-hover-stats">
+									<span class="stat-plays">▶ { formatCount(data.Tracks[0].PlaybackCount) }</span>
+									<span class="stat-likes">♡ { formatCount(data.Tracks[0].FavoritingsCount) }</span>
+									<span class="stat-reposts">↻ { formatCount(data.Tracks[0].RepostsCount) }</span>
+									<span class="stat-duration">{ formatDuration(data.Tracks[0].TrackDuration) }</span>
+								</div>
+								<div class="proto-hover-genre">{ data.Tracks[0].Genre }</div>
+							</div>
+						</div>
+						<div class="combined-flip-back">
+							<div class="combined-flip-vinyl">
+								<div class="combined-flip-label">
+									<img src={ data.Tracks[0].ArtworkURL } alt=""/>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- Show more tracks with the same card -->
+			for i, track := range data.Tracks {
+				if i == 0 {
+					continue
+				}
+			<article class="proto-card" style="flex: 0 0 auto;">
+				<div class="combined-flip-container" 
+					data-track-id={ track.TrackID } 
+					data-stream-url={ "/api/track/" + track.TrackID + "/stream" }
+					data-track-title={ track.TrackTitle }
+					data-artist-name={ track.ArtistName }
+					onclick="handleCombinedFlip(this)">
+					<div class="combined-flip">
+						<div class="combined-flip-front">
+							<img src={ track.ArtworkURL } alt={ track.TrackTitle }/>
+							<div class="combined-flip-front-info">
+								<div class="proto-hover-title">{ track.TrackTitle }</div>
+								<div class="proto-hover-artist">{ track.ArtistName }</div>
+								<div class="proto-hover-stats">
+									<span class="stat-plays">▶ { formatCount(track.PlaybackCount) }</span>
+									<span class="stat-likes">♡ { formatCount(track.FavoritingsCount) }</span>
+									<span class="stat-reposts">↻ { formatCount(track.RepostsCount) }</span>
+									<span class="stat-duration">{ formatDuration(track.TrackDuration) }</span>
+								</div>
+								<div class="proto-hover-genre">{ track.Genre }</div>
+							</div>
+						</div>
+						<div class="combined-flip-back">
+							<div class="combined-flip-vinyl">
+								<div class="combined-flip-label">
+									<img src={ track.ArtworkURL } alt=""/>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</article>
+			}
+
+				</div>
+			}
+
+		<!-- =============================================================================
+		     HEADER + FILTER PROTOTYPES
+		     5 Header themes with complementary filter bars
+		     ============================================================================ -->
+
+		<hgroup style="margin-top: 3rem;">
+			<h2>Header & Filter Prototypes</h2>
+			<p>5 beautiful header themes with complementary filter control bars</p>
+		</hgroup>
+
+		<!-- THEME 1: Midnight Aurora - Deep purples with aurora gradients -->
+		<div style="margin-bottom: 3rem;">
+			<header class="proto-header-aurora">
+				<div class="aurora-bg"></div>
+				<div class="aurora-content">
+					<h1>Your Stream</h1>
+					<p class="aurora-subtitle">Discover new music from your network</p>
+				</div>
+			</header>
+			<style>
+				.proto-header-aurora {
+					position: relative;
+					padding: 3rem 2rem;
+					border-radius: 16px 16px 0 0;
+					overflow: hidden;
+					min-height: 140px;
+				}
+				.aurora-bg {
+					position: absolute;
+					inset: 0;
+					background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+				}
+				.aurora-bg::before {
+					content: '';
+					position: absolute;
+					inset: 0;
+					background: 
+						radial-gradient(ellipse at 20% 80%, rgba(139, 92, 246, 0.4) 0%, transparent 50%),
+						radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+						radial-gradient(ellipse at 50% 50%, rgba(236, 72, 153, 0.2) 0%, transparent 60%);
+					animation: auroraPulse 8s ease-in-out infinite;
+				}
+				@keyframes auroraPulse {
+					0%, 100% { opacity: 0.6; }
+					50% { opacity: 1; }
+				}
+				.aurora-content {
+					position: relative;
+					z-index: 1;
+				}
+				.proto-header-aurora h1 {
+					color: #fff;
+					margin: 0;
+					font-size: 2.5rem;
+					font-weight: 700;
+					text-shadow: 0 2px 20px rgba(139, 92, 246, 0.5);
+				}
+				.aurora-subtitle {
+					color: rgba(255,255,255,0.8);
+					margin: 0.5rem 0 0;
+					font-size: 1rem;
+				}
+			</style>
+			<nav class="proto-filter-aurora">
+				<input type="search" placeholder="Search tracks..."/>
+				<select><option>All</option><option>Posts</option><option>Reposts</option></select>
+				<select><option>Newest</option><option>Oldest</option><option>Popular</option></select>
+				<button>🔄 Sync</button>
+			</nav>
+			<style>
+				.proto-filter-aurora {
+					display: flex;
+					gap: 0.75rem;
+					padding: 1rem 2rem;
+					background: linear-gradient(to bottom, rgba(48, 43, 99, 0.9), rgba(15, 12, 41, 0.95));
+					border-radius: 0 0 16px 16px;
+					flex-wrap: wrap;
+				}
+				.proto-filter-aurora input, .proto-filter-aurora select {
+					background: rgba(255,255,255,0.1);
+					border: 1px solid rgba(139, 92, 246, 0.3);
+					color: #fff;
+					padding: 0.5rem 1rem;
+					border-radius: 8px;
+				}
+				.proto-filter-aurora input::placeholder { color: rgba(255,255,255,0.5); }
+				.proto-filter-aurora input:focus, .proto-filter-aurora select:focus {
+					border-color: #8b5cf6;
+					outline: none;
+					background: rgba(255,255,255,0.15);
+				}
+				.proto-filter-aurora button {
+					background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+					color: #fff;
+					border: none;
+					padding: 0.5rem 1.25rem;
+					border-radius: 8px;
+					cursor: pointer;
+					font-weight: 600;
+				}
+			</style>
+		</div>
+
+		<!-- THEME 2: Sunset Glow - Warm oranges and pinks -->
+		<div style="margin-bottom: 3rem;">
+			<header class="proto-header-sunset">
+				<div class="sunset-content">
+					<h1>Your Stream</h1>
+					<p>Music from the people you follow</p>
+				</div>
+			</header>
+			<style>
+				.proto-header-sunset {
+					padding: 3rem 2rem;
+					background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff3366 100%);
+					border-radius: 16px 16px 0 0;
+					position: relative;
+				}
+				.proto-header-sunset::after {
+					content: '';
+					position: absolute;
+					top: 0;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.3) 100%);
+					border-radius: 16px 16px 0 0;
+				}
+				.sunset-content {
+					position: relative;
+					z-index: 1;
+				}
+				.proto-header-sunset h1 {
+					color: #fff;
+					margin: 0;
+					font-size: 2.5rem;
+					font-weight: 700;
+				}
+				.proto-header-sunset p {
+					color: rgba(255,255,255,0.9);
+					margin: 0.5rem 0 0;
+				}
+			</style>
+			<nav class="proto-filter-sunset">
+				<div class="sunset-pill"><input type="search" placeholder="Search..."/></div>
+				<div class="sunset-pill"><select><option>All</option></select></div>
+				<div class="sunset-pill"><select><option>Newest</option></select></div>
+				<div class="sunset-pill"><button>🔄</button></div>
+			</nav>
+			<style>
+				.proto-filter-sunset {
+					display: flex;
+					gap: 0.5rem;
+					padding: 1rem 2rem;
+					background: #1a1a1a;
+					border-radius: 0 0 16px 16px;
+					flex-wrap: wrap;
+				}
+				.sunset-pill {
+					background: linear-gradient(135deg, #ff6b35, #f7931e);
+					padding: 3px;
+					border-radius: 10px;
+				}
+				.sunset-pill input, .sunset-pill select, .sunset-pill button {
+					background: #2a2a2a;
+					border: none;
+					color: #fff;
+					padding: 0.5rem 1rem;
+					border-radius: 8px;
+				}
+				.sunset-pill button { cursor: pointer; }
+			</style>
+		</div>
+
+		<!-- THEME 3: Ocean Depth - Blues and teals -->
+		<div style="margin-bottom: 3rem;">
+			<header class="proto-header-ocean">
+				<div class="ocean-waves"></div>
+				<div class="ocean-content">
+					<h1>Your Stream</h1>
+					<p>Dive into your music collection</p>
+				</div>
+			</header>
+			<style>
+				.proto-header-ocean {
+					padding: 3rem 2rem;
+					background: linear-gradient(180deg, #0c1929 0%, #1a3a5c 100%);
+					border-radius: 16px 16px 0 0;
+					position: relative;
+					overflow: hidden;
+				}
+				.ocean-waves {
+					position: absolute;
+					bottom: 0;
+					left: 0;
+					right: 0;
+					height: 60px;
+					background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%231a3a5c' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E") no-repeat bottom;
+					background-size: cover;
+				}
+				.ocean-content { position: relative; z-index: 1; }
+				.proto-header-ocean h1 { color: #fff; margin: 0; font-size: 2.5rem; font-weight: 700; }
+				.proto-header-ocean p { color: #60a5fa; margin: 0.5rem 0 0; }
+			</style>
+			<nav class="proto-filter-ocean">
+				<div class="ocean-chip">🔍 <input type="search" placeholder="Search"/></div>
+				<div class="ocean-chip">📂 <select><option>All</option></select></div>
+				<div class="ocean-chip">↕️ <select><option>Sort</option></select></div>
+				<div class="ocean-chip ocean-sync">🔄 Sync</div>
+			</nav>
+			<style>
+				.proto-filter-ocean {
+					display: flex; gap: 0.75rem; padding: 1.25rem 2rem;
+					background: #0f172a; border-radius: 0 0 16px 16px;
+					flex-wrap: wrap; align-items: center;
+				}
+				.ocean-chip {
+					display: flex; align-items: center; gap: 0.5rem;
+					background: rgba(96, 165, 250, 0.1);
+					border: 1px solid rgba(96, 165, 250, 0.2);
+					color: #60a5fa; padding: 0.5rem 1rem;
+					border-radius: 20px; font-size: 0.9rem;
+				}
+				.ocean-chip input, .ocean-chip select { background: transparent; border: none; color: #fff; outline: none; }
+				.ocean-chip input::placeholder { color: rgba(96, 165, 250, 0.6); }
+				.ocean-sync { background: linear-gradient(135deg, #0ea5e9, #06b6d4); color: #fff; margin-left: auto; cursor: pointer; font-weight: 600; }
+			</style>
+		</div>
+
+		<!-- THEME 4: Forest Moss - Natural greens -->
+		<div style="margin-bottom: 3rem;">
+			<header class="proto-header-forest">
+				<div class="forest-content">
+					<h1>Your Stream</h1>
+					<p>Fresh tracks from your SoundCloud</p>
+				</div>
+			</header>
+			<style>
+				.proto-header-forest {
+					padding: 3rem 2rem;
+					background: linear-gradient(135deg, #1a2e05 0%, #2d4a1c 50%, #3d5a27 100%);
+					border-radius: 16px 16px 0 0;
+					position: relative;
+				}
+				.proto-header-forest::before {
+					content: ''; position: absolute; inset: 0;
+					background: radial-gradient(circle at 80% 20%, rgba(134, 239, 172, 0.15) 0%, transparent 40%);
+				}
+				.forest-content { position: relative; z-index: 1; }
+				.proto-header-forest h1 { color: #fff; margin: 0; font-size: 2.5rem; font-weight: 700; }
+				.proto-header-forest p { color: #86efac; margin: 0.5rem 0 0; }
+			</style>
+			<nav class="proto-filter-forest">
+				<label class="forest-input"><span>🔍</span><input type="search" placeholder="Search tracks..."/></label>
+				<label class="forest-select"><span>📂</span><select><option>All Types</option></select></label>
+				<label class="forest-select"><span>↕️</span><select><option>Sort</option></select></label>
+				<button class="forest-btn">🔄 Sync</button>
+			</nav>
+			<style>
+				.proto-filter-forest {
+					display: flex; gap: 1rem; padding: 1rem 2rem;
+					background: #1a1a1a; border-radius: 0 0 16px 16px;
+					flex-wrap: wrap; align-items: center;
+				}
+				.forest-input, .forest-select {
+					display: flex; align-items: center; gap: 0.5rem;
+					background: #2a2a2a; padding: 0.5rem 1rem;
+					border-radius: 8px; border: 1px solid #3a3a3a;
+				}
+				.forest-input:focus-within, .forest-select:focus-within { border-color: #22c55e; }
+				.forest-input span, .forest-select span { color: #86efac; }
+				.forest-input input, .forest-select select { background: transparent; border: none; color: #fff; outline: none; }
+				.forest-input input::placeholder { color: #666; }
+				.forest-btn { margin-left: auto; background: #22c55e; color: #fff; border: none; padding: 0.5rem 1.25rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+				.forest-btn:hover { background: #16a34a; }
+			</style>
+		</div>
+
+		<!-- THEME 5: Minimal Mono - Black & white -->
+		<div style="margin-bottom: 3rem;">
+			<header class="proto-header-minimal">
+				<h1>Your Stream</h1>
+				<p>Music from your network</p>
+			</header>
+			<style>
+				.proto-header-minimal {
+					padding: 3rem 2rem; background: #000;
+					border-radius: 16px 16px 0 0; border-bottom: 3px solid #fff;
+				}
+				.proto-header-minimal h1 { color: #fff; margin: 0; font-size: 2.5rem; font-weight: 300; letter-spacing: -0.02em; }
+				.proto-header-minimal h1 strong { font-weight: 700; }
+				.proto-header-minimal p { color: #666; margin: 0.5rem 0 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; }
+			</style>
+			<nav class="proto-filter-minimal">
+				<div class="minimal-group"><input type="search" placeholder="Search"/></div>
+				<div class="minimal-group"><select><option>All</option></select></div>
+				<div class="minimal-group"><select><option>Newest</option></select></div>
+				<div class="minimal-group minimal-btn"><button>Sync</button></div>
+			</nav>
+			<style>
+				.proto-filter-minimal { display: flex; gap: 0; padding: 0; background: #000; border-radius: 0 0 16px 16px; overflow: hidden; }
+				.minimal-group { flex: 1; min-width: 120px; }
+				.minimal-group input, .minimal-group select, .minimal-group button {
+					width: 100%; height: 48px; background: #000; border: none; border-right: 1px solid #222;
+					color: #fff; padding: 0 1rem; font-size: 0.85rem; outline: none;
+				}
+				.minimal-group input::placeholder { color: #444; }
+				.minimal-group input:focus, .minimal-group select:focus { background: #111; }
+				.minimal-btn button { cursor: pointer; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: #fff !important; color: #000 !important; }
+				.minimal-btn button:hover { background: #ccc !important; }
+			</style>
+		</div>
+
+		<!-- Global Audio Player -->
+		<div id="global-audio-player" class="global-audio-player">
+				<img id="global-player-art" src="" alt="" class="global-player-art"/>
+				<div class="global-player-info">
+					<div id="global-player-title" class="global-player-title"></div>
+					<div id="global-player-artist" class="global-player-artist"></div>
+				</div>
+				<div class="global-player-controls">
+					<button class="global-player-btn" id="global-player-prev" aria-label="Previous">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
+					</button>
+					<button class="global-player-btn global-player-btn--play" id="global-player-play" aria-label="Play/Pause">
+						<svg id="global-play-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+						<svg id="global-pause-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+					</button>
+					<button class="global-player-btn" id="global-player-next" aria-label="Next">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+					</button>
+				</div>
+				<div class="global-player-progress">
+					<div class="global-player-bar" id="global-player-bar">
+						<div class="global-player-fill" id="global-player-fill"></div>
+					</div>
+					<div class="global-player-time">
+						<span id="global-current-time">0:00</span>
+						<span id="global-duration">0:00</span>
+					</div>
+				</div>
+				<button class="global-player-close" id="global-player-close" aria-label="Close">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+				</button>
+				<audio id="global-audio" preload="none"></audio>
+			</div>
+
+			<script>
+			// Play track function - gets data from button's data attributes
+			document.addEventListener('click', function(e) {
+				const btn = e.target.closest('button[data-track-id]');
+				if (btn) {
+					const trackID = btn.dataset.trackId;
+					const streamURL = btn.dataset.streamUrl;
+					const trackTitle = btn.dataset.trackTitle;
+					const artistName = btn.dataset.artistName;
+					
+					console.log('Playing:', trackTitle, 'by', artistName, 'from', streamURL);
+					
+					// Update global player
+					const player = document.getElementById('global-audio-player');
+					const playerArt = document.getElementById('global-player-art');
+					const playerTitle = document.getElementById('global-player-title');
+					const playerArtist = document.getElementById('global-player-artist');
+					const audio = document.getElementById('global-audio');
+					
+					// Get artwork from the card
+					const card = btn.closest('article[data-track-id]');
+					const artwork = card?.querySelector('img')?.src || '';
+					
+					if (player && playerArt && playerTitle && playerArtist && audio) {
+						player.classList.add('player-active');
+						playerArt.src = artwork;
+						playerTitle.textContent = trackTitle;
+						playerArtist.textContent = artistName;
+						audio.src = streamURL;
+						audio.play().catch(err => console.error('Play error:', err));
+					}
+				}
+			});
+
+			// Close player
+			document.getElementById('global-player-close')?.addEventListener('click', function() {
+				const player = document.getElementById('global-audio-player');
+				const audio = document.getElementById('global-audio');
+				player?.classList.remove('player-active');
+				audio?.pause();
+			});
+
+			// Play/Pause toggle
+			document.getElementById('global-player-play')?.addEventListener('click', function() {
+				const audio = document.getElementById('global-audio');
+				const playIcon = document.getElementById('global-play-icon');
+				const pauseIcon = document.getElementById('global-pause-icon');
+				
+				if (audio.paused) {
+					audio.play();
+					if (playIcon) playIcon.style.display = 'none';
+					if (pauseIcon) pauseIcon.style.display = 'block';
+				} else {
+					audio.pause();
+					if (playIcon) playIcon.style.display = 'block';
+					if (pauseIcon) pauseIcon.style.display = 'none';
+				}
+			});
+
+			// Update progress bar
+			const audio = document.getElementById('global-audio');
+			if (audio) {
+				audio.addEventListener('timeupdate', function() {
+					const fill = document.getElementById('global-player-fill');
+					const currentTime = document.getElementById('global-current-time');
+					const duration = document.getElementById('global-duration');
+					
+					if (fill && audio.duration) {
+						fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+					}
+					if (currentTime) {
+						currentTime.textContent = formatTime(audio.currentTime);
+					}
+					if (duration) {
+						duration.textContent = formatTime(audio.duration);
+					}
+				});
+			}
+
+			function formatTime(seconds) {
+				if (!seconds || isNaN(seconds)) return '0:00';
+				const mins = Math.floor(seconds / 60);
+				const secs = Math.floor(seconds % 60);
+				return mins + ':' + secs.toString().padStart(2, '0');
+			}
+			
+			// Combined flip handler - flip card AND play track
+			function handleCombinedFlip(container) {
+				const isFlipped = container.querySelector('.combined-flip').classList.toggle('flipped');
+				
+				// If flipping to back (playing), start the track
+				if (isFlipped) {
+					const trackID = container.dataset.trackId;
+					const streamURL = container.dataset.streamUrl;
+					const trackTitle = container.dataset.trackTitle;
+					const artistName = container.dataset.artistName;
+					
+					console.log('Playing:', trackTitle, 'by', artistName, 'from', streamURL);
+					
+					const player = document.getElementById('global-audio-player');
+					const playerArt = document.getElementById('global-player-art');
+					const playerTitle = document.getElementById('global-player-title');
+					const playerArtist = document.getElementById('global-player-artist');
+					const audio = document.getElementById('global-audio');
+					
+					if (player && playerArt && playerTitle && playerArtist && audio) {
+						player.classList.add('player-active');
+						playerArt.src = container.querySelector('img').src;
+						playerTitle.textContent = trackTitle;
+						playerArtist.textContent = artistName;
+						audio.src = streamURL;
+						audio.play().catch(err => console.error('Play error:', err));
+						
+						// Update play/pause icons
+						const playIcon = document.getElementById('global-play-icon');
+						const pauseIcon = document.getElementById('global-pause-icon');
+						if (playIcon) playIcon.style.display = 'none';
+						if (pauseIcon) pauseIcon.style.display = 'block';
+					}
+				}
+			}
+			</script>
+		</body>
+	</html>
+}

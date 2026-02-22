@@ -633,22 +633,22 @@
 }
 
 /* User dropdown menu */
-.user-menu summary {
+.user-dropdown summary {
   cursor: pointer;
   list-style: none;
 }
 
-.user-menu summary::-webkit-details-marker {
+.user-dropdown summary::-webkit-details-marker {
   display: none;
 }
 
-.user-menu summary::after {
+.user-dropdown summary::after {
   content: " ▼";
   font-size: var(--text-xs);
   margin-left: var(--space-1);
 }
 
-.user-menu[open] summary::after {
+.user-dropdown[open] summary::after {
   content: " ▲";
 }
 
@@ -2860,3 +2860,394 @@ button:disabled,
     gap: var(--space-2);
   }
 }
+
+/* =============================================================================
+   OFFLINE INDICATOR STYLES
+   PWA offline status notification
+   ============================================================================= */
+
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-fixed);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #f59e0b;
+  color: #1f2328;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  text-align: center;
+  box-shadow: var(--shadow-md);
+}
+
+body.offline .offline-indicator {
+  display: flex;
+}
+
+body.offline .offline-indicator[role="alert"] {
+  animation: slideDown 0.3s var(--ease-out);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body.offline .requires-network {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+body.offline .requires-network::after {
+  content: " (offline)";
+  font-size: var(--text-xs);
+  color: var(--color-fg-muted);
+}
+
+/* =============================================================================
+   STREAM FILTER CONTROLS
+   Filter form, duration slider, and control styling
+   ============================================================================= */
+
+#filter-form {
+  margin-bottom: var(--space-6);
+}
+
+#filter-form fieldset {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  min-inline-size: 0;
+  width: 100%;
+}
+
+#filter-form fieldset[role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) !important;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+}
+
+#filter-form fieldset[role="group"] input[type="search"],
+#filter-form fieldset[role="group"] select {
+  margin: 0 !important;
+  padding: var(--space-2) var(--space-3) !important;
+  min-width: 100px;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  height: 36px !important;
+  font-size: var(--text-sm) !important;
+  line-height: 1.2 !important;
+}
+
+#filter-form fieldset[role="group"] button {
+  margin: 0 !important;
+  padding: var(--space-2) var(--space-3) !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  height: 36px !important;
+  font-size: var(--text-sm) !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+#filter-form fieldset[role="group"] #sync-btn {
+  background-color: #ff5500 !important;
+  color: white !important;
+  border-color: #ff5500 !important;
+}
+
+#filter-form fieldset[role="group"] #sync-btn:hover {
+  background-color: #e64a00 !important;
+  border-color: #e64a00 !important;
+}
+
+/* Duration Range Filter */
+.duration-range {
+  padding: var(--space-3) var(--space-4) !important;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+}
+
+.duration-range legend,
+.duration-range label {
+  display: block;
+  margin-bottom: var(--space-2) !important;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-fg-default);
+}
+
+.duration-range strong {
+  color: var(--color-accent-fg);
+}
+
+/* YouTube-style Duration Slider */
+.youtube-slider-container {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.youtube-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--color-border-default);
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.youtube-range {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0;
+  height: 4px;
+  background: var(--color-accent-emphasis);
+  border-radius: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.youtube-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background: var(--color-accent-emphasis);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.youtube-handle:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.youtube-handle:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark theme slider adjustments */
+[data-theme="dark"] .youtube-track {
+  background: var(--color-border-muted);
+}
+
+[data-theme="dark"] .youtube-handle {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive filter controls */
+@media (max-width: 768px) {
+  #filter-form fieldset[role="group"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  #filter-form fieldset[role="group"] input[type="search"],
+  #filter-form fieldset[role="group"] select {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  #filter-form fieldset[role="group"] button {
+    width: 100%;
+  }
+}
+
+/* =============================================================================
+   FLIP CARD STYLES FOR STREAM
+   ============================================================================= */
+
+.stream-flip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.stream-flip-card {
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.stream-flip {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stream-flip.flipped {
+  transform: rotateY(180deg);
+}
+
+.stream-flip-front, .stream-flip-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stream-flip-front {
+  background: #1a1a1a;
+}
+
+.stream-flip-front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-flip-back {
+  transform: rotateY(180deg);
+  background: #0d0d0d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+@keyframes vinylSpin { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+
+.stream-flip-vinyl {
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  position: relative;
+  animation: vinylSpin 1.8s linear infinite;
+  background: repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.9) 3px, rgba(40,40,40,0.9) 4px),
+    radial-gradient(circle at center, #1a1a1a 35%, #0a0a0a 100%);
+  box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.3);
+}
+
+.stream-flip-vinyl::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 38%;
+  height: 38%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
+
+.stream-flip-vinyl::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, transparent 100%);
+}
+
+.stream-flip-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.stream-flip-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-flip-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 1rem 1rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  color: #fff;
+}
+
+.stream-flip-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-flip-artist {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.stream-flip-stats {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stream-flip-stats span {
+  padding: 0.15rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stream-flip-genre {
+  font-size: 0.7rem;
+  margin-top: 0.4rem;
+  opacity: 0.85;
+  color: #c4b5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+/* Stat colors */
+.stat-plays { background: linear-gradient(135deg, #10b981, #34d399); color: #fff; }
+.stat-likes { background: linear-gradient(135deg, #ec4899, #f472b6); color: #fff; }
+.stat-reposts { background: linear-gradient(135deg, #f97316, #fb923c); color: #fff; }
+.stat-duration { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: #fff; }

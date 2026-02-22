@@ -1,0 +1,37 @@
+package components
+
+templ StreamFlipCard(trackID, trackTitle, artistName, genre string, trackDuration int64, artworkURL string, playbackCount, favoritingsCount, repostsCount int64) {
+	<div 
+		class="stream-flip-card" 
+		data-track-id={ trackID } 
+		data-stream-url={ "/api/track/" + trackID + "/stream" }
+		data-track-title={ trackTitle }
+		data-artist-name={ artistName }
+		onclick="handleStreamFlip(this)">
+		<div class="stream-flip">
+			<div class="stream-flip-front">
+				<img src={ artworkURL } alt={ trackTitle }/>
+				<div class="stream-flip-info">
+					<div class="stream-flip-title">{ trackTitle }</div>
+					<div class="stream-flip-artist">{ artistName }</div>
+					<div class="stream-flip-stats">
+						<span class="stat-plays">▶ { formatCompact(playbackCount) }</span>
+						<span class="stat-likes">♡ { formatCompact(favoritingsCount) }</span>
+						<span class="stat-reposts">↻ { formatCompact(repostsCount) }</span>
+						<span class="stat-duration">{ formatDuration(trackDuration) }</span>
+					</div>
+					if genre != "" {
+						<div class="stream-flip-genre">{ genre }</div>
+					}
+				</div>
+			</div>
+			<div class="stream-flip-back">
+				<div class="stream-flip-vinyl">
+					<div class="stream-flip-label">
+						<img src={ artworkURL } alt=""/>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
