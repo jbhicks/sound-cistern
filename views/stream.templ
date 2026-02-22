@@ -55,71 +55,69 @@ type StreamData struct {
 templ Stream(data StreamData) {
 	@Layout(data.PageData) {
 		<main class="container">
-			<form 
-				id="filter-form"
-				role="search"
-				hx-get="/api/stream"
-				hx-target="#track-container"
-				hx-swap="innerHTML"
-				hx-indicator="#loading"
-				hx-trigger="change from:select, change from:input[type='hidden'], input delay:300ms from:input[type='search']"
-				hx-on::after-swap="resetLoadMoreButton()"
-			>
-				<fieldset role="group">
-					<input 
-						type="search" 
-						name="q"
-						id="filter-q"
-						placeholder="Search tracks..."
-						autocomplete="off"
-					/>
-					<select name="content_type" id="filter-content-type">
-						<option value="">All</option>
-						<option value="posts">Posts</option>
-						<option value="reposts">Reposts</option>
-					</select>
-					<select name="sort" id="filter-sort">
-						<option value="newest">Newest</option>
-						<option value="oldest">Oldest</option>
-						<option value="title">Title</option>
-						<option value="artist">Artist</option>
-						<option value="duration">Duration</option>
-					</select>
-					<select name="limit" id="filter-limit">
-						<option value="20" selected>20 tracks</option>
-						<option value="50">50 tracks</option>
-						<option value="100">100 tracks</option>
-					</select>
-					<button type="button" class="secondary outline" id="sync-btn" onclick="syncTracks()">🔄 Sync</button>
-					<button 
-						type="button"
-						class="secondary outline"
-						hx-get="/api/stream"
-						hx-target="#track-container"
-						hx-swap="innerHTML"
-						hx-vals='{"q":"","genre":"","content_type":"","sort":"newest","duration_min":"0","limit":"20"}'
-						onclick="
-							document.getElementById('filter-form').reset();
-							document.getElementById('duration-min-input').value = 0;
-							document.getElementById('duration-min-display').textContent = formatMinutes(0);
-							updateSliderUI(0);
-							localStorage.removeItem('stream-filters');
-						"
-					>
-						Clear
-					</button>
-				</fieldset>
-				
-				<fieldset class="duration-range">
-					<label>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></label>
-					<div class="youtube-slider-container" id="duration-slider">
-						<div class="youtube-track"></div>
-						<div class="youtube-range" id="youtube-range"></div>
-						<div class="youtube-handle" id="duration-handle" data-value={ formatInt64(data.MinDuration) }></div>
+			<!-- Vapor Wave Filter Bar -->
+			<div class="vapor-filter-bar">
+				<div class="vapor-filter-main">
+					<div class="vapor-search">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+						<input 
+							type="text" 
+							name="q"
+							id="filter-q"
+							placeholder="Search..."
+							autocomplete="off"
+							hx-get="/api/stream"
+							hx-target="#track-container"
+							hx-trigger="input delay:300ms"
+							hx-include="#filter-content-type,#filter-sort,#filter-limit"
+						/>
 					</div>
-					<input type="hidden" name="duration_min" id="duration-min-input" value={ formatInt64(data.MinDuration) } data-max={ formatInt64(data.MaxDuration) }>
-				</fieldset>
-			</form>
+					
+					<div class="vapor-filters">
+						<select name="content_type" id="filter-content-type" hx-get="/api/stream" hx-target="#track-container" hx-trigger="change">
+							<option value="">All</option>
+							<option value="posts">Posts</option>
+							<option value="reposts">Reposts</option>
+						</select>
+						<select name="sort" id="filter-sort" hx-get="/api/stream" hx-target="#track-container" hx-trigger="change">
+							<option value="newest">Newest</option>
+							<option value="oldest">Oldest</option>
+							<option value="title">Title</option>
+							<option value="artist">Artist</option>
+							<option value="duration">Duration</option>
+						</select>
+					</div>
+					
+					<div class="vapor-actions">
+						<select name="limit" id="filter-limit" hx-get="/api/stream?refresh=true" hx-target="#track-container" hx-trigger="change">
+							<option value="20">20</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</select>
+						<button type="button" class="vapor-btn vapor-btn-sync" id="sync-btn" onclick="syncTracks()">
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+							Sync
+						</button>
+						<button type="button" class="vapor-btn vapor-btn-clear" onclick="resetFilters()">
+							Reset
+						</button>
+					</div>
+				</div>
+				
+				<div class="vapor-filter-row">
+					<label class="vapor-duration">
+						<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></span>
+						<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
+							hx-get="/api/stream?refresh=true"
+							hx-target="#track-container"
+							hx-trigger="input delay:300ms"
+							hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit"
+							name="duration_min"
+							oninput="updateDurationDisplay(this.value)"
+						/>
+					</label>
+				</div>
+			</div>
 
 			<div id="loading" aria-busy="true" hidden>
 				<small>Loading tracks...</small>
@@ -144,7 +142,6 @@ templ Stream(data StreamData) {
 										<div class="stream-flip-stats">
 											<span class="stat-plays">▶ { formatCompact(track.PlaybackCount) }</span>
 											<span class="stat-likes">♡ { formatCompact(track.FavoritingsCount) }</span>
-											<span class="stat-reposts">↻ { formatCompact(track.RepostsCount) }</span>
 											<span class="stat-duration">{ formatDuration(track.TrackDuration) }</span>
 										</div>
 										if track.Genre != "" {
@@ -183,8 +180,8 @@ templ Stream(data StreamData) {
 					data-page="2"
 					data-loaded="0"
 					hx-get="/api/stream"
-					hx-include="#filter-form"
 					hx-vals='{"page":"2"}'
+					hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
 					hx-target="#track-container"
 					hx-swap="beforeend"
 					hx-trigger="revealed"
@@ -255,6 +252,197 @@ templ Stream(data StreamData) {
 				color: white;
 			}
 			
+			/* Vapor Wave Filter Bar */
+			.vapor-filter-bar {
+				background: linear-gradient(135deg, rgba(26, 10, 46, 0.6), rgba(22, 33, 62, 0.6));
+				padding: 0.75rem 1rem;
+				border-radius: 12px;
+				margin-bottom: 1rem;
+				border: 1px solid rgba(255, 107, 157, 0.2);
+				backdrop-filter: blur(10px);
+			}
+			.vapor-filter-main {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 0.75rem;
+			}
+			.vapor-search {
+				flex: 1;
+				min-width: 180px;
+				position: relative;
+				display: flex;
+				align-items: center;
+			}
+			.vapor-search svg {
+				position: absolute;
+				left: 10px;
+				color: rgba(255, 107, 157, 0.6);
+				pointer-events: none;
+				width: 14px;
+				height: 14px;
+			}
+			.vapor-search input {
+				width: 100%;
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid rgba(0, 212, 255, 0.3);
+				color: #fff;
+				padding: 0.5rem 1rem 0.5rem 2rem;
+				border-radius: 8px;
+				font-size: 0.85rem;
+				appearance: none;
+				-webkit-appearance: none;
+			}
+			.vapor-search input::-webkit-search-decoration,
+			.vapor-search input::-webkit-search-cancel-button,
+			.vapor-search input::-webkit-search-results-button,
+			.vapor-search input::-webkit-search-results-decoration {
+				-webkit-appearance: none;
+				display: none;
+			}
+			.vapor-search input::placeholder {
+				color: rgba(255, 107, 157, 0.6);
+			}
+			.vapor-search input:focus {
+				border-color: #ff6b9d;
+				outline: none;
+				box-shadow: 0 0 15px rgba(255, 107, 157, 0.3);
+			}
+			.vapor-filters, .vapor-actions {
+				display: flex;
+				gap: 0.5rem;
+			}
+			.vapor-filters select, .vapor-actions select {
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid rgba(0, 212, 255, 0.3);
+				color: #fff;
+				padding: 0.5rem 0.75rem;
+				border-radius: 8px;
+				font-size: 0.85rem;
+				cursor: pointer;
+			}
+			.vapor-filters select:focus, .vapor-actions select:focus {
+				border-color: #ff6b9d;
+				outline: none;
+				box-shadow: 0 0 15px rgba(255, 107, 157, 0.3);
+			}
+			.vapor-filters select option, .vapor-actions select option {
+				background: #1a0a2e;
+				color: #fff;
+			}
+			.vapor-filter-row {
+				margin-top: 0.75rem;
+				padding-top: 0.75rem;
+				border-top: 1px solid rgba(255, 107, 157, 0.15);
+			}
+			.vapor-filter-row .vapor-duration {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				width: 100%;
+			}
+			.vapor-filter-row .vapor-duration label {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				color: #ff6b9d;
+				font-size: 0.8rem;
+				white-space: nowrap;
+			}
+			.vapor-filter-row .vapor-duration label strong {
+				color: #00d4ff;
+				min-width: 60px;
+			}
+			.vapor-filter-row input[type="range"] {
+				flex: 1;
+				height: 6px;
+				-webkit-appearance: none;
+				background: rgba(0, 0, 0, 0.3);
+				border-radius: 3px;
+				cursor: pointer;
+			}
+			.vapor-filter-row input[type="range"]::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				width: 16px;
+				height: 16px;
+				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
+				border-radius: 50%;
+				cursor: pointer;
+			}
+			.vapor-filter-row input[type="range"]::-moz-range-thumb {
+				width: 16px;
+				height: 16px;
+				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
+				border-radius: 50%;
+				cursor: pointer;
+				border: none;
+			}
+			.vapor-btn {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+				padding: 0.5rem 0.85rem;
+				border-radius: 8px;
+				font-weight: 600;
+				cursor: pointer;
+				border: none;
+				font-size: 0.8rem;
+				transition: all 0.2s ease;
+			}
+			.vapor-btn-sync {
+				background: linear-gradient(135deg, #ff6b9d, #e94560);
+				color: #fff;
+				box-shadow: 0 2px 10px rgba(233, 69, 96, 0.3);
+			}
+			.vapor-btn-sync:hover {
+				box-shadow: 0 4px 15px rgba(233, 69, 96, 0.5);
+				transform: translateY(-1px);
+			}
+			.vapor-btn-sync:disabled {
+				opacity: 0.7;
+				cursor: not-allowed;
+			}
+			.vapor-btn-clear {
+				background: rgba(0, 212, 255, 0.15);
+				border: 1px solid rgba(0, 212, 255, 0.4);
+				color: #00d4ff;
+			}
+			.vapor-btn-clear:hover {
+				background: rgba(255, 107, 157, 0.15);
+				border-color: #ff6b9d;
+				color: #ff6b9d;
+			}
+			
+			@media (max-width: 768px) {
+				.vapor-filter-main {
+					flex-direction: column;
+					align-items: stretch;
+				}
+				.vapor-search {
+					order: 1;
+					min-width: 100%;
+				}
+				.vapor-filters {
+					order: 2;
+					justify-content: space-between;
+				}
+				.vapor-filters select {
+					flex: 1;
+				}
+				.vapor-actions {
+					order: 3;
+					justify-content: space-between;
+				}
+				.vapor-filter-row {
+					order: 4;
+				}
+				.vapor-filter-row .vapor-duration {
+					flex-direction: column;
+					align-items: stretch;
+					gap: 0.5rem;
+				}
+			}
+			
 			/* Flip Card Styles for Stream */
 			.stream-flip-grid {
 				display: grid;
@@ -308,10 +496,12 @@ templ Stream(data StreamData) {
 				height: 90%;
 				border-radius: 50%;
 				position: relative;
-				animation: vinylSpin 1.8s linear infinite;
 				background: repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.9) 3px, rgba(40,40,40,0.9) 4px),
 					radial-gradient(circle at center, #1a1a1a 35%, #0a0a0a 100%);
 				box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.3);
+			}
+			.stream-playing .stream-flip-vinyl {
+				animation: vinylSpin 1.8s linear infinite;
 			}
 			.stream-flip-vinyl::before {
 				content: '';
@@ -394,10 +584,36 @@ templ Stream(data StreamData) {
 				letter-spacing: 0.05em;
 				font-weight: 600;
 			}
-			.stat-plays { background: linear-gradient(135deg, #10b981, #34d399); color: #fff; }
-			.stat-likes { background: linear-gradient(135deg, #ec4899, #f472b6); color: #fff; }
-			.stat-reposts { background: linear-gradient(135deg, #f97316, #fb923c); color: #fff; }
-			.stat-duration { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: #fff; }
+			.stat-plays { background: linear-gradient(135deg, #00d4ff, #06b6d4); color: #fff; }
+			.stat-likes { background: linear-gradient(135deg, #ff6b9d, #ec4899); color: #fff; }
+			.stat-reposts { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: #fff; }
+			.stat-duration { background: linear-gradient(135deg, #fb923c, #f97316); color: #fff; }
+			
+			/* Playing indicator */
+			@keyframes playingPulse {
+				0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
+				50% { box-shadow: 0 0 0 12px rgba(0, 212, 255, 0); }
+			}
+			.stream-flip-card.stream-playing .stream-flip-front {
+				box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+				animation: playingPulse 2s ease-in-out infinite;
+			}
+			.stream-flip-card.stream-playing .stream-flip-front::after {
+				content: '▶';
+				position: absolute;
+				top: 12px;
+				right: 12px;
+				width: 28px;
+				height: 28px;
+				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 12px;
+				color: white;
+				box-shadow: 0 2px 10px rgba(0, 212, 255, 0.5);
+			}
 		</style>
 
 		<script>
@@ -428,23 +644,26 @@ templ Stream(data StreamData) {
 			// Sync tracks from SoundCloud (manual trigger)
 			async function syncTracks() {
 				const btn = document.getElementById('sync-btn');
-				const originalText = btn.textContent;
-				btn.textContent = 'Syncing...';
+				const originalText = btn.innerHTML;
+				btn.innerHTML = '<span>Syncing...</span>';
 				btn.disabled = true;
+				
+				const limit = document.getElementById('filter-limit')?.value || 50;
 				
 				try {
 					const response = await fetch('/api/sync', {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json'
-						}
+						},
+						body: JSON.stringify({ limit: parseInt(limit) * 2 })
 					});
 					
 					if (response.ok) {
 						const data = await response.json();
-						btn.textContent = '✅ Synced!';
+						btn.innerHTML = '<span>✅ Synced!</span>';
 						setTimeout(() => {
-							btn.textContent = originalText;
+							btn.innerHTML = originalText;
 							btn.disabled = false;
 						}, 2000);
 						
@@ -454,14 +673,49 @@ templ Stream(data StreamData) {
 					} else {
 						const error = await response.json();
 						alert('Sync failed: ' + (error.error || 'Unknown error'));
-						btn.textContent = originalText;
+						btn.innerHTML = originalText;
 						btn.disabled = false;
 					}
 				} catch (err) {
 					alert('Sync failed: ' + err.message);
-					btn.textContent = originalText;
+					btn.innerHTML = originalText;
 					btn.disabled = false;
 				}
+			}
+
+			// Reset all filters to defaults
+			function resetFilters() {
+				// Reset search input
+				const qInput = document.getElementById('filter-q');
+				if (qInput) qInput.value = '';
+				
+				// Reset selects
+				const contentType = document.getElementById('filter-content-type');
+				if (contentType) contentType.value = '';
+				
+				const sort = document.getElementById('filter-sort');
+				if (sort) sort.value = 'newest';
+				
+				const limit = document.getElementById('filter-limit');
+				if (limit) limit.value = '20';
+				
+				// Reset duration slider
+				const durationRange = document.getElementById('duration-range');
+				if (durationRange) {
+					durationRange.value = 0;
+					const maxDur = parseInt(durationRange.max) || 94;
+					const display = document.getElementById('duration-min-display');
+					if (display) display.textContent = formatMinutes(0);
+				}
+				
+				// Clear localStorage
+				localStorage.removeItem('stream-filters');
+				
+				// Trigger HTMX refresh
+				htmx.trigger('#track-container', 'refresh');
+				
+				// Optionally reload to get fresh data
+				// location.reload();
 			}
 
 			// Save filter state to localStorage
@@ -471,7 +725,7 @@ templ Stream(data StreamData) {
 					content_type: document.getElementById('filter-content-type')?.value || '',
 					sort: document.getElementById('filter-sort')?.value || 'newest',
 					limit: document.getElementById('filter-limit')?.value || '20',
-					duration_min: document.getElementById('duration-min-input')?.value || '0'
+					duration_min: document.getElementById('duration-range')?.value || '0'
 				};
 				localStorage.setItem('stream-filters', JSON.stringify(filters));
 			}
@@ -505,10 +759,10 @@ templ Stream(data StreamData) {
 					}
 					
 					if (filters.duration_min !== undefined) {
-						const durInput = document.getElementById('duration-min-input');
-						if (durInput) {
-							durInput.value = filters.duration_min;
-							updateSliderUI(filters.duration_min);
+						const durRange = document.getElementById('duration-range');
+						if (durRange) {
+							durRange.value = filters.duration_min;
+							updateDurationDisplay(filters.duration_min);
 						}
 					}
 					
@@ -521,11 +775,18 @@ templ Stream(data StreamData) {
 
 			// Setup event listeners to save filter state
 			function setupFilterListeners() {
-				const form = document.getElementById('filter-form');
-				if (!form) return;
+				// Listen to all filter inputs
+				const qInput = document.getElementById('filter-q');
+				const contentType = document.getElementById('filter-content-type');
+				const sort = document.getElementById('filter-sort');
+				const limit = document.getElementById('filter-limit');
+				const durationRange = document.getElementById('duration-range');
 				
-				form.addEventListener('input', saveFilterState);
-				form.addEventListener('change', saveFilterState);
+				if (qInput) qInput.addEventListener('input', saveFilterState);
+				if (contentType) contentType.addEventListener('change', saveFilterState);
+				if (sort) sort.addEventListener('change', saveFilterState);
+				if (limit) limit.addEventListener('change', saveFilterState);
+				if (durationRange) durationRange.addEventListener('input', saveFilterState);
 			}
 
 			function formatMinutes(minutes) {
@@ -541,99 +802,12 @@ templ Stream(data StreamData) {
 				return hours + ' hr ' + remainingMins + ' min';
 			}
 
-			function updateSliderUI(value) {
-				const container = document.getElementById('duration-slider');
-				const range = document.getElementById('youtube-range');
-				const handle = document.getElementById('duration-handle');
+			function updateDurationDisplay(value) {
 				const display = document.getElementById('duration-min-display');
-				const input = document.getElementById('duration-min-input');
-				const maxDuration = parseInt(input.getAttribute('data-max')) || 94;
-				
-				const percent = (value / maxDuration) * 100;
-				handle.style.left = percent + '%';
-				range.style.left = '0%';
-				range.style.width = percent + '%';
-				display.textContent = formatMinutes(value);
-				input.value = value;
+				if (display) {
+					display.textContent = formatMinutes(value);
+				}
 			}
-
-			(function() {
-				const container = document.getElementById('duration-slider');
-				const range = document.getElementById('youtube-range');
-				const handle = document.getElementById('duration-handle');
-				const display = document.getElementById('duration-min-display');
-				const input = document.getElementById('duration-min-input');
-				const maxDuration = parseInt(input.getAttribute('data-max')) || 94;
-				
-				if (!container || !handle) return;
-				
-				let currentVal = parseInt(input.value) || 0;
-				let dragging = false;
-				let dragStartX = 0;
-				let dragStartVal = 0;
-				
-				function updateSlider() {
-					const percent = (currentVal / maxDuration) * 100;
-					handle.style.left = percent + '%';
-					range.style.left = '0%';
-					range.style.width = percent + '%';
-					display.textContent = formatMinutes(currentVal);
-					input.value = currentVal;
-				}
-				
-				function getValueFromPosition(clientX) {
-					const rect = container.getBoundingClientRect();
-					const x = clientX - rect.left;
-					const percent = Math.max(0, Math.min(1, x / rect.width));
-					return Math.round(percent * maxDuration);
-				}
-				
-				function handleStart(e) {
-					e.preventDefault();
-					dragging = true;
-					dragStartX = e.clientX || e.touches[0].clientX;
-					dragStartVal = currentVal;
-					handle.style.transform = 'translate(-50%, -50%) scale(1.1)';
-				}
-				
-				function handleMove(e) {
-					if (!dragging) return;
-					
-					const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-					if (!clientX) return;
-					
-					currentVal = Math.max(0, Math.min(maxDuration, getValueFromPosition(clientX)));
-					updateSlider();
-				}
-				
-				function handleEnd() {
-					if (dragging) {
-						handle.style.transform = '';
-						const event = new Event('change', { bubbles: true });
-						input.dispatchEvent(event);
-					}
-					dragging = false;
-				}
-				
-				function handleClick(e) {
-					if (e.target === handle) return;
-					currentVal = getValueFromPosition(e.clientX);
-					updateSlider();
-					const event = new Event('change', { bubbles: true });
-					input.dispatchEvent(event);
-				}
-				
-				handle.addEventListener('mousedown', handleStart);
-				container.addEventListener('click', handleClick);
-				document.addEventListener('mousemove', handleMove);
-				document.addEventListener('mouseup', handleEnd);
-				
-				handle.addEventListener('touchstart', (e) => handleStart(e), { passive: false });
-				document.addEventListener('touchmove', handleMove, { passive: false });
-				document.addEventListener('touchend', handleEnd);
-				
-				updateSlider();
-			})();
 
 			// Audio player functionality
 			let currentAudio = null;
@@ -803,8 +977,17 @@ templ Stream(data StreamData) {
 			})();
 
 			// Flip card handler for stream page
+			let currentPlayingCard = null;
+
 			function handleStreamFlip(card) {
-				const isFlipped = card.querySelector('.stream-flip').classList.toggle('flipped');
+				const flipEl = card.querySelector('.stream-flip');
+				const isFlipped = flipEl.classList.toggle('flipped');
+				
+				// Remove playing class from previous card
+				if (currentPlayingCard && currentPlayingCard !== card) {
+					currentPlayingCard.classList.remove('stream-playing');
+					currentPlayingCard.querySelector('.stream-flip').classList.remove('flipped');
+				}
 				
 				if (isFlipped) {
 					const trackID = card.dataset.trackId;
@@ -813,6 +996,10 @@ templ Stream(data StreamData) {
 					const artistName = card.dataset.artistName;
 					
 					console.log('Playing:', trackTitle, 'by', artistName);
+					
+					// Mark this card as playing
+					card.classList.add('stream-playing');
+					currentPlayingCard = card;
 					
 					// Get or create player
 					let player = document.getElementById('stream-player-bar');
@@ -865,6 +1052,13 @@ templ Stream(data StreamData) {
 						document.getElementById('stream-play-icon').style.display = 'none';
 						document.getElementById('stream-pause-icon').style.display = 'block';
 					}).catch(err => console.error('Play error:', err));
+				} else {
+					const audio = document.getElementById('stream-audio');
+					if (audio && !audio.paused) {
+						audio.pause();
+						document.getElementById('stream-play-icon').style.display = 'block';
+						document.getElementById('stream-pause-icon').style.display = 'none';
+					}
 				}
 			}
 

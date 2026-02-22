@@ -28,12 +28,86 @@ import (
 
 	"github.com/jbhicks/sound-cistern/handlers"
 	_ "github.com/jbhicks/sound-cistern/pb_migrations"
+	"github.com/jbhicks/sound-cistern/services"
 	"github.com/jbhicks/sound-cistern/views"
 	"github.com/jbhicks/sound-cistern/views/components"
 )
 
 // Test mode flag - set via environment variable or query parameter (?test_mode=true)
 var isTestMode bool = os.Getenv("TEST_MODE") == "true"
+
+// syncTestMode handles syncing in test mode using mock data
+func syncTestMode(app *pocketbase.PocketBase, c echo.Context, authRecord *models.Record, targetLimit int) error {
+	if targetLimit <= 0 {
+		targetLimit = 100
+	}
+
+	mockData := getMockActivities()
+	collection, ok := mockData["collection"].([]map[string]interface{})
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "No mock tracks available"})
+	}
+
+	tracksCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+	soundcloudUsersCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+
+	soundcloudUser, _ := app.Dao().FindFirstRecordByFilter(
+		soundcloudUsersCollection.Id,
+		"user_id = {:user_id}",
+		map[string]any{"user_id": authRecord.Id},
+	)
+
+	savedCount := 0
+	for i, item := range collection {
+		if i >= targetLimit {
+			break
+		}
+
+		origin, ok := item["origin"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		var trackID string
+		if id, ok := origin["id"].(float64); ok {
+			trackID = fmt.Sprintf("%.0f", id)
+		}
+
+		existing, _ := app.Dao().FindFirstRecordByFilter(
+			tracksCollection.Id,
+			"user_id = {:user_id} && soundcloud_id = {:soundcloud_id}",
+			map[string]any{"user_id": soundcloudUser.Id, "soundcloud_id": trackID},
+		)
+		if existing != nil {
+			continue
+		}
+
+		trackRecord := models.NewRecord(tracksCollection)
+		trackRecord.Set("user_id", soundcloudUser.Id)
+		trackRecord.Set("soundcloud_id", trackID)
+		trackRecord.Set("title", origin["title"])
+		if user, ok := origin["user"].(map[string]interface{}); ok {
+			trackRecord.Set("artist_name", user["username"])
+		}
+		trackRecord.Set("genre", origin["genre"])
+		trackRecord.Set("artwork_url", origin["artwork_url"])
+		trackRecord.Set("permalink_url", origin["permalink_url"])
+
+		if duration, ok := origin["duration"].(float64); ok {
+			trackRecord.Set("length", int64(duration))
+		}
+
+		if app.Dao().SaveRecord(trackRecord) == nil {
+			savedCount++
+		}
+	}
+
+	log.Printf("[Sync] Test mode: saved %d tracks", savedCount)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"synced": savedCount,
+		"total":  len(collection),
+	})
+}
 
 // generateCodeVerifier generates a random code verifier for PKCE
 func generateCodeVerifier() string {
@@ -306,104 +380,75 @@ func mockSoundcloudActivitiesResponse(c echo.Context) error {
 }
 
 func getMockActivities() map[string]interface{} {
+	tracks := []map[string]interface{}{
+		{
+			"id":            float64(2267275367),
+			"title":         "DJ PFUNK Mix \"Frequencies\"",
+			"genre":         "Breakbeat",
+			"duration":      float64(4180558),
+			"artwork_url":   "https://i1.sndcdn.com/artworks-HVGxK1ZyjyfIrh73-ZfBskw-t500x500.jpg",
+			"permalink_url": "https://soundcloud.com/paul-barnard-647247988/dj-pfunk-mix-frequencies",
+			"user": map[string]interface{}{
+				"username": "DJ PFunk",
+			},
+		},
+		{
+			"id":            float64(2267256026),
+			"title":         "Love Burn 2026 | Juicy Junglist Live at Incendia",
+			"genre":         "BASS",
+			"duration":      float64(5674083),
+			"artwork_url":   "https://i1.sndcdn.com/artworks-EpKQidrlhQveaMFI-FS3Bfg-t500x500.jpg",
+			"permalink_url": "https://soundcloud.com/juicyjunglist/love-burn-2026-juicy-junglist",
+			"user": map[string]interface{}{
+				"username": "Juicy Junglist",
+			},
+		},
+		{
+			"id":            float64(2267192987),
+			"title":         "OWL016 B1. NITE HAWK - Ride Me",
+			"genre":         "Electronic",
+			"duration":      float64(118126),
+			"artwork_url":   "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
+			"permalink_url": "https://soundcloud.com/owl_the/owl016-b1-nite-hawk-ride-me",
+			"user": map[string]interface{}{
+				"username": "The Owl",
+			},
+		},
+		{
+			"id":            float64(2031598860),
+			"title":         "Rufus Du Sol - Always (Rob Cokeless Remix)",
+			"genre":         "",
+			"duration":      float64(378279),
+			"artwork_url":   "https://i1.sndcdn.com/artworks-uxUS371ew85S3xZs-vQj8mw-t500x500.jpg",
+			"permalink_url": "https://soundcloud.com/user-772789439/rufus-du-sol-always-rob",
+			"user": map[string]interface{}{
+				"username": "SEVEN SEVEN DEUCE RECORDS",
+			},
+		},
+		{
+			"id":            float64(2267160449),
+			"title":         "Setting Loving Boundaries: Self-Regulation for Parents",
+			"genre":         "",
+			"duration":      float64(624744),
+			"artwork_url":   "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
+			"permalink_url": "https://soundcloud.com/nursenoise/setting-loving-boundaries-self",
+			"user": map[string]interface{}{
+				"username": "Nurse Noise",
+			},
+		},
+	}
+
+	collection := make([]map[string]interface{}, len(tracks))
+	for i, track := range tracks {
+		collection[i] = map[string]interface{}{
+			"type":   "track",
+			"origin": track,
+		}
+	}
+
 	return map[string]interface{}{
-		"filters": map[string]interface{}{
-			"date_from":    "",
-			"date_to":      "",
-			"duration_max": "",
-			"duration_min": "",
-			"favorites":    false,
-			"genre":        "",
-			"genres":       []interface{}{},
-			"search":       "",
-			"sort":         "",
-		},
-		"pagination": map[string]interface{}{
-			"has_more":    false,
-			"limit":       20,
-			"page":        1,
-			"total":       7,
-			"total_pages": 1,
-		},
-		"tracks": []map[string]interface{}{
-			{
-				"artist_name":    "DJ PFunk",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-HVGxK1ZyjyfIrh73-ZfBskw-t500x500.jpg",
-				"created_at":     "2026-02-16T00:37:06Z",
-				"genre":          "Breakbeat",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/paul-barnard-647247988/dj-pfunk-mix-frequencies?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 4180558,
-				"track_id":       "2267275367",
-				"track_title":    "DJ PFUNK Mix \"Frequencies\"",
-			},
-			{
-				"artist_name":    "Juicy Junglist",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-EpKQidrlhQveaMFI-FS3Bfg-t500x500.jpg",
-				"created_at":     "2026-02-15T23:47:11Z",
-				"genre":          "BASS",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/juicyjunglist/love-burn-2026-juicy-junglist?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 5674083,
-				"track_id":       "2267256026",
-				"track_title":    "Love Burn 2026 | Juicy Junglist Live at Incendia (Breaks, Bass & UKG)",
-			},
-			{
-				"artist_name":    "The Owl",
-				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
-				"created_at":     "2026-02-15T21:19:29Z",
-				"genre":          "Electronic",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/owl_the/owl016-b1-nite-hawk-ride-me?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 118126,
-				"track_id":       "2267192987",
-				"track_title":    "OWL016   B1. NITE HAWK - Ride Me  (Low Res Snippet)",
-			},
-			{
-				"artist_name":    "SEVEN SEVEN DEUCE RECORDS & ENTERTAINMENT",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-uxUS371ew85S3xZs-vQj8mw-t500x500.jpg",
-				"created_at":     "2026-02-15T20:18:09Z",
-				"genre":          "",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/user-772789439/rufus-du-sol-always-rob?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 378279,
-				"track_id":       "2031598860",
-				"track_title":    "Rufus Du Sol - Always (Rob Cokeless Remix)",
-			},
-			{
-				"artist_name":    "Nurse Noise",
-				"artwork_url":    "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg",
-				"created_at":     "2026-02-15T20:12:30Z",
-				"genre":          " ",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/nursenoise/setting-loving-boundaries-self?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 624744,
-				"track_id":       "2267160449",
-				"track_title":    "Setting Loving Boundaries: Self-Regulation for Parents",
-			},
-			{
-				"artist_name":    "🧱Brick Haus",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-5zhOEoo4EtToGgYd-BRZBXg-t500x500.jpg",
-				"created_at":     "2026-02-15T19:22:13Z",
-				"genre":          "Booty Breaks",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/brickhausyyc/sidequest-the-way-she-dance?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 149420,
-				"track_id":       "2267138519",
-				"track_title":    "SIDEQUEST - The Way She Dance (Brick Haus Edit)",
-			},
-			{
-				"artist_name":    "Tracklistings",
-				"artwork_url":    "https://i1.sndcdn.com/artworks-fBACkkg8ainELkaB-NfXKdw-t500x500.jpg",
-				"created_at":     "2026-02-15T18:18:28Z",
-				"genre":          "TL PREMIERE",
-				"is_favorited":   false,
-				"permalink_url":  "https://soundcloud.com/tracklistings3-0/tl-premiere-2136?utm_medium=api&utm_campaign=social_sharing&utm_source=id_316535",
-				"track_duration": 301871,
-				"track_id":       "2267055014",
-				"track_title":    "TL PREMIERE : True Self - Late Nite Enthusiast (Saigg Remix) [B L A D E]",
-			},
-		},
+		"collection": collection,
+		"next_href":  "",
 	}
 }
 
@@ -430,58 +475,8 @@ func mockSoundcloudTokenResponse(c echo.Context) error {
 }
 
 func main() {
-	// getHighQualityStreamURL fetches the best quality stream URL from SoundCloud transcodings
-	getHighQualityStreamURL := func(accessToken, trackID string) string {
-		// In test mode, return mock stream URL
-		if isTestMode {
-			return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-		}
-
-		client := &http.Client{Timeout: 30 * time.Second}
-
-		log.Printf("[Stream] Fetching transcodings for track %s", trackID)
-
-		req, _ := http.NewRequest("GET", "https://api.soundcloud.com/tracks/"+trackID, nil)
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("[Stream] Error fetching track: %v", err)
-			return ""
-		}
-		defer resp.Body.Close()
-
-		log.Printf("[Stream] Track endpoint status: %d", resp.StatusCode)
-
-		if resp.StatusCode == 401 || resp.StatusCode == 403 {
-			log.Printf("[Stream] Token may be expired or invalid - got %d", resp.StatusCode)
-			// Can't refresh here - need to return empty and let caller handle refresh
-			return ""
-		}
-
-		if resp.StatusCode != 200 {
-			log.Printf("[Stream] Track fetch returned status %d", resp.StatusCode)
-			return ""
-		}
-
-		var trackData map[string]interface{}
-		if json.NewDecoder(resp.Body).Decode(&trackData) != nil {
-			return ""
-		}
-
-		media, ok := trackData["media"].(map[string]interface{})
-		if !ok {
-			log.Printf("[Stream] No 'media' field in track response")
-			return ""
-		}
-
-		transcodings, ok := media["transcodings"].([]interface{})
-		if !ok || len(transcodings) == 0 {
-			log.Printf("[Stream] No transcodings found for track %s", trackID)
-			log.Printf("[Stream] Media field content: %+v", media)
-			return ""
-		}
-
+	// getStreamFromTranscodings extracts the best stream URL from SoundCloud transcodings
+	getStreamFromTranscodings := func(client *http.Client, accessToken string, transcodings []interface{}, trackID string) string {
 		log.Printf("[Stream] Found %d transcodings for track %s", len(transcodings), trackID)
 
 		var bestTranscodingURL string
@@ -550,6 +545,104 @@ func main() {
 		}
 
 		log.Printf("[Stream] No URL in stream response: %+v", streamData)
+		return ""
+	}
+
+	// getHighQualityStreamURL fetches the best quality stream URL from SoundCloud
+	getHighQualityStreamURL := func(accessToken, trackID string) string {
+		// In test mode, return mock stream URL
+		if isTestMode {
+			return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+		}
+
+		client := &http.Client{Timeout: 30 * time.Second}
+
+		log.Printf("[Stream] Fetching transcodings for track %s", trackID)
+
+		req, _ := http.NewRequest("GET", "https://api.soundcloud.com/tracks/"+trackID, nil)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("[Stream] Error fetching track: %v", err)
+			return ""
+		}
+		defer resp.Body.Close()
+
+		log.Printf("[Stream] Track endpoint status: %d", resp.StatusCode)
+
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			log.Printf("[Stream] Token may be expired or invalid - got %d", resp.StatusCode)
+			// Can't refresh here - need to return empty and let caller handle refresh
+			return ""
+		}
+
+		if resp.StatusCode != 200 {
+			log.Printf("[Stream] Track fetch returned status %d", resp.StatusCode)
+			return ""
+		}
+
+		var trackData map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&trackData) != nil {
+			return ""
+		}
+
+		media, hasMedia := trackData["media"].(map[string]interface{})
+		streamURL, hasStreamURL := trackData["stream_url"].(string)
+
+		if !hasMedia && !hasStreamURL {
+			log.Printf("[Stream] No 'media' or 'stream_url' field in track response for track %s", trackID)
+			return ""
+		}
+
+		if hasMedia {
+			transcodings, ok := media["transcodings"].([]interface{})
+			if ok && len(transcodings) > 0 {
+				return getStreamFromTranscodings(client, accessToken, transcodings, trackID)
+			}
+			log.Printf("[Stream] No transcodings in media field for track %s", trackID)
+		}
+
+		if hasStreamURL && streamURL != "" {
+			streamEndpoint := "https://api.soundcloud.com/tracks/soundcloud:tracks:" + trackID + "/stream"
+			log.Printf("[Stream] Using stream endpoint for track %s: %s", trackID, streamEndpoint)
+			streamReq, _ := http.NewRequest("GET", streamEndpoint, nil)
+			streamReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+			clientNoRedirect := &http.Client{
+				Timeout: 30 * time.Second,
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+			streamResp, err := clientNoRedirect.Do(streamReq)
+			if err != nil {
+				log.Printf("[Stream] Stream URL request failed: %v", err)
+				return ""
+			}
+			defer streamResp.Body.Close()
+
+			if streamResp.StatusCode == 302 {
+				location := streamResp.Header.Get("Location")
+				if location != "" {
+					log.Printf("[Stream] Got redirect URL: %s", location)
+					return location
+				}
+			}
+
+			if streamResp.StatusCode == 200 {
+				var streamData map[string]interface{}
+				if json.NewDecoder(streamResp.Body).Decode(&streamData) == nil {
+					if url, ok := streamData["url"].(string); ok && url != "" {
+						log.Printf("[Stream] Got stream URL from JSON: %s", url)
+						return url
+					}
+				}
+			}
+
+			log.Printf("[Stream] Stream URL request returned: %d", streamResp.StatusCode)
+		}
+
 		return ""
 	}
 
@@ -660,8 +753,10 @@ func main() {
 
 		// Proto page - design experiments
 		e.Router.GET("/proto", func(c echo.Context) error {
-			// In test mode, skip auth check
-			if !isTestMode {
+			// Check for debug param to bypass auth
+			debugMode := c.QueryParam("debug") != "" || isTestMode
+
+			if !debugMode {
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 				if authRecord == nil {
 					return c.Redirect(http.StatusTemporaryRedirect, "/login")
@@ -705,6 +800,10 @@ func main() {
 						if streamURL == "" {
 							streamURL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 						}
+						waveformURL := record.GetString("waveform_url")
+						if waveformURL == "" {
+							waveformURL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 60'%3E%3Crect fill='%23333' width='1000' height='60'/%3E%3C/svg%3E"
+						}
 
 						tracks = append(tracks, views.Track{
 							TrackID:          record.GetString("soundcloud_id"),
@@ -713,6 +812,7 @@ func main() {
 							Genre:            record.GetString("genre"),
 							TrackDuration:    int64(record.GetInt("length")),
 							ArtworkURL:       artworkURL,
+							WaveformURL:      waveformURL,
 							StreamURL:        streamURL,
 							PermalinkURL:     record.GetString("permalink_url"),
 							PlaybackCount:    int64(record.GetInt("playback_count")),
@@ -733,6 +833,7 @@ func main() {
 						TrackTitle:    "Midnight Drive",
 						ArtistName:    "Synthwave Master",
 						ArtworkURL:    "https://picsum.photos/seed/track1/500/500",
+						WaveformURL:   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 60'%3E%3Crect fill='%23333' width='1000' height='60'/%3E%3C/svg%3E",
 						TrackDuration: 245,
 						StreamURL:     "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
 					},
@@ -788,7 +889,10 @@ func main() {
 							continue
 						}
 
-						trackID := fmt.Sprintf("%v", origin["id"])
+						trackID := ""
+						if id, ok := origin["id"].(float64); ok {
+							trackID = fmt.Sprintf("%.0f", id)
+						}
 						title, _ := origin["title"].(string)
 						artistName, _ := origin["user"].(map[string]interface{})["username"].(string)
 						genre, _ := origin["genre"].(string)
@@ -1861,14 +1965,8 @@ func main() {
 			durationMin := c.QueryParam("duration_min")
 			durationMax := c.QueryParam("duration_max")
 
-			// Get soundcloud_tracks collection
-			soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
-			if err != nil {
-				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Database configuration error",
-				})
-			}
+			// Check if we should fetch fresh from SoundCloud API
+			freshFromAPI := c.QueryParam("refresh") == "true" || limit > 20
 
 			// First find the soundcloud_users record linked to this auth user
 			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
@@ -1894,6 +1992,58 @@ func main() {
 					"genres": []string{},
 				})
 			}
+
+			accessToken := soundcloudUser.GetString("access_token")
+
+			// Fetch from SoundCloud API if requested or if limit indicates fresh fetch
+			if freshFromAPI && accessToken != "" {
+				log.Printf("[Stream] Fetching fresh tracks from SoundCloud API with limit=%d", limit)
+				tracks, err := fetchSoundCloudTracks(accessToken, limit)
+				if err == nil && len(tracks) > 0 {
+					// Apply duration filter in-memory
+					var filteredTracks []views.Track
+					durationMinMs := 0
+					durationMaxMs := 94 * 60 * 1000 // default max
+
+					if dm, err := strconv.Atoi(durationMin); err == nil && dm > 0 {
+						durationMinMs = dm * 60 * 1000
+					}
+					if dm, err := strconv.Atoi(durationMax); err == nil && dm > 0 {
+						durationMaxMs = dm * 60 * 1000
+					}
+
+					for _, t := range tracks {
+						if t.TrackDuration >= int64(durationMinMs) && t.TrackDuration <= int64(durationMaxMs) {
+							filteredTracks = append(filteredTracks, t)
+						}
+					}
+
+					log.Printf("[Stream] Returning %d fresh tracks from API (filtered from %d)", len(filteredTracks), len(tracks))
+
+					// Render tracks to HTML
+					var htmlBuilder strings.Builder
+					htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
+					for _, track := range filteredTracks {
+						components.StreamFlipCard(
+							track.TrackID,
+							track.TrackTitle,
+							track.ArtistName,
+							track.Genre,
+							track.TrackDuration,
+							track.ArtworkURL,
+							track.PlaybackCount,
+							track.FavoritingsCount,
+							track.RepostsCount,
+						).Render(c.Request().Context(), &htmlBuilder)
+					}
+					htmlBuilder.WriteString("</div>")
+					return c.HTML(http.StatusOK, htmlBuilder.String())
+				}
+				log.Printf("[Stream] Failed to fetch from API: %v", err)
+			}
+
+			// Fall back to database
+			soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
 
 			// Build filter
 			filter := "user_id = {:user_id}"
@@ -2038,174 +2188,27 @@ func main() {
 		e.Router.POST("/api/sync", func(c echo.Context) error {
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
-			var activities map[string]interface{}
+			var reqBody struct {
+				Limit int `json:"limit"`
+			}
+			c.Bind(&reqBody)
+			targetLimit := reqBody.Limit
 
-			// In test mode, use mock data directly
+			// In test mode, use mock data
 			if isTestMode {
-				activities = getMockActivities()
-			} else {
-				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
-				if err != nil {
-					log.Printf("Failed to find soundcloud_users collection: %v", err)
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
-				}
-
-				soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
-					soundcloudUsersCollection.Id,
-					"user_id = {:user_id}",
-					map[string]any{"user_id": authRecord.Id},
-				)
-				if err != nil {
-					log.Printf("[Sync] ERROR: Could not find soundcloud_users for user_id=%s, err=%v", authRecord.Id, err)
-					return c.JSON(http.StatusNotFound, map[string]string{"error": "SoundCloud account not linked"})
-				}
-
-				accessToken := soundcloudUser.GetString("access_token")
-				refreshToken := soundcloudUser.GetString("refresh_token")
-				scUserID := soundcloudUser.GetString("soundcloud_id")
-				log.Printf("[Sync] Using token for soundcloud_id=%s, has_access_token=%v, has_refresh_token=%v", scUserID, accessToken != "", refreshToken != "")
-
-				if accessToken == "" && refreshToken == "" {
-					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "No access token"})
-				}
-
-				client := &http.Client{Timeout: 30 * time.Second}
-				req, err := http.NewRequest("GET", "https://api.soundcloud.com/me/activities?limit=50", nil)
-				if err != nil {
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create request"})
-				}
-				req.Header.Set("Authorization", "Bearer "+accessToken)
-
-				log.Printf("[Sync] Making request to SoundCloud API...")
-				resp, err := client.Do(req)
-				if err != nil {
-					log.Printf("[Sync] ERROR: Failed to fetch SoundCloud activities: %v", err)
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch tracks from SoundCloud"})
-				}
-				defer resp.Body.Close()
-				log.Printf("[Sync] SoundCloud API responded with status: %d", resp.StatusCode)
-
-				if resp.StatusCode != 200 {
-					body, _ := io.ReadAll(resp.Body)
-					log.Printf("SoundCloud API error: %d - %s", resp.StatusCode, string(body))
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "SoundCloud API error"})
-				}
-
-				if err := json.NewDecoder(resp.Body).Decode(&activities); err != nil {
-					log.Printf("Failed to decode SoundCloud response: %v", err)
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse SoundCloud response"})
-				}
+				return syncTestMode(app, c, authRecord, targetLimit)
 			}
 
-			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			// Use the soundcloud service for real sync
+			savedCount, total, err := services.SyncTracks(app, authRecord, targetLimit)
 			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+				log.Printf("[Sync] Error: %v", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 
-			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
-			}
-
-			soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
-				soundcloudUsersCollection.Id,
-				"user_id = {:user_id}",
-				map[string]any{"user_id": authRecord.Id},
-			)
-			if err != nil {
-				return c.JSON(http.StatusBadRequest, map[string]string{"error": "No Soundcloud account linked"})
-			}
-
-			savedCount := 0
-			var tracks []map[string]interface{}
-
-			// Parse Soundcloud activities response structure
-			// The /me/activities endpoint returns { "collection": [ { "type": "track", "origin": { track data } } ] }
-			if collection, ok := activities["collection"].([]interface{}); ok {
-				for _, item := range collection {
-					if activity, ok := item.(map[string]interface{}); ok {
-						// Extract track data from the origin field
-						origin, hasOrigin := activity["origin"].(map[string]interface{})
-						if !hasOrigin {
-							continue
-						}
-
-						// Get track ID
-						var soundcloudID string
-						if id, ok := origin["id"].(float64); ok {
-							soundcloudID = fmt.Sprintf("%.0f", id)
-						} else if id, ok := origin["id"].(string); ok {
-							soundcloudID = id
-						} else {
-							continue
-						}
-
-						existing, _ := app.Dao().FindFirstRecordByFilter(
-							tracksCollection.Id,
-							"user_id = {:user_id} && soundcloud_id = {:soundcloud_id}",
-							map[string]any{"user_id": soundcloudUser.Id, "soundcloud_id": soundcloudID},
-						)
-						if existing != nil {
-							continue
-						}
-
-						trackRecord := models.NewRecord(tracksCollection)
-						trackRecord.Set("user_id", soundcloudUser.Id)
-						trackRecord.Set("soundcloud_id", soundcloudID)
-
-						// Title
-						if title, ok := origin["title"].(string); ok {
-							trackRecord.Set("title", title)
-						}
-
-						// Duration
-						if duration, ok := origin["duration"].(float64); ok {
-							trackRecord.Set("length", int64(duration))
-						}
-
-						// Artist name (from user object)
-						if user, ok := origin["user"].(map[string]interface{}); ok {
-							if username, ok := user["username"].(string); ok {
-								trackRecord.Set("artist_name", username)
-							}
-						}
-
-						// Genre
-						if genre, ok := origin["genre"].(string); ok {
-							trackRecord.Set("genre", genre)
-						}
-
-						// Permalink URL
-						if permalink, ok := origin["permalink_url"].(string); ok {
-							trackRecord.Set("permalink_url", permalink)
-						}
-
-						// Artwork URL
-						if artwork, ok := origin["artwork_url"].(string); ok {
-							trackRecord.Set("artwork_url", artwork)
-						}
-
-						// Created at (from activity, not origin)
-						if createdAt, ok := activity["created_at"].(string); ok {
-							trackRecord.Set("post_time", createdAt)
-						}
-
-						if err := app.Dao().SaveRecord(trackRecord); err != nil {
-							log.Printf("Failed to save track: %v", err)
-							continue
-						}
-						savedCount++
-
-						// Add to tracks list for response
-						tracks = append(tracks, origin)
-					}
-				}
-			}
-
-			log.Printf("Synced %d tracks for user %s", savedCount, authRecord.Id)
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"synced": savedCount,
-				"total":  len(tracks),
+				"total":  total,
 			})
 		}, apis.RequireRecordAuth())
 
@@ -2588,8 +2591,11 @@ func main() {
 			var accessToken string
 			var refreshToken string
 
-			// In test mode, skip auth check
-			if isTestMode {
+			// Check for debug param or test mode
+			debugMode := c.QueryParam("debug") != "" || isTestMode
+
+			// In debug/test mode, use first available token
+			if debugMode {
 				// Use first available soundcloud user token in test mode
 				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
 				if err == nil {
@@ -2689,9 +2695,6 @@ func main() {
 				log.Printf("[Stream] Query error: %v", err)
 			}
 			log.Printf("[Stream] Found %d tracks for soundcloud_id=%s", len(trackRecords), trackID)
-			if err != nil || len(trackRecords) == 0 {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": "Track not found in database"})
-			}
 
 			// Always get high-quality stream from transcodings (ignore stored stream_url)
 			// First, try to refresh token if needed
@@ -2751,7 +2754,7 @@ func main() {
 			streamURL := getHighQualityStreamURL(accessToken, trackID)
 
 			// If no high-quality URL, fall back to stored stream_url
-			if streamURL == "" {
+			if streamURL == "" && len(trackRecords) > 0 {
 				streamURL = trackRecords[0].GetString("stream_url")
 			}
 
