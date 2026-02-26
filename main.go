@@ -36,6 +36,48 @@ import (
 // Test mode flag - set via environment variable or query parameter (?test_mode=true)
 var isTestMode bool = os.Getenv("TEST_MODE") == "true"
 
+// Collection cache - populated at startup to avoid repeated DB lookups
+var collectionCache = make(map[string]*models.Collection)
+
+// initCollectionCache populates the collection cache at startup
+func initCollectionCache(app *pocketbase.PocketBase) error {
+	collectionNames := []string{
+		"users",
+		"soundcloud_users",
+		"soundcloud_tracks",
+		"user_settings",
+		"favorites",
+		"posts",
+		"playlists",
+		"playlist_tracks",
+		"oauth_states",
+	}
+
+	for _, name := range collectionNames {
+		collection, err := app.Dao().FindCollectionByNameOrId(name)
+		if err != nil {
+			log.Printf("[Cache] Warning: failed to cache collection %s: %v", name, err)
+			continue
+		}
+		collectionCache[name] = collection
+	}
+	log.Printf("[Cache] Cached %d collections", len(collectionCache))
+	return nil
+}
+
+// getCollection returns a cached collection or fetches it if not cached
+func getCollection(app *pocketbase.PocketBase, name string) (*models.Collection, error) {
+	if col, ok := collectionCache[name]; ok {
+		return col, nil
+	}
+	// Fallback to direct lookup and cache it
+	collection, err := app.Dao().FindCollectionByNameOrId(name)
+	if err == nil {
+		collectionCache[name] = collection
+	}
+	return collection, err
+}
+
 // syncTestMode handles syncing in test mode using mock data
 func syncTestMode(app *pocketbase.PocketBase, c echo.Context, authRecord *models.Record, targetLimit int) error {
 	if targetLimit <= 0 {
@@ -48,8 +90,8 @@ func syncTestMode(app *pocketbase.PocketBase, c echo.Context, authRecord *models
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "No mock tracks available"})
 	}
 
-	tracksCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
-	soundcloudUsersCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+	tracksCollection, _ := getCollection(app, "soundcloud_tracks")
+	soundcloudUsersCollection, _ := getCollection(app, "soundcloud_users")
 
 	soundcloudUser, _ := app.Dao().FindFirstRecordByFilter(
 		soundcloudUsersCollection.Id,
@@ -150,7 +192,7 @@ func generateRandomString(length int) string {
 
 // createTestUser creates or retrieves a test user for testing
 func createTestUser(app *pocketbase.PocketBase) *models.Record {
-	usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+	usersCollection, err := getCollection(app, "users")
 	if err != nil {
 		log.Printf("Failed to find users collection: %v", err)
 		return nil
@@ -190,7 +232,7 @@ func createTestUser(app *pocketbase.PocketBase) *models.Record {
 	}
 
 	// Create associated Soundcloud user for testing
-	soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+	soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 	if err == nil {
 		soundcloudUser := models.NewRecord(soundcloudUsersCollection)
 		soundcloudUser.Set("soundcloud_id", "testuser")
@@ -222,7 +264,7 @@ func testAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
 
 			// In test mode, inject test user as auth record if not already set
 			if c.Get(apis.ContextAuthRecordKey) == nil {
-				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				usersCollection, err := getCollection(app, "users")
 				if err == nil {
 					// Find any existing user or use the first one
 					users, _ := app.Dao().FindRecordsByFilter(
@@ -272,7 +314,7 @@ func soundcloudAuthMiddleware(app *pocketbase.PocketBase) echo.MiddlewareFunc {
 			}
 
 			// Check if user has Soundcloud auth
-			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_users collection: %v", err)
 				return c.Redirect(http.StatusTemporaryRedirect, "/login")
@@ -657,6 +699,12 @@ func main() {
 	if isTestMode {
 		app.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
 			createTestUser(app)
+			initCollectionCache(app)
+			return nil
+		})
+	} else {
+		app.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
+			initCollectionCache(app)
 			return nil
 		})
 	}
@@ -707,7 +755,7 @@ func main() {
 					return next(c)
 				}
 
-				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				usersCollection, err := getCollection(app, "users")
 				if err != nil {
 					return next(c)
 				}
@@ -761,7 +809,7 @@ func main() {
 				if authRecord == nil {
 					return c.Redirect(http.StatusTemporaryRedirect, "/login")
 				}
-				soundcloudUsersCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				soundcloudUsersCollection, _ := getCollection(app, "soundcloud_users")
 				if soundcloudUsersCollection != nil {
 					_, err := app.Dao().FindFirstRecordByFilter(
 						soundcloudUsersCollection.Id,
@@ -774,7 +822,7 @@ func main() {
 				}
 			}
 
-			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			tracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
 			}
@@ -863,7 +911,7 @@ func main() {
 				}
 			}
 
-			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			tracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
 			}
@@ -957,9 +1005,7 @@ func main() {
 						genre, _ := origin["genre"].(string)
 						durationMs, _ := origin["duration"].(float64)
 						artworkURL, _ := origin["artwork_url"].(string)
-						if artworkURL != "" {
-							artworkURL = strings.Replace(artworkURL, "-t50x50", "-t500x500", 1)
-						}
+						artworkURL = upgradeArtworkURL(artworkURL)
 						permalinkURL, _ := origin["permalink_url"].(string)
 						streamURL := fmt.Sprintf("/api/track/%s/stream", trackID)
 						playbackCount, _ := origin["playback_count"].(float64)
@@ -1009,7 +1055,7 @@ func main() {
 				data.IsLoggedIn = "true"
 				data.User = authRecord
 
-				settingsCollection, err := app.Dao().FindCollectionByNameOrId("user_settings")
+				settingsCollection, err := getCollection(app, "user_settings")
 				if err == nil {
 					settings, err := app.Dao().FindFirstRecordByFilter(
 						settingsCollection.Id,
@@ -1038,7 +1084,7 @@ func main() {
 					// This prevents duplicates between server render and client fetch
 				} else {
 					// Fetch fresh from SoundCloud API
-					soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+					soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 					if err == nil {
 						soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
 							soundcloudUsersCollection.Id,
@@ -1109,7 +1155,7 @@ func main() {
 				data.User = authRecord
 			}
 
-			postsCollection, err := app.Dao().FindCollectionByNameOrId("posts")
+			postsCollection, err := getCollection(app, "posts")
 			if err != nil {
 				return err
 			}
@@ -1148,7 +1194,7 @@ func main() {
 		e.Router.GET("/blog/:slug", func(c echo.Context) error {
 			slug := c.PathParam("slug")
 
-			postsCollection, err := app.Dao().FindCollectionByNameOrId("posts")
+			postsCollection, err := getCollection(app, "posts")
 			if err != nil {
 				return err
 			}
@@ -1263,7 +1309,7 @@ func main() {
 			log.Printf("DEBUG: Starting OAuth flow, state=%s", state)
 
 			// Store state and code verifier in oauth_states collection
-			oauthStatesCollection, err := app.Dao().FindCollectionByNameOrId("oauth_states")
+			oauthStatesCollection, err := getCollection(app, "oauth_states")
 			if err != nil {
 				log.Printf("DEBUG: Failed to find oauth_states collection: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -1334,7 +1380,7 @@ func main() {
 			}
 
 			// Find the state record to verify CSRF protection and get code_verifier
-			oauthStatesCollection, err := app.Dao().FindCollectionByNameOrId("oauth_states")
+			oauthStatesCollection, err := getCollection(app, "oauth_states")
 			if err != nil {
 				log.Printf("Failed to find oauth_states collection: %v", err)
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
@@ -1453,7 +1499,7 @@ func main() {
 			log.Printf("Soundcloud user info: ID=%d, Username=%s", userInfo.ID, userInfo.Username)
 
 			// Check if Soundcloud user already exists (try both username and numeric ID)
-			authCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			authCollection, err := getCollection(app, "soundcloud_users")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_users collection: %v", err)
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
@@ -1469,7 +1515,7 @@ func main() {
 			var user *models.Record
 			if err != nil {
 				// Soundcloud user does not exist, create new PocketBase user
-				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				usersCollection, err := getCollection(app, "users")
 				if err != nil {
 					log.Printf("Failed to find users collection: %v", err)
 					return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
@@ -1490,7 +1536,7 @@ func main() {
 			} else {
 				// Get the associated PocketBase user
 				userID := existingUser.GetString("user_id")
-				usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+				usersCollection, err := getCollection(app, "users")
 				if err != nil {
 					log.Printf("Failed to find users collection: %v", err)
 					return c.Redirect(http.StatusTemporaryRedirect, "/?error=server_error")
@@ -1583,7 +1629,7 @@ func main() {
 
 			// Auto-sync tracks from Soundcloud on first login
 			log.Printf("[AutoSync] Starting auto-sync for user %s after OAuth", user.Id)
-			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 			if err != nil {
 				log.Printf("[AutoSync] ERROR: Failed to find soundcloud_users collection: %v", err)
 			} else {
@@ -1619,7 +1665,7 @@ func main() {
 								if err := json.NewDecoder(resp.Body).Decode(&activities); err != nil {
 									log.Printf("[AutoSync] ERROR: Failed to decode activities response: %v", err)
 								} else {
-									tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+									tracksCollection, err := getCollection(app, "soundcloud_tracks")
 									if err != nil {
 										log.Printf("[AutoSync] ERROR: Failed to find soundcloud_tracks collection: %v", err)
 									} else if tracksCollection == nil {
@@ -1785,7 +1831,7 @@ func main() {
 			claims, _ := token.Claims.(jwt.MapClaims)
 			userID, _ := claims["id"].(string)
 
-			usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+			usersCollection, err := getCollection(app, "users")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Database error",
@@ -1800,7 +1846,7 @@ func main() {
 			}
 
 			// Look up the soundcloud_users record to get the refresh token
-			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Database error",
@@ -1915,6 +1961,11 @@ func main() {
 					}
 				}
 				pageSize := 20
+				if l := c.QueryParam("limit"); l != "" {
+					if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+						pageSize = parsed
+					}
+				}
 
 				var htmlBuilder strings.Builder
 				isHTMX := c.Request().Header.Get("HX-Request") == "true"
@@ -2077,7 +2128,7 @@ func main() {
 			freshFromAPI := c.QueryParam("refresh") == "true" || limit > 20
 
 			// First find the soundcloud_users record linked to this auth user
-			soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+			soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_users collection: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -2141,7 +2192,7 @@ func main() {
 							track.ArtistName,
 							track.Genre,
 							track.TrackDuration,
-							track.ArtworkURL,
+							upgradeArtworkURL(track.ArtworkURL),
 							track.PlaybackCount,
 							track.FavoritingsCount,
 							track.RepostsCount,
@@ -2207,7 +2258,7 @@ func main() {
 			dateFilter := c.QueryParam("date")
 
 			// Get soundcloud_tracks collection
-			soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			soundcloudTracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -2254,7 +2305,7 @@ func main() {
 			tracks := make([]map[string]interface{}, 0, len(records))
 			for _, record := range records {
 				// Check if favorited
-				favoritesCollection, _ := app.Dao().FindCollectionByNameOrId("favorites")
+				favoritesCollection, _ := getCollection(app, "favorites")
 				_, err = app.Dao().FindFirstRecordByFilter(
 					favoritesCollection.Id,
 					"user_id = {:user_id} && track_id = {:track_id}",
@@ -2288,7 +2339,7 @@ func main() {
 		e.Router.GET("/api/settings", func(c echo.Context) error {
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
-			settingsCollection, err := app.Dao().FindCollectionByNameOrId("user_settings")
+			settingsCollection, err := getCollection(app, "user_settings")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Settings collection not found",
@@ -2329,7 +2380,7 @@ func main() {
 				})
 			}
 
-			settingsCollection, err := app.Dao().FindCollectionByNameOrId("user_settings")
+			settingsCollection, err := getCollection(app, "user_settings")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Settings collection not found",
@@ -2405,7 +2456,7 @@ func main() {
 			}
 
 			// Find soundcloud_tracks record
-			soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			soundcloudTracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 			}
@@ -2419,7 +2470,7 @@ func main() {
 			}
 
 			// Check if favorite exists
-			favoritesCollection, err := app.Dao().FindCollectionByNameOrId("favorites")
+			favoritesCollection, err := getCollection(app, "favorites")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 			}
@@ -2452,7 +2503,7 @@ func main() {
 			trackID := c.PathParam("id")
 
 			// Find soundcloud_tracks record
-			soundcloudTracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			soundcloudTracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				return c.String(http.StatusInternalServerError, "Database error")
 			}
@@ -2469,7 +2520,7 @@ func main() {
 			trackTitle := trackRecord.GetString("track_title")
 
 			// Check if favorite exists
-			favoritesCollection, err := app.Dao().FindCollectionByNameOrId("favorites")
+			favoritesCollection, err := getCollection(app, "favorites")
 			if err != nil {
 				return c.String(http.StatusInternalServerError, "Database error")
 			}
@@ -2556,7 +2607,7 @@ func main() {
 
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 
-			favoritesCollection, err := app.Dao().FindCollectionByNameOrId("favorites")
+			favoritesCollection, err := getCollection(app, "favorites")
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 			}
@@ -2632,7 +2683,7 @@ func main() {
 			// In debug/test mode, use first available token
 			if debugMode {
 				// Use first available soundcloud user token in test mode
-				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 				if err == nil {
 					records, _ := app.Dao().FindRecordsByFilter(
 						soundcloudUsersCollection.Id,
@@ -2654,7 +2705,7 @@ func main() {
 				}
 
 				// Find the soundcloud_users record for this user
-				soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+				soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
 				if err != nil {
 					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 				}
@@ -2712,7 +2763,7 @@ func main() {
 			log.Printf("[Stream] Looking for track with soundcloud_id=%s", trackID)
 
 			// Find the track in our database to get the stream_url
-			tracksCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+			tracksCollection, err := getCollection(app, "soundcloud_tracks")
 			if err != nil {
 				log.Printf("[Stream] Collection not found: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Track not found"})

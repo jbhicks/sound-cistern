@@ -132,22 +132,28 @@ templ Stream(data StreamData) {
 			</div>
 
 		<div id="track-container">
+			<div 
+				class="stream-flip-grid" 
+				id="cards-grid"
+				hx-get="/api/stream"
+				hx-trigger="load"
+				hx-swap="innerHTML"
+				hx-on::after-request="upgradeAllArtwork()"
+			>
 			if len(data.Tracks) > 0 {
-				<div class="stream-flip-grid" id="cards-grid">
-					for _, track := range data.Tracks {
-						@components.StreamFlipCard(
-							track.TrackID,
-							track.TrackTitle,
-							track.ArtistName,
-							track.Genre,
-							track.TrackDuration,
-							track.ArtworkURL,
-							track.PlaybackCount,
-							track.FavoritingsCount,
-							track.RepostsCount,
-						)
-					}
-				</div>
+				for _, track := range data.Tracks {
+					@components.StreamFlipCard(
+						track.TrackID,
+						track.TrackTitle,
+						track.ArtistName,
+						track.Genre,
+						track.TrackDuration,
+						track.ArtworkURL,
+						track.PlaybackCount,
+						track.FavoritingsCount,
+						track.RepostsCount,
+					)
+				}
 			} else {
 					<article>
 						<hgroup>
@@ -160,6 +166,7 @@ templ Stream(data StreamData) {
 					</article>
 				}
 			</div>
+		</div>
 
 			<div style="text-align: center; margin-top: 1rem;" id="load-more-sentinel">
 				<button 
@@ -189,17 +196,8 @@ templ Stream(data StreamData) {
 		<div id="player-container"></div>
 
 		<script>
-			// Load initial tracks on page load
-			document.addEventListener('DOMContentLoaded', function() {
-				var cardsGrid = document.getElementById('cards-grid');
-				if (cardsGrid && cardsGrid.children.length === 0) {
-					fetch('/api/stream')
-						.then(function(response) { return response.text(); })
-						.then(function(html) {
-							cardsGrid.innerHTML = html;
-						});
-				}
-			});
+			// Note: Initial track loading is now handled by HTMX via hx-get and hx-trigger="load" on #cards-grid
+			// This replaces the previous vanilla JS fetch approach
 
 			// Infinite scroll - auto-load more when scrolling to bottom
 			(function() {
