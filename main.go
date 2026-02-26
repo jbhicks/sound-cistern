@@ -2132,6 +2132,7 @@ func main() {
 			// Duration filter (in minutes, convert to milliseconds for DB)
 			durationMin := c.QueryParam("duration_min")
 			durationMax := c.QueryParam("duration_max")
+			searchQuery := c.QueryParam("q")
 
 			// Check if we should fetch fresh from SoundCloud API
 			freshFromAPI := c.QueryParam("refresh") == "true" || limit > 20
@@ -2165,8 +2166,16 @@ func main() {
 
 			// Fetch from SoundCloud API if requested or if limit indicates fresh fetch
 			if freshFromAPI && accessToken != "" {
-				log.Printf("[Stream] Fetching fresh tracks from SoundCloud API with limit=%d", limit)
-				tracks, err := fetchSoundCloudTracks(accessToken, limit)
+				// When filtering, fetch more to ensure we have enough after filtering
+				fetchLimit := limit
+				if durationMin != "" || durationMax != "" || searchQuery != "" {
+					fetchLimit = limit * 5 // Fetch 5x more when filtering
+					if fetchLimit > 200 {
+						fetchLimit = 200 // Cap at 200
+					}
+				}
+				log.Printf("[Stream] Fetching fresh tracks from SoundCloud API with limit=%d (filtering active: %v)", fetchLimit, durationMin != "" || durationMax != "" || searchQuery != "")
+				tracks, err := fetchSoundCloudTracks(accessToken, fetchLimit)
 				if err == nil && len(tracks) > 0 {
 					// Apply duration filter in-memory
 					var filteredTracks []views.Track
@@ -2180,21 +2189,34 @@ func main() {
 						durationMaxMs = dm * 60 * 1000
 					}
 
+					searchLower := strings.ToLower(searchQuery)
 					for _, t := range tracks {
 						if t.TrackDuration >= int64(durationMinMs) && t.TrackDuration <= int64(durationMaxMs) {
+							// Apply search filter
+							if searchQuery != "" {
+								titleMatch := strings.Contains(strings.ToLower(t.TrackTitle), searchLower)
+								artistMatch := strings.Contains(strings.ToLower(t.ArtistName), searchLower)
+								genreMatch := strings.Contains(strings.ToLower(t.Genre), searchLower)
+								if !titleMatch && !artistMatch && !genreMatch {
+									continue
+								}
+							}
 							filteredTracks = append(filteredTracks, t)
 						}
 					}
 
-					log.Printf("[Stream] Returning %d fresh tracks from API (filtered from %d)", len(filteredTracks), len(tracks))
+					log.Printf("[Stream] Returning %d fresh tracks from API (filtered from %d, limit=%d)", len(filteredTracks), len(tracks), limit)
 
-					// Render tracks to HTML
+					// Render tracks to HTML (up to limit)
 					var htmlBuilder strings.Builder
 					isHTMX := c.Request().Header.Get("HX-Request") == "true"
 					if !isHTMX {
 						htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
 					}
-					for _, track := range filteredTracks {
+					for i, track := range filteredTracks {
+						if i >= limit {
+							break
+						}
 						components.StreamFlipCard(
 							track.TrackID,
 							track.TrackTitle,
