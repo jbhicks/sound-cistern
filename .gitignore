@@ -33,6 +33,8 @@ vendor/
 # Test files
 *.test
 test_output.txt
+pb_data_test/
+pb_data_test_template/
 
 # Temporary files
 *.tmp

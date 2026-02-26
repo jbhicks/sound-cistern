@@ -1,0 +1,653 @@
+package views
+
+import (
+	"github.com/jbhicks/sound-cistern/views/components"
+)
+
+type ProtoType string
+
+const (
+	ProtoTypeTrackCards ProtoType = "track-cards"
+	ProtoTypeGradient   ProtoType = "gradient"
+	ProtoTypeUI         ProtoType = "ui"
+)
+
+type ProtoData struct {
+	PageData
+	Tracks  []Track
+	ProtoType ProtoType
+}
+
+func (p ProtoType) Title() string {
+	switch p {
+	case ProtoTypeTrackCards:
+		return "Track Card Prototypes"
+	case ProtoTypeGradient:
+		return "Gradient Vignette Cards"
+	case ProtoTypeUI:
+		return "UI Prototypes"
+	default:
+		return "Prototypes"
+	}
+}
+
+func (p ProtoType) Description() string {
+	switch p {
+	case ProtoTypeTrackCards:
+		return "Cover art fills card with play overlay on hover"
+	case ProtoTypeGradient:
+		return "Vignette Cards (centered play) + Waveform Cards (animated bars)"
+	case ProtoTypeUI:
+		return "General UI component experiments"
+	default:
+		return "Prototype experiments"
+	}
+}
+
+templ Proto(data ProtoData) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ data.ProtoType.Title() } - Sound Cistern</title>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+			<link rel="stylesheet" href="/css/custom.css"/>
+			<script src="/js/htmx.min.js"></script>
+			<style>
+				.proto-nav {
+					display: flex;
+					gap: 0.5rem;
+					margin-bottom: 2rem;
+					flex-wrap: wrap;
+				}
+				.proto-nav a {
+					padding: 0.5rem 1rem;
+					border-radius: var(--pico-border-radius);
+					background: var(--pico-background-color);
+					border: 1px solid var(--pico-muted-border-color);
+					text-decoration: none;
+				}
+				.proto-nav a.active {
+					background: var(--pico-primary-background);
+					border-color: var(--pico-primary-underline);
+					color: var(--pico-primary-color);
+				}
+				.proto-nav a:hover {
+					border-color: var(--pico-primary-underline);
+				}
+				.proto-section {
+					margin-bottom: 3rem;
+				}
+				.proto-section h2 {
+					margin-top: 2rem;
+					font-size: 1.25rem;
+				}
+				.proto-section p {
+					color: var(--pico-muted-color);
+					margin-bottom: 1rem;
+				}
+				.proto-grid {
+					display: flex;
+					gap: 1.5rem;
+					flex-wrap: wrap;
+				}
+			</style>
+		</head>
+		<body class="container">
+			<nav>
+				<ul>
+					<li><strong>Prototypes</strong></li>
+				</ul>
+				<ul>
+					<li><a href="/stream">← Back to App</a></li>
+				</ul>
+			</nav>
+
+			<nav class="proto-nav" hx-boost="true">
+				<a href="/proto?type=track-cards" class={ isActive(data.ProtoType, ProtoTypeTrackCards) }>Track Cards</a>
+				<a href="/proto?type=gradient" class={ isActive(data.ProtoType, ProtoTypeGradient) }>Gradient</a>
+				<a href="/proto?type=ui" class={ isActive(data.ProtoType, ProtoTypeUI) }>UI</a>
+			</nav>
+
+			<hgroup>
+				<h1>{ data.ProtoType.Title() }</h1>
+				<p>{ data.ProtoType.Description() }</p>
+			</hgroup>
+
+			switch data.ProtoType {
+			case ProtoTypeTrackCards:
+				@protoTrackCards(data.Tracks)
+			case ProtoTypeGradient:
+				@protoGradient(data.Tracks)
+			case ProtoTypeUI:
+				@protoUI()
+			default:
+				<p>Select a prototype type from the navigation above.</p>
+			}
+
+			<!-- Global Audio Player -->
+			<div id="global-audio-player" class="global-audio-player">
+				<img id="global-player-art" src="" alt="" class="global-player-art"/>
+				<div class="global-player-info">
+					<div id="global-player-title" class="global-player-title"></div>
+					<div id="global-player-artist" class="global-player-artist"></div>
+				</div>
+				<div class="global-player-controls">
+					<button class="global-player-btn" id="global-player-prev" aria-label="Previous">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+					</button>
+					<button class="global-player-btn global-player-btn--play" id="global-player-play" aria-label="Play/Pause">
+						<svg id="global-play-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+						<svg id="global-pause-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+					</button>
+					<button class="global-player-btn" id="global-player-next" aria-label="Next">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+					</button>
+				</div>
+				<div class="global-player-progress">
+					<div class="global-player-bar" id="global-player-bar">
+						<div class="global-player-fill" id="global-player-fill"></div>
+					</div>
+					<div class="global-player-time">
+						<span id="global-current-time">0:00</span>
+						<span id="global-duration">0:00</span>
+					</div>
+				</div>
+				<button class="global-player-close" id="global-player-close" aria-label="Close">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+				</button>
+				<audio id="global-audio" preload="none"></audio>
+			</div>
+
+			<script>
+			// Audio Player State
+			let currentTrack = null;
+			let isPlaying = false;
+			const audio = document.getElementById('global-audio');
+			const player = document.getElementById('global-audio-player');
+			const playBtn = document.getElementById('global-player-play');
+			const playIcon = document.getElementById('global-play-icon');
+			const pauseIcon = document.getElementById('global-pause-icon');
+			const progressBar = document.getElementById('global-player-bar');
+			const progressFill = document.getElementById('global-player-fill');
+			const currentTimeEl = document.getElementById('global-current-time');
+			const durationEl = document.getElementById('global-duration');
+			const titleEl = document.getElementById('global-player-title');
+			const artistEl = document.getElementById('global-player-artist');
+			const artEl = document.getElementById('global-player-art');
+			const closeBtn = document.getElementById('global-player-close');
+
+			// Format time helper
+			function formatTime(seconds) {
+				if (isNaN(seconds)) return '0:00';
+				const mins = Math.floor(seconds / 60);
+				const secs = Math.floor(seconds % 60);
+				return mins + ':' + (secs < 10 ? '0' : '') + secs;
+			}
+
+			// Update play button state
+			function updatePlayButton() {
+				if (isPlaying) {
+					playIcon.style.display = 'none';
+					pauseIcon.style.display = 'block';
+				} else {
+					playIcon.style.display = 'block';
+					pauseIcon.style.display = 'none';
+				}
+			}
+
+			// Play track
+			function playTrack(trackID, streamURL, trackTitle, artistName) {
+				// If same track, toggle play/pause
+				if (currentTrack === trackID) {
+					togglePlay();
+					return;
+				}
+
+				// New track
+				currentTrack = trackID;
+				audio.src = streamURL;
+				audio.play();
+				isPlaying = true;
+				
+				// Update UI
+				titleEl.textContent = trackTitle;
+				artistEl.textContent = artistName;
+				
+				// Get artwork from the clicked card
+				const card = document.querySelector('[data-track-id="' + trackID + '"]');
+				if (card) {
+					const img = card.querySelector('img');
+					if (img) artEl.src = img.src;
+				}
+				
+				player.classList.add('active');
+				updatePlayButton();
+				
+				// Update inline player states
+				updateInlinePlayers();
+			}
+
+			// Toggle play/pause
+			function togglePlay(trackID) {
+				if (trackID && trackID !== currentTrack) {
+					// Find the stream URL for this track
+					const card = document.querySelector('[data-track-id="' + trackID + '"]');
+					if (card) {
+						const streamURL = card.dataset.streamUrl;
+						const title = card.querySelector('.vcard-title')?.textContent || 'Unknown';
+						const artist = card.querySelector('.vcard-artist')?.textContent || 'Unknown';
+						playTrack(trackID, streamURL, title, artist);
+					}
+					return;
+				}
+				
+				if (isPlaying) {
+					audio.pause();
+					isPlaying = false;
+				} else if (currentTrack) {
+					audio.play();
+					isPlaying = true;
+				}
+				updatePlayButton();
+				updateInlinePlayers();
+			}
+
+			// Update inline player UI states
+			function updateInlinePlayers() {
+				document.querySelectorAll('.vcard-player-btn').forEach(btn => {
+					const card = btn.closest('[data-track-id]');
+					if (card) {
+						const playIcon = btn.querySelector('.icon-play');
+						const pauseIcon = btn.querySelector('.icon-pause');
+						if (card.dataset.trackId === currentTrack && isPlaying) {
+							if (playIcon) playIcon.style.display = 'none';
+							if (pauseIcon) pauseIcon.style.display = 'block';
+						} else {
+							if (playIcon) playIcon.style.display = 'block';
+							if (pauseIcon) pauseIcon.style.display = 'none';
+						}
+					}
+				});
+			}
+
+			// Event listeners
+			playBtn.addEventListener('click', () => togglePlay());
+			
+			closeBtn.addEventListener('click', () => {
+				audio.pause();
+				isPlaying = false;
+				currentTrack = null;
+				player.classList.remove('active');
+				updatePlayButton();
+				updateInlinePlayers();
+			});
+
+			audio.addEventListener('timeupdate', () => {
+				const progress = (audio.currentTime / audio.duration) * 100;
+				progressFill.style.width = progress + '%';
+				currentTimeEl.textContent = formatTime(audio.currentTime);
+				if (audio.duration) {
+					durationEl.textContent = formatTime(audio.duration);
+				}
+				
+				// Update inline progress bars
+				if (currentTrack) {
+					const inlineFill = document.getElementById('progress-fill-' + currentTrack);
+					if (inlineFill) inlineFill.style.width = progress + '%';
+					const inlineTime = document.getElementById('time-' + currentTrack);
+					if (inlineTime) {
+						const totalDuration = audio.duration;
+						inlineTime.textContent = formatTime(audio.currentTime) + ' / ' + formatTime(totalDuration);
+					}
+				}
+			});
+
+			audio.addEventListener('ended', () => {
+				isPlaying = false;
+				updatePlayButton();
+				updateInlinePlayers();
+			});
+
+			progressBar.addEventListener('click', (e) => {
+				const rect = progressBar.getBoundingClientRect();
+				const pos = (e.clientX - rect.left) / rect.width;
+				audio.currentTime = pos * audio.duration;
+			});
+
+			// Listen for custom events from Templ
+			document.addEventListener('playTrack', (e) => {
+				const { trackID, streamURL, trackTitle, artistName } = e.detail;
+				playTrack(trackID, streamURL, trackTitle, artistName);
+			});
+
+			document.addEventListener('togglePlay', (e) => {
+				const { trackID } = e.detail;
+				togglePlay(trackID);
+			});
+			</script>
+		</body>
+	</html>
+}
+
+func isActive(current, target ProtoType) string {
+	if current == target {
+		return "active"
+	}
+	return ""
+}
+
+templ protoTrackCards(tracks []Track) {
+	if len(tracks) == 0 {
+		<p>No tracks available. <a href="/api/sync" hx-post="/api/sync" hx-swap="outerHTML">Sync from SoundCloud</a> to get started.</p>
+	} else {
+		<!-- A Style Variations Section -->
+		<div class="proto-section">
+			<h2>A Classic: Original</h2>
+			<p>Cover art fills card, dark gradient at bottom, all stats visible. Click play button to test audio.</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard1(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>A1: Stats on Right Side</h2>
+			<p>Vertical stats layout on the right, play button in corner. Includes BPM badge and all engagement stats.</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard1A(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+					tracks[0].StreamURL,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>A2: Top Header Style</h2>
+			<p>Stats in header bar, genre and BPM tags in meta row. Large title with floating play button.</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard1B(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+					tracks[0].StreamURL,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>A3: Grid Overlay Style</h2>
+			<p>Stats in grid cells at top, large centered play button, clean bottom section with tags.</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard1C(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+					tracks[0].StreamURL,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>A4: Waveform Visualization Style</h2>
+			<p>Animated waveform bars at bottom, play button reveals on hover, stacked info layout.</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard1D(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+					tracks[0].StreamURL,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>A5: Compact with Inline Audio Player</h2>
+			<p>Horizontal layout with artwork on left, inline audio player with progress bar at bottom.</p>
+			<div class="proto-grid" style="max-width: 600px;">
+				@components.VignetteCard1E(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+					tracks[0].StreamURL,
+				)
+			</div>
+		</div>
+
+		<!-- Original B, C, D variations -->
+		<div class="proto-section">
+			<h2>B: Centered - Play Ring with Hover Info</h2>
+			<p>Large centered play button, info reveals on hover</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard2(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>C: Pill - Horizontal Layout</h2>
+			<p>Pill-shaped card, horizontal layout with cover on left</p>
+			<div class="proto-grid" style="max-width: 400px;">
+				@components.VignetteCard3(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>D: Minimal - Spotlight on Hover</h2>
+			<p>Clean cover, info lights up on hover with spotlight effect</p>
+			<div class="proto-grid" style="max-width: 280px;">
+				@components.VignetteCard4(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+	}
+}
+
+templ protoGradient(tracks []Track) {
+	if len(tracks) == 0 {
+		<p>No tracks available. <a href="/api/sync" hx-post="/api/sync" hx-swap="outerHTML">Sync from SoundCloud</a> to get started.</p>
+	} else {
+		<div class="proto-section">
+			<h2>Vignette Card 1: Classic with Bottom Info</h2>
+			<p>Duration/genre top-left, centered play on hover, full stats at bottom</p>
+			<div class="proto-grid">
+				@components.VignetteCard1(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>Vignette Card 2: Ring Style</h2>
+			<p>Play ring in center, all info revealed on hover</p>
+			<div class="proto-grid">
+				@components.VignetteCard2(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>Vignette Card 3: Pill Style</h2>
+			<p>Pill-shaped card with horizontal layout</p>
+			<div class="proto-grid">
+				@components.VignetteCard3(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+
+		<div class="proto-section">
+			<h2>Vignette Card 4: Minimal</h2>
+			<p>Minimal design with hover reveal</p>
+			<div class="proto-grid">
+				@components.VignetteCard4(
+					tracks[0].TrackID,
+					tracks[0].TrackTitle,
+					tracks[0].ArtistName,
+					tracks[0].Genre,
+					tracks[0].TrackDuration,
+					tracks[0].ArtworkURL,
+					tracks[0].PermalinkURL,
+					tracks[0].PlaybackCount,
+					tracks[0].FavoritingsCount,
+					tracks[0].BPM,
+					tracks[0].ReleaseYear,
+					tracks[0].CommentCount,
+					tracks[0].RepostsCount,
+				)
+			</div>
+		</div>
+	}
+}
+
+templ protoUI() {
+	<div class="proto-section">
+		<h2>UI Experiments</h2>
+		<p>General UI component prototypes</p>
+		<p><em>Add UI prototypes here</em></p>
+	</div>
+}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               

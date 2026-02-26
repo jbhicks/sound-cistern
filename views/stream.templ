@@ -201,6 +201,26 @@ templ Stream(data StreamData) {
 				}
 			});
 
+			// Infinite scroll - auto-load more when scrolling to bottom
+			(function() {
+				var observer = new IntersectionObserver(function(entries) {
+					var loadMoreBtn = document.getElementById('load-more-btn');
+					if (entries[0].isIntersecting && loadMoreBtn && !loadMoreBtn.disabled) {
+						console.log('Infinite scroll: loading more tracks');
+						loadMoreBtn.click();
+					}
+				}, { rootMargin: '100px' });
+
+				// Start observing the load more button once it's in the DOM
+				var checkForButton = setInterval(function() {
+					var loadMoreBtn = document.getElementById('load-more-btn');
+					if (loadMoreBtn) {
+						observer.observe(loadMoreBtn);
+						clearInterval(checkForButton);
+					}
+				}, 100);
+			})();
+
 			// Note: Auto-sync disabled - tracks loaded via HTMX on page load
 			// (kept in case we want to re-enable later)
 			// (function() {

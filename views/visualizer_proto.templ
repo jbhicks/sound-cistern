@@ -1,0 +1,568 @@
+package views
+
+type VisualizerProtoData struct {
+	PageData
+	Tracks []Track
+}
+
+templ VisualizerProto(data VisualizerProtoData) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Visualizer - Sound Cistern</title>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+			<link rel="stylesheet" href="/css/custom.css"/>
+			<script src="/js/htmx.min.js"></script>
+			<style>
+				.proto-section { margin-bottom: 1rem; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 1rem; border: 1px solid rgba(139, 92, 246, 0.2); }
+				.proto-title { color: #a78bfa; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+				.viz-preview { height: 80px; background: linear-gradient(135deg, #0a0a15, #1a1a2e); border-radius: 8px; display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding: 0 1rem; cursor: pointer; position: relative; overflow: hidden; }
+				.viz-preview:hover { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+				.viz-preview-bars { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%; width: 100%; }
+				.viz-preview-bar { flex: 1; border-radius: 2px; min-width: 3px; transition: height 0.05s ease; }
+				.viz-preview-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; pointer-events: none; }
+				.viz-preview.viz-active .viz-preview-text { display: none; }
+				.viz-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+				.viz-overlay.viz-active { opacity: 1; pointer-events: all; }
+				#viz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+				.viz-header { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; background: linear-gradient(180deg, rgba(0,0,0,0.8), transparent); z-index: 10; opacity: 0; transition: opacity 0.3s ease; }
+				.viz-overlay:hover .viz-header, .viz-overlay.viz-active .viz-header { opacity: 1; }
+				.viz-header-title { color: white; font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+				.viz-header-track { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+				.viz-close-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+				.viz-close-btn:hover { background: rgba(255,255,255,0.2); }
+				.viz-controls { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: rgba(20, 20, 30, 0.8); backdrop-filter: blur(20px); padding: 1rem 2rem; border-radius: 50px; display: flex; align-items: center; gap: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.1); z-index: 10; opacity: 0; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+				.viz-overlay:hover .viz-controls, .viz-overlay.viz-active .viz-controls { opacity: 1; transform: translateX(-50%) translateY(0); }
+				.viz-track-info { text-align: center; color: white; }
+				.viz-track-title { font-weight: 600; font-size: 0.9rem; }
+				.viz-track-artist { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); }
+				.viz-settings { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%) translateX(20px); background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px); width: 280px; padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.3); z-index: 10; opacity: 0; pointer-events: none; transition: all 0.3s ease; }
+				.viz-settings.viz-open { opacity: 1; pointer-events: all; transform: translateY(-50%) translateX(0); }
+				.viz-settings-title { color: #8b5cf6; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+				.viz-setting-row { margin-bottom: 1rem; }
+				.viz-setting-label { color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between; }
+				.viz-setting-input { width: 100%; accent-color: #8b5cf6; }
+				.viz-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+				.viz-preset-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+				.viz-preset-btn:hover { background: rgba(139, 92, 246, 0.2); border-color: #8b5cf6; color: white; }
+				.viz-preset-btn.viz-active { background: #8b5cf6; border-color: #8b5cf6; color: white; }
+				.viz-icon-btn { background: linear-gradient(135deg, #8b5cf6, #ec4899); border: none; color: white; cursor: pointer; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
+				.viz-icon-btn:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
+				.viz-icon-btn--ghost { background: rgba(255,255,255,0.1); }
+				.viz-icon-btn--ghost:hover { background: rgba(255,255,255,0.2); box-shadow: none; }
+				.viz-player-bar { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: linear-gradient(to top, #1a1a1a, #2d2d2d); border-radius: 8px; margin-top: 0.75rem; }
+				.viz-player-art { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: linear-gradient(135deg, #1a1a2e, #16213e); display: flex; align-items: center; justify-content: center; }
+			.viz-player-art img { width: 100%; height: 100%; border-radius: 6px; object-fit: cover; }
+			.viz-player-art .art-placeholder { color: rgba(139, 92, 246, 0.5); }
+				.viz-player-info { flex: 1; min-width: 0; }
+				.viz-player-title { color: #fff; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+				.viz-player-artist-name { color: rgba(255,255,255,0.6); font-size: 0.75rem; }
+				.viz-progress-container { flex: 2; display: flex; flex-direction: column; gap: 4px; }
+				.viz-progress-bar { position: relative; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer; }
+				.viz-progress-fill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #a78bfa); border-radius: 3px; width: 0%; }
+				.viz-time { display: flex; justify-content: space-between; font-size: 0.7rem; color: rgba(255,255,255,0.6); }
+			</style>
+		</head>
+		<body class="container">
+			<nav>
+				<ul><li><strong>Visualizer</strong></li></ul>
+				<ul><li><a href="/stream">← Back to Stream</a></li></ul>
+			</nav>
+
+			<hgroup>
+				<h1>Audio Visualizer</h1>
+				<p>Real-time frequency visualization - press play, then click waveform for fullscreen</p>
+			</hgroup>
+
+			<div class="proto-section">
+				<div class="proto-title">Now Playing - Live Waveform</div>
+				<div class="viz-preview" id="viz-preview" onclick="openViz()">
+					<div class="viz-preview-bars" id="preview-bars"></div>
+					<div class="viz-preview-text" id="preview-text">Click for fullscreen</div>
+				</div>
+
+				<div class="viz-player-bar">
+					<div class="viz-player-art">
+						<img id="viz-player-art" src="" alt="" style="display: none;"/>
+						<svg id="viz-art-placeholder" class="art-placeholder" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+					</div>
+					<div class="viz-player-info">
+						<div id="viz-player-title" class="viz-player-title">No track playing</div>
+						<div id="viz-player-artist" class="viz-player-artist-name">-</div>
+					</div>
+					<button id="viz-player-play" class="viz-icon-btn" style="width: 40px; height: 40px; padding: 8px;" aria-label="Play/Pause">
+						<svg id="viz-play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+						<svg id="viz-pause-icon" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+					</button>
+					<div class="viz-progress-container">
+						<div id="viz-progress-bar" class="viz-progress-bar"><div id="viz-progress-fill" class="viz-progress-fill"></div></div>
+						<div class="viz-time"><span id="viz-current-time">0:00</span><span id="viz-duration">∞</span></div>
+					</div>
+					<button id="viz-settings-btn" class="viz-icon-btn viz-icon-btn--ghost" style="width: 36px; height: 36px; padding: 6px;" aria-label="Settings">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4"/></svg>
+					</button>
+					<button id="viz-fullscreen-btn" class="viz-icon-btn" style="width: 36px; height: 36px; padding: 6px;" aria-label="Fullscreen" onclick="openViz()">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+					</button>
+				</div>
+			</div>
+
+			<div id="viz-overlay" class="viz-overlay">
+				<canvas id="viz-canvas-webgl"></canvas>
+				<canvas id="viz-canvas"></canvas>
+				<div class="viz-header">
+					<div>
+						<div class="viz-header-title">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2l2-6 3 12 3-8 2 4h8"/></svg>
+							Visualizer
+						</div>
+						<div class="viz-header-track" id="viz-header-track">-</div>
+					</div>
+					<button class="viz-close-btn" onclick="closeViz()" aria-label="Close">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+					</button>
+				</div>
+				<div class="viz-controls">
+					<div class="viz-track-info">
+						<div class="viz-track-title" id="viz-controls-title">-</div>
+						<div class="viz-track-artist" id="viz-controls-artist">-</div>
+					</div>
+					<button id="viz-controls-play" class="viz-icon-btn" style="width: 44px; height: 44px; padding: 10px;" aria-label="Play/Pause">
+						<svg id="viz-controls-play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+						<svg id="viz-controls-pause-icon" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+					</button>
+					<button id="viz-controls-settings" class="viz-icon-btn viz-icon-btn--ghost" style="width: 40px; height: 40px; padding: 8px;" aria-label="Settings">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+					</button>
+				</div>
+				<div id="viz-settings" class="viz-settings">
+					<div class="viz-settings-title">Visualization Style</div>
+					<div class="viz-presets">
+						<button class="viz-preset-btn viz-active" onclick="selectViz(this, 'bars')">Bars</button>
+						<button class="viz-preset-btn" onclick="selectViz(this, 'wave')">Wave</button>
+						<button class="viz-preset-btn" onclick="selectViz(this, 'circle')">Circle</button>
+						<button class="viz-preset-btn" onclick="selectViz(this, 'particles')">Particles</button>
+						<button class="viz-preset-btn" onclick="selectViz(this, 'rings')">Rings</button>
+					</div>
+					<div class="viz-settings-title">Parameters</div>
+					<div class="viz-setting-row">
+						<label class="viz-setting-label"><span>Sensitivity</span><span id="sens-val">70%</span></label>
+						<input type="range" class="viz-setting-input" id="sens-slider" min="20" max="100" value="70" oninput="updateSetting('sens', this.value)">
+					</div>
+					<div class="viz-setting-row">
+						<label class="viz-setting-label"><span>Bass</span><span id="bass-val">80%</span></label>
+						<input type="range" class="viz-setting-input" id="bass-slider" min="0" max="100" value="80" oninput="updateSetting('bass', this.value)">
+					</div>
+					<div class="viz-setting-row">
+						<label class="viz-setting-label"><span>Speed</span><span id="speed-val">50%</span></label>
+						<input type="range" class="viz-setting-input" id="speed-slider" min="10" max="100" value="50" oninput="updateSetting('speed', this.value)">
+					</div>
+					<div class="viz-setting-row">
+						<label class="viz-setting-label"><span>Color</span><span id="color-val">50%</span></label>
+						<input type="range" class="viz-setting-input" id="color-slider" min="0" max="100" value="50" oninput="updateSetting('color', this.value)">
+					</div>
+				</div>
+			</div>
+
+			<script>
+				let vizActive = false, isPlaying = false, audioCtx = null, analyser = null, dataArray = null;
+				let oscillators = [], gainNode = null;
+				let currentViz = 'bars', particles = [], settings = { sensitivity: 70, bass: 80, speed: 50, color: 50 };
+				let butterchurnVis = null, butterchurnLoaded = false;
+				let canvas2D = null;
+				const demoTrack = { title: "Midnight Drive", artist: "Synthwave Master", artwork: "https://picsum.photos/seed/track1/200/200" };
+
+				document.addEventListener('DOMContentLoaded', () => {
+					initPlayer();
+					createBars();
+					startAnimation();
+					document.getElementById('viz-preview').addEventListener('click', openViz);
+				});
+
+				function createBars() {
+					const c = document.getElementById('preview-bars');
+					for (let i = 0; i < 50; i++) {
+						const b = document.createElement('div');
+						b.className = 'viz-preview-bar';
+						b.style.height = '10%';
+						c.appendChild(b);
+					}
+				}
+
+				function initAudio() {
+					if (audioCtx) return;
+					audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+					analyser = audioCtx.createAnalyser();
+					analyser.fftSize = 256;
+					analyser.smoothingTimeConstant = 0.75;
+					dataArray = new Uint8Array(analyser.frequencyBinCount);
+					gainNode = audioCtx.createGain();
+					gainNode.gain.value = 0;
+					gainNode.connect(analyser);
+					analyser.connect(audioCtx.destination);
+				}
+
+				function createSynthAudio() {
+					const bass = audioCtx.createOscillator();
+					bass.type = 'sawtooth';
+					bass.frequency.value = 55;
+					const bGain = audioCtx.createGain();
+					bGain.gain.value = 0.2;
+					bass.connect(bGain);
+					bGain.connect(gainNode);
+					bass.start();
+					oscillators.push({ osc: bass, gain: bGain });
+
+					const sub = audioCtx.createOscillator();
+					sub.type = 'sine';
+					sub.frequency.value = 40;
+					const sGain = audioCtx.createGain();
+					sGain.gain.value = 0.3;
+					sub.connect(sGain);
+					sGain.connect(gainNode);
+					sub.start();
+					oscillators.push({ osc: sub, gain: sGain });
+
+					[220, 330, 440].forEach((freq, i) => {
+						const osc = audioCtx.createOscillator();
+						osc.type = 'sine';
+						osc.frequency.value = freq;
+						const g = audioCtx.createGain();
+						g.gain.value = 0.05;
+						osc.connect(g);
+						g.connect(gainNode);
+						osc.start();
+						oscillators.push({ osc, gain: g });
+					});
+				}
+
+				function togglePlay() {
+					initAudio();
+					if (isPlaying) {
+						gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+						setTimeout(() => { oscillators.forEach(o => o.osc.stop()); oscillators = []; }, 400);
+					} else {
+						createSynthAudio();
+						gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.3);
+					}
+					isPlaying = !isPlaying;
+					updatePlayIcons();
+				}
+
+				function updatePlayIcons() {
+					const show = isPlaying ? 'none' : 'block';
+					document.getElementById('viz-play-icon').style.display = show;
+					document.getElementById('viz-pause-icon').style.display = isPlaying ? 'block' : 'none';
+					document.getElementById('viz-controls-play-icon').style.display = show;
+					document.getElementById('viz-controls-pause-icon').style.display = isPlaying ? 'block' : 'none';
+				}
+
+				function startAnimation() {
+					function anim() {
+						const bars = document.querySelectorAll('.viz-preview-bar');
+						const t = Date.now() / 1000;
+
+						if (analyser && isPlaying) {
+							analyser.getByteFrequencyData(dataArray);
+							bars.forEach((b, i) => {
+								const idx = Math.floor((i / bars.length) * dataArray.length);
+								const val = (dataArray[idx] || 0) / 255 * (settings.sensitivity / 100);
+								b.style.height = Math.max(5, val * 100) + '%';
+								const hue = 260 + settings.color + (i / bars.length) * 40;
+								b.style.background = `linear-gradient(to top, hsl(${hue}, 75%, ${40 + val * 30}%), hsl(${hue + 20}, 85%, ${55 + val * 30}%))`;
+							});
+						} else {
+							bars.forEach((b, i) => {
+								const h = Math.abs(Math.sin(t * 2 + i * 0.2)) * 15 + 10;
+								b.style.height = h + '%';
+								b.style.background = `linear-gradient(to top, hsl(${260 + (i / bars.length) * 40}, 60%, 45%), hsl(${280 + (i / bars.length) * 40}, 70%, 60%))`;
+							});
+						}
+						requestAnimationFrame(anim);
+					}
+					anim();
+				}
+
+				function renderFullscreen() {
+					if (!vizActive) return;
+					
+					if (currentViz === 'butterchurn') {
+						if (!butterchurnLoaded) {
+							initButterchurn();
+						}
+						requestAnimationFrame(renderFullscreen);
+						return;
+					}
+					
+					const cvs = document.getElementById('viz-canvas');
+					canvas2D = cvs.getContext('2d');
+					cvs.width = window.innerWidth;
+					cvs.height = window.innerHeight;
+
+					const t = Date.now() / 1000;
+					let freqs = [];
+					if (analyser && isPlaying) {
+						analyser.getByteFrequencyData(dataArray);
+						freqs = Array.from(dataArray);
+					} else {
+						for (let i = 0; i < 128; i++) freqs.push(Math.abs(Math.sin(t * 2 + i * 0.1)) * 100 + 50);
+					}
+
+					canvas2D.fillStyle = 'rgba(0, 0, 0, 0.12)';
+					canvas2D.fillRect(0, 0, cvs.width, cvs.height);
+
+					let bass = 0;
+					for (let i = 0; i < 10; i++) bass += freqs[i] || 0;
+					bass = (bass / 10 / 255) * (settings.bass / 100);
+
+					const drawBars = () => {
+						const count = 60, w = cvs.width / count - 4;
+						for (let i = 0; i < count; i++) {
+							const idx = Math.floor((i / count) * freqs.length);
+							const val = (freqs[idx] || 0) / 255 * (settings.sensitivity / 100);
+							const h = val * cvs.height * 0.7;
+							const x = i * (w + 4) + 2, y = cvs.height - h;
+							const hue = 260 + settings.color + (i / count) * 60;
+							const g = canvas2D.createLinearGradient(x, y, x, cvs.height);
+							g.addColorStop(0, `hsla(${hue}, 80%, 60%, 0.9)`);
+							g.addColorStop(1, `hsla(${hue + 30}, 70%, 50%, 0.4)`);
+							canvas2D.fillStyle = g;
+							canvas2D.fillRect(x, y, w, h);
+						}
+					};
+
+					const drawWave = () => {
+						canvas2D.beginPath();
+						for (let i = 0; i < cvs.width; i++) {
+							const idx = Math.floor((i / cvs.width) * freqs.length);
+							const val = (freqs[idx] || 0) / 255 * (settings.sensitivity / 100) * 200;
+							const y = cvs.height / 2 + Math.sin(i * 0.02 + t * settings.speed * 0.1) * val;
+							i === 0 ? canvas2D.moveTo(i, y) : canvas2D.lineTo(i, y);
+						}
+						canvas2D.strokeStyle = `hsla(${260 + settings.color}, 80%, 60%, 0.8)`;
+						canvas2D.lineWidth = 3;
+						canvas2D.stroke();
+					};
+
+					const drawCircle = () => {
+						const cx = cvs.width / 2, cy = cvs.height / 2, r = 100 + bass * 150;
+						canvas2D.beginPath();
+						for (let i = 0; i <= 360; i += 2) {
+							const a = (i * Math.PI) / 180;
+							const idx = Math.floor((i / 360) * freqs.length);
+							const val = (freqs[idx] || 0) / 255 * (settings.sensitivity / 100) * 150;
+							const rad = r + val;
+							const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+							i === 0 ? canvas2D.moveTo(x, y) : canvas2D.lineTo(x, y);
+						}
+						canvas2D.closePath();
+						const g = canvas2D.createRadialGradient(cx, cy, 0, cx, cy, r + 200);
+						g.addColorStop(0, `hsla(${260 + settings.color}, 80%, 60%, 0.3)`);
+						g.addColorStop(1, `hsla(${280 + settings.color}, 70%, 40%, 0)`);
+						canvas2D.fillStyle = g;
+						canvas2D.fill();
+						canvas2D.strokeStyle = `hsla(${260 + settings.color}, 80%, 60%, 0.8)`;
+						canvas2D.lineWidth = 3;
+						canvas2D.stroke();
+					};
+
+					const drawParticles = () => {
+						if (particles.length === 0) {
+							for (let i = 0; i < 80; i++) {
+								particles.push({ x: Math.random() * cvs.width, y: Math.random() * cvs.height, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, s: Math.random() * 3 + 1, h: Math.random() * 60 + 240 });
+							}
+						}
+						particles.forEach((p, i) => {
+							const idx = Math.floor((i / particles.length) * freqs.length);
+							const val = (freqs[idx] || 0) / 255 * (settings.sensitivity / 100);
+							p.vx += (Math.random() - 0.5) * val * 2;
+							p.vy += (Math.random() - 0.5) * val * 2;
+							p.vx *= 0.98; p.vy *= 0.98;
+							p.x += p.vx * (settings.speed / 15);
+							p.y += p.vy * (settings.speed / 15);
+							if (p.x < 0) p.x = cvs.width; if (p.x > cvs.width) p.x = 0;
+							if (p.y < 0) p.y = cvs.height; if (p.y > cvs.height) p.y = 0;
+							const sz = p.s + val * 12;
+							canvas2D.beginPath();
+							canvas2D.arc(p.x, p.y, sz, 0, Math.PI * 2);
+							canvas2D.fillStyle = `hsla(${p.h + settings.color + val * 60}, 80%, 60%, ${0.3 + val * 0.7})`;
+							canvas2D.fill();
+						});
+						particles.forEach((p1, i) => {
+							particles.slice(i + 1).forEach(p2 => {
+								const d = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+								if (d < 60) {
+									canvas2D.beginPath();
+									canvas2D.moveTo(p1.x, p1.y);
+									canvas2D.lineTo(p2.x, p2.y);
+									canvas2D.strokeStyle = `hsla(${260 + settings.color}, 60%, 50%, ${0.15 * (1 - d / 60)})`;
+									canvas2D.lineWidth = 1;
+									canvas2D.stroke();
+								}
+							});
+						});
+					};
+
+					const drawRings = () => {
+						const cx = cvs.width / 2, cy = cvs.height / 2;
+						for (let r = 0; r < 5; r++) {
+							const rad = 60 + r * 40 + bass * 50 + Math.sin(t * (settings.speed / 30) + r) * 20;
+							canvas2D.beginPath();
+							canvas2D.arc(cx, cy, rad, 0, Math.PI * 2);
+							const hue = 260 + settings.color + r * 30 + bass * 30;
+							canvas2D.strokeStyle = `hsla(${hue}, 70%, 55%, ${0.8 - r * 0.15})`;
+							canvas2D.lineWidth = 2;
+							canvas2D.stroke();
+						}
+					};
+
+					const drawButterchurn = () => {
+						if (!butterchurnLoaded || !butterchurnVis || !analyser) return;
+						butterchurnVis.render();
+					};
+
+					if (currentViz === 'bars') drawBars();
+					else if (currentViz === 'wave') drawWave();
+					else if (currentViz === 'circle') drawCircle();
+					else if (currentViz === 'particles') drawParticles();
+					else if (currentViz === 'rings') drawRings();
+					else if (currentViz === 'butterchurn') drawButterchurn();
+
+					requestAnimationFrame(renderFullscreen);
+				}
+
+				function initPlayer() {
+					document.getElementById('viz-player-title').textContent = demoTrack.title;
+					document.getElementById('viz-player-artist').textContent = demoTrack.artist;
+					const artImg = document.getElementById('viz-player-art');
+					const artPlaceholder = document.getElementById('viz-art-placeholder');
+					if (demoTrack.artwork) {
+						artImg.src = demoTrack.artwork;
+						artImg.style.display = 'block';
+						artPlaceholder.style.display = 'none';
+					} else {
+						artImg.style.display = 'none';
+						artPlaceholder.style.display = 'block';
+					}
+					document.getElementById('viz-header-track').textContent = demoTrack.title + ' - ' + demoTrack.artist;
+					document.getElementById('viz-controls-title').textContent = demoTrack.title;
+					document.getElementById('viz-controls-artist').textContent = demoTrack.artist;
+					document.getElementById('viz-player-play').addEventListener('click', togglePlay);
+					document.getElementById('viz-controls-play').addEventListener('click', togglePlay);
+					document.getElementById('viz-settings-btn').addEventListener('click', () => document.getElementById('viz-settings').classList.toggle('viz-open'));
+					document.getElementById('viz-controls-settings').addEventListener('click', () => document.getElementById('viz-settings').classList.toggle('viz-open'));
+				}
+
+				function selectViz(btn, type) {
+					document.querySelectorAll('.viz-preset-btn').forEach(b => b.classList.remove('viz-active'));
+					btn.classList.add('viz-active');
+					currentViz = type;
+					particles = [];
+					
+					if (type === 'butterchurn') {
+						initButterchurn();
+					}
+				}
+
+				async function initButterchurn() {
+					if (butterchurnLoaded && butterchurnVis) return;
+					initAudio();
+					
+					const cvs = document.getElementById('viz-canvas-webgl');
+					cvs.style.display = 'block';
+					document.getElementById('viz-canvas').style.display = 'none';
+					
+					try {
+						let butterchurn;
+						
+						if (window.butterchurnImport) {
+							console.log('Loading butterchurn module...');
+							const m = await window.butterchurnImport;
+							console.log('Module loaded, keys:', Object.keys(m));
+							butterchurn = m.default || m;
+							console.log('butterchurn after default:', typeof butterchurn, butterchurn);
+						} else if (typeof window.butterchurn !== 'undefined') {
+							butterchurn = window.butterchurn.default || window.butterchurn;
+						}
+						
+						if (!butterchurn) {
+							console.log('Butterchurn not loaded yet, waiting...');
+							setTimeout(initButterchurn, 500);
+							return;
+						}
+						
+						if (typeof butterchurn.createVisualizer !== 'function') {
+							console.error('Butterchurn createVisualizer not found:', butterchurn);
+							return;
+						}
+						
+						butterchurnVis = butterchurn.createVisualizer(audioCtx, cvs, {
+							width: 800,
+							height: 600,
+							pixelRatio: 1,
+							textureRatio: 1,
+							foam: false,
+							meshResolution: 24
+						});
+						
+						butterchurnVis.connectAudio(analyser);
+						
+						let presets = {};
+						if (window.base && window.base.default) {
+							Object.assign(presets, window.base.default);
+						}
+						if (window.extra && window.extra.default) {
+							Object.assign(presets, window.extra.default);
+						}
+						
+						const presetKeys = Object.keys(presets);
+						if (presetKeys.length > 0) {
+							const randomKey = presetKeys[Math.floor(Math.random() * presetKeys.length)];
+							butterchurnVis.loadPreset(presets[randomKey], 0.0);
+						}
+						
+						butterchurnLoaded = true;
+						console.log('Butterchurn initialized with', presetKeys.length, 'presets!');
+						
+						function renderLoop() {
+							if (vizActive && currentViz === 'butterchurn' && butterchurnVis) {
+								butterchurnVis.render();
+							}
+							requestAnimationFrame(renderLoop);
+						}
+						renderLoop();
+						
+					} catch (e) {
+						console.error('Butterchurn init failed:', e);
+					}
+				}
+
+				function updateSetting(key, val) {
+					settings[key] = parseInt(val);
+					document.getElementById(key + '-val').textContent = val + '%';
+				}
+
+				function openViz() {
+					vizActive = true;
+					document.getElementById('viz-overlay').classList.add('viz-active');
+					document.getElementById('viz-preview').classList.add('viz-active');
+					document.getElementById('viz-canvas').style.display = 'block';
+					document.getElementById('viz-canvas-webgl').style.display = 'none';
+					initAudio();
+					renderFullscreen();
+				}
+
+				function closeViz() {
+					vizActive = false;
+					document.getElementById('viz-overlay').classList.remove('viz-active');
+					document.getElementById('viz-preview').classList.remove('viz-active');
+					document.getElementById('viz-settings').classList.remove('viz-open');
+				}
+
+				document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViz(); });
+			</script>
+		</body>
+	</html>
+}

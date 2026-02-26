@@ -1,46 +1,36 @@
 project:
   name: "sound-cistern"
-  description: "Soundcloud stream aggregator with PocketBase"
+  description: "Soundcloud stream aggregator with PocketBase for Pro/Music Industry users"
   tech_stack: ["go", "pocketbase", "templ", "htmx"]
   base_url: "http://localhost:8090"
 
 ralph_loop:
   max_iterations: 30
-  cost_limit: 15.00
-  completion_promise: "Users authenticate only via Soundcloud OAuth, no local email/password"
+  cost_limit: 20.00
+  completion_promise: "Pro users can access their Soundcloud stream offline via PWA, export their data, and create playlists"
   
   tasks:
-    current: "soundcloud-auth"
+    current: "pwa-offline-mode"
     success_criteria:
-      - name: "Login Splash Page"
-        description: "Login splash page shows when not authenticated"
-        verification: "login_splash_test"
+      - name: "PWA Installability"
+        description: "App can be installed as PWA on mobile/desktop"
+        verification: "pwa_install_test"
         test_url: "/"
-      - name: "Soundcloud OAuth Button"
-        description: "Soundcloud OAuth button initiates login flow"
-        verification: "oauth_button_test"
-        test_url: "/login"
-      - name: "OAuth Callback Handling"
-        description: "OAuth callback properly handles user creation/linking"
-        verification: "oauth_callback_test"
-        test_url: "/auth/soundcloud/callback"
-      - name: "Authenticated Access"
-        description: "Authenticated users see main application"
-        verification: "authenticated_access_test"
+      - name: "Offline Track Access"
+        description: "Cached tracks playable without internet"
+        verification: "offline_playback_test"
         test_url: "/stream"
-      - name: "No Local Auth"
-        description: "No local email/password authentication available"
-        verification: "no_local_auth_test"
-        test_url: "/login"
-      - name: "Session Management"
-        description: "Session management works correctly"
-        verification: "session_management_test"
-        test_url: "/"
+      - name: "Data Export"
+        description: "Users can export favorites/playlists as JSON/CSV"
+        verification: "data_export_test"
+        test_url: "/favorites"
+      - name: "Playlist System"
+        description: "Users can create, manage, and share playlists"
+        verification: "playlist_test"
+        test_url: "/playlists"
 
 verification_scripts:
-  login_splash_test: "./ralph_verify.sh login_splash"
-  oauth_button_test: "./ralph_verify.sh oauth_button"
-  oauth_callback_test: "./ralph_verify.sh oauth_callback"
-  authenticated_access_test: "./ralph_verify.sh authenticated_access"
-  no_local_auth_test: "./ralph_verify.sh no_local_auth"
-  session_management_test: "./ralph_verify.sh session_management"
+  pwa_install_test: "./ralph_verify.sh pwa_install"
+  offline_playback_test: "./ralph_verify.sh offline_playback"
+  data_export_test: "./ralph_verify.sh data_export"
+  playlist_test: "./ralph_verify.sh playlist"

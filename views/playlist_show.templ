@@ -1,0 +1,111 @@
+package views
+
+import "fmt"
+
+type PlaylistDetail struct {
+	ID          string
+	Name        string
+	Description string
+	ShareToken  string
+	Tracks      []Track
+}
+
+templ PlaylistShow(data PageData, playlist PlaylistDetail) {
+	@Layout(data) {
+		<main class="container">
+			<hgroup>
+				<h1>{ playlist.Name }</h1>
+				if playlist.Description != "" {
+					<p>{ playlist.Description }</p>
+				}
+			</hgroup>
+
+			if playlist.ShareToken != "" {
+				<section class="share-section" aria-label="Share playlist">
+					<label for="share-link">Share Link:</label>
+					<div class="share-input-group" role="group">
+						<input 
+							type="text" 
+							id="share-link"
+							readonly 
+							value={ "/share/" + playlist.ShareToken }
+							aria-label="Shareable playlist link"
+						/>
+						<button 
+							type="button" 
+							class="copy-btn"
+							onclick="navigator.clipboard.writeText(window.location.origin + this.previousElementSibling.value)"
+							aria-label="Copy share link"
+						>
+							Copy
+						</button>
+					</div>
+				</section>
+			}
+
+			<section aria-label="Tracks">
+				<h2>Tracks</h2>
+				if len(playlist.Tracks) == 0 {
+					<article>
+						<hgroup>
+							<h3>No tracks yet</h3>
+							<p>Add tracks from your stream or favorites to build your playlist.</p>
+						</hgroup>
+						<footer>
+							<a href="/stream" role="button" class="secondary">Browse Stream</a>
+							<a href="/favorites" role="button" class="secondary outline">View Favorites</a>
+						</footer>
+					</article>
+				} else {
+					<div class="track-list" id="playlist-tracks">
+						for _, track := range playlist.Tracks {
+							@TrackCard(track, playlist.ID)
+						}
+					</div>
+				}
+			</section>
+
+			<section class="danger-zone" aria-label="Playlist actions">
+				<button 
+					class="outline contrast"
+					hx-delete={ templ.URL("/api/playlists/" + playlist.ID) }
+					hx-confirm="Are you sure you want to delete this playlist? This cannot be undone."
+					hx-target="body"
+					hx-swap="redirect:/playlists"
+					aria-label="Delete playlist"
+				>
+					Delete Playlist
+				</button>
+			</section>
+		</main>
+	}
+}
+
+templ TrackCard(track Track, playlistID string) {
+	<article class="track-card-pill" data-track-id={ track.TrackID } data-stream-url={ track.StreamURL }>
+		<div class="track-card-pill-header">
+			<button 
+				class="track-card-pill-play"
+				style={ fmt.Sprintf("background-image: url('%s')", track.ArtworkURL) }
+				aria-label={ fmt.Sprintf("Play %s by %s", track.TrackTitle, track.ArtistName) }
+			>
+			</button>
+			<div class="track-card-pill-info">
+				<a href={ track.PermalinkURL } target="_blank" rel="noopener" class="track-card-pill-title">{ track.TrackTitle }</a>
+				<span class="track-card-pill-artist">{ track.ArtistName }</span>
+			</div>
+		</div>
+		<div class="track-card-pill-actions">
+			<button 
+				class="remove-btn"
+				hx-delete={ fmt.Sprintf("/api/playlists/%s/tracks/%s", playlistID, track.TrackID) }
+				hx-target={ fmt.Sprintf("[data-track-id='%s']", track.TrackID) }
+				hx-swap="outerHTML"
+				hx-confirm="Remove this track from playlist?"
+				aria-label={ fmt.Sprintf("Remove %s from playlist", track.TrackTitle) }
+			>
+				✕
+			</button>
+		</div>
+	</article>
+}

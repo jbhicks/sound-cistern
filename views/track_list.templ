@@ -1,0 +1,207 @@
+package views
+
+import (
+	"time"
+
+	"github.com/jbhicks/sound-cistern/views/components"
+)
+
+type TrackListFilters struct {
+	APIEndpoint       string
+	SearchPlaceholder string
+	ShowContentType   bool
+	ShowDuration      bool
+	ShowGenre         bool
+	ShowLimit         bool
+	ClearValues       map[string]string
+	StorageKey        string
+}
+
+templ TrackList(filters TrackListFilters, tracks []Track, emptyTitle, emptyMessage, emptyCTA, emptyCTALink string) {
+	<form 
+		id="filter-form"
+		role="search"
+		data-storage-key={ filters.StorageKey }
+		hx-get={ filters.APIEndpoint }
+		hx-target="#track-container"
+		hx-swap="innerHTML"
+		hx-indicator="#loading"
+		hx-trigger="input delay:300ms from:input[type='search'], change from:select"
+	>
+		<fieldset role="group">
+			<input 
+				type="search" 
+				name="q"
+				id={ filters.StorageKey + "-q" }
+				placeholder={ filters.SearchPlaceholder }
+				autocomplete="off"
+			/>
+			if filters.ShowContentType {
+				<select name="content_type" id={ filters.StorageKey + "-content-type" }>
+					<option value="">All</option>
+					<option value="posts">Posts</option>
+					<option value="reposts">Reposts</option>
+				</select>
+			}
+			<select name="sort" id={ filters.StorageKey + "-sort" }>
+				<option value="newest">Newest</option>
+				<option value="oldest">Oldest</option>
+				<option value="title">Title</option>
+				<option value="artist">Artist</option>
+			</select>
+			if filters.ShowLimit {
+				<select name="limit" id={ filters.StorageKey + "-limit" }>
+					<option value="10">10 tracks</option>
+					<option value="20" selected>20 tracks</option>
+					<option value="50">50 tracks</option>
+					<option value="100">100 tracks</option>
+				</select>
+			}
+			<button 
+				type="button"
+				hx-get={ filters.APIEndpoint }
+				hx-target="#track-container"
+				hx-swap="innerHTML"
+				hx-vals={ formatClearValues(filters.ClearValues) }
+				data-storage-key={ filters.StorageKey }
+				onclick="resetFilterForm(this, this.dataset.storageKey)"
+			>
+				Clear
+			</button>
+		</fieldset>
+		
+		if filters.ShowDuration {
+			<fieldset class="duration-range">
+				<label>Min Duration: <strong id="duration-min-display">0 min</strong></label>
+				<div class="youtube-slider-container" id="duration-slider">
+					<div class="youtube-track"></div>
+					<div class="youtube-range" id="youtube-range"></div>
+					<div class="youtube-handle" id="duration-handle" data-value="0"></div>
+				</div>
+				<input type="hidden" name="duration_min" id="duration-min-input" value="0" data-max="94">
+			</fieldset>
+		}
+	</form>
+
+	<div id="loading" aria-busy="true" hidden>
+		<small>Loading...</small>
+	</div>
+
+	<div id="track-container" class="track-list">
+		if len(tracks) > 0 {
+			for _, track := range tracks {
+				@components.TrackCardVertical(
+					track.TrackID,
+					track.TrackTitle,
+					track.ArtistName,
+					track.ArtistAvatarURL,
+					track.Genre,
+					track.TagList,
+					track.TrackDuration,
+					track.ArtworkURL,
+					track.PermalinkURL,
+					track.CreatedAt.Format("Jan 2, 2006"),
+					track.IsFavorited,
+					track.PlaybackCount,
+					track.FavoritingsCount,
+					track.CommentCount,
+					track.RepostsCount,
+					track.BPM,
+					track.ReleaseYear,
+					track.Downloadable,
+					track.StreamURL,
+				)
+			}
+		} else {
+			<article>
+				<hgroup>
+					<h3>{ emptyTitle }</h3>
+					<p>{ emptyMessage }</p>
+				</hgroup>
+				if emptyCTA != "" && emptyCTALink != "" {
+					<footer>
+						<a href={ templ.URL(emptyCTALink) } role="button">{ emptyCTA }</a>
+					</footer>
+				}
+			</article>
+		}
+	</div>
+
+	<script>
+		function saveFilterState(storageKey) {
+			const prefix = storageKey || 'filter';
+			const filters = {
+				q: document.getElementById(prefix + '-q')?.value || '',
+				content_type: document.getElementById(prefix + '-content-type')?.value || '',
+				sort: document.getElementById(prefix + '-sort')?.value || 'newest',
+				limit: document.getElementById(prefix + '-limit')?.value || '20'
+			};
+			localStorage.setItem(storageKey + '-filters', JSON.stringify(filters));
+		}
+
+		function loadFilterState(storageKey) {
+			const key = storageKey + '-filters';
+			const saved = localStorage.getItem(key);
+			if (!saved) return false;
+			
+			try {
+				const filters = JSON.parse(saved);
+				const prefix = storageKey || 'filter';
+				
+				if (filters.q !== undefined) {
+					const el = document.getElementById(prefix + '-q');
+					if (el) el.value = filters.q;
+				}
+				if (filters.content_type !== undefined) {
+					const el = document.getElementById(prefix + '-content-type');
+					if (el) el.value = filters.content_type;
+				}
+				if (filters.sort !== undefined) {
+					const el = document.getElementById(prefix + '-sort');
+					if (el) el.value = filters.sort;
+				}
+				if (filters.limit !== undefined) {
+					const el = document.getElementById(prefix + '-limit');
+					if (el) el.value = filters.limit;
+				}
+				return true;
+			} catch (e) {
+				return false;
+			}
+		}
+
+		// Initialize on page load
+		(function() {
+			const form = document.getElementById('filter-form');
+			const storageKey = form?.dataset.storageKey || 'stream';
+			
+			loadFilterState(storageKey);
+			
+			if (form) {
+				form.addEventListener('input', () => saveFilterState(storageKey));
+				form.addEventListener('change', () => saveFilterState(storageKey));
+			}
+		})();
+	</script>
+}
+
+func formatClearValues(values map[string]string) string {
+	if len(values) == 0 {
+		return `{"q":"","sort":"newest"}`
+	}
+	result := "{"
+	first := true
+	for k, v := range values {
+		if !first {
+			result += ","
+		}
+		result += `"` + k + `":"` + v + `"`
+		first = false
+	}
+	result += "}"
+	return result
+}
+
+func init() {
+	_ = time.Now
+}

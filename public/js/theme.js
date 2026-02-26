@@ -1,11 +1,6 @@
 /**
  * Theme switching functionality for Pico.css
  * Handles dark/light/auto theme switching with localStorage persistence
- */
-
-/**
- * Theme switching functionality for Pico.css
- * Handles dark/light/auto theme switching with localStorage persistence
  * Includes ARIA accessibility attributes for screen readers
  */
 
@@ -72,31 +67,6 @@ window.toggleTheme = function() { // Explicitly global
     setTheme('light');
   } else {
     setTheme('dark');
-  }
-}
-
-// Toggle modal visibility
-function toggleModal(event) {
-  event.preventDefault();
-  const modalId = event.currentTarget.getAttribute('data-target');
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.open = !modal.open;
-  }
-}
-
-// Switch between modals
-function switchModal(event, currentModalId, targetModalId) {
-  event.preventDefault(); // Prevent default link navigation
-  const currentModal = document.getElementById(currentModalId);
-  const targetModal = document.getElementById(targetModalId);
-
-  if (currentModal && currentModal.open) { // Only close if open
-    currentModal.open = false; 
-  }
-  if (targetModal) {
-    targetModal.open = true; // Open the target modal
-    // HTMX attributes on the link (event.currentTarget) will handle content loading.
   }
 }
 

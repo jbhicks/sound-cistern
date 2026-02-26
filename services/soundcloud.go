@@ -8,11 +8,75 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/models"
 )
+
+// GetValidToken returns a valid access token, refreshing if needed.
+// Returns the token and a boolean indicating if re-authentication is needed.
+func GetValidToken(app *pocketbase.PocketBase, authRecord *models.Record) (string, bool, error) {
+	soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
+	if err != nil {
+		return "", false, fmt.Errorf("database error: %v", err)
+	}
+
+	soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
+		soundcloudUsersCollection.Id,
+		"user_id = {:user_id}",
+		map[string]any{"user_id": authRecord.Id},
+	)
+	if err != nil {
+		return "", true, fmt.Errorf("soundcloud account not linked")
+	}
+
+	accessToken := soundcloudUser.GetString("access_token")
+	refreshToken := soundcloudUser.GetString("refresh_token")
+
+	if accessToken == "" && refreshToken == "" {
+		return "", true, fmt.Errorf("no access token - re-authentication required")
+	}
+
+	// Check if token is expired and needs refresh
+	expiresAtStr := soundcloudUser.GetString("expires_at")
+	log.Printf("[Token] Current state - accessToken present: %v, expiresAt: %s", accessToken != "", expiresAtStr)
+
+	needsRefresh := accessToken == ""
+	log.Printf("[Token] needsRefresh initial: %v", needsRefresh)
+
+	if !needsRefresh && expiresAtStr != "" {
+		// Handle alternative format with space instead of T
+		expiresAtStr = strings.ReplaceAll(expiresAtStr, " ", "T")
+		expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
+		if err != nil {
+			log.Printf("[Token] Failed to parse expires_at '%s': %v", expiresAtStr, err)
+		} else {
+			threshold := expiresAt.Add(-5 * time.Minute)
+			needsRefresh = time.Now().After(threshold)
+			log.Printf("[Token] Token expires at %s, threshold %s, now %s, needs refresh: %v",
+				expiresAt.Format(time.RFC3339), threshold.Format(time.RFC3339), time.Now().Format(time.RFC3339), needsRefresh)
+		}
+	}
+
+	if needsRefresh && refreshToken != "" {
+		log.Printf("[Token] Refreshing expired token")
+		newAccessToken, err := RefreshAccessToken(refreshToken)
+		if err != nil {
+			log.Printf("[Token] Refresh failed: %v - re-authentication required", err)
+			return "", true, fmt.Errorf("token refresh failed: %v", err)
+		}
+		accessToken = newAccessToken
+		soundcloudUser.Set("access_token", newAccessToken)
+		if err := app.Dao().SaveRecord(soundcloudUser); err != nil {
+			log.Printf("Warning: Failed to save refreshed token: %v", err)
+		}
+		log.Printf("[Token] Token refreshed successfully")
+	}
+
+	return accessToken, false, nil
+}
 
 func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLimit int) (int, int, error) {
 	if targetLimit <= 0 {
@@ -33,20 +97,12 @@ func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLim
 		return 0, 0, fmt.Errorf("soundcloud account not linked")
 	}
 
-	accessToken := soundcloudUser.GetString("access_token")
-	refreshToken := soundcloudUser.GetString("refresh_token")
-
-	if accessToken == "" && refreshToken == "" {
-		return 0, 0, fmt.Errorf("no access token")
+	accessToken, needsReauth, err := GetValidToken(app, authRecord)
+	if err != nil {
+		return 0, 0, err
 	}
-
-	if accessToken == "" && refreshToken != "" {
-		accessToken, err = refreshAccessToken(refreshToken)
-		if err != nil {
-			return 0, 0, fmt.Errorf("failed to refresh token: %v", err)
-		}
-		soundcloudUser.Set("access_token", accessToken)
-		app.Dao().SaveRecord(soundcloudUser)
+	if needsReauth {
+		return 0, 0, fmt.Errorf("re-authentication required")
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
@@ -94,6 +150,22 @@ func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLim
 	log.Printf("[Sync] Total collected: %d", len(allActivities))
 
 	tracksCollection, _ := app.Dao().FindCollectionByNameOrId("soundcloud_tracks")
+
+	// Pre-fetch all existing soundcloud_ids for this user in ONE query
+	existingIDs := make(map[string]bool)
+	existingRecords, _ := app.Dao().FindRecordsByFilter(
+		tracksCollection.Id,
+		"user_id = {:user_id}",
+		"-created",
+		10000, // reasonable limit
+		0,
+		map[string]any{"user_id": soundcloudUser.Id},
+	)
+	for _, rec := range existingRecords {
+		existingIDs[rec.GetString("soundcloud_id")] = true
+	}
+	log.Printf("[Sync] Found %d existing tracks in database", len(existingIDs))
+
 	savedCount := 0
 
 	for _, activity := range allActivities {
@@ -111,14 +183,12 @@ func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLim
 			continue
 		}
 
-		existing, _ := app.Dao().FindFirstRecordByFilter(
-			tracksCollection.Id,
-			"user_id = {:user_id} && soundcloud_id = {:soundcloud_id}",
-			map[string]any{"user_id": soundcloudUser.Id, "soundcloud_id": soundcloudID},
-		)
-		if existing != nil {
+		// Check against pre-fetched set instead of DB query
+		if existingIDs[soundcloudID] {
 			continue
 		}
+		// Mark as seen so we don't check again
+		existingIDs[soundcloudID] = true
 
 		trackRecord := models.NewRecord(tracksCollection)
 		trackRecord.Set("user_id", soundcloudUser.Id)
@@ -157,7 +227,7 @@ func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLim
 	return savedCount, len(allActivities), nil
 }
 
-func refreshAccessToken(refreshToken string) (string, error) {
+func RefreshAccessToken(refreshToken string) (string, error) {
 	tokenURL := "https://api.soundcloud.com/oauth2/token"
 	data := url.Values{}
 	data.Set("client_id", os.Getenv("SOUNDCLOUD_CLIENT_ID"))

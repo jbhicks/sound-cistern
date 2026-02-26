@@ -23,8 +23,8 @@ templ SignIn(data PageData) {
 						<p>We use Soundcloud's secure OAuth authentication. You'll be redirected to Soundcloud to authorize access.</p>
 					</div>
 					
-					<!-- Error State (shown conditionally via HTMX or server-side) -->
-					<div id="auth-error" class="auth-error" role="alert" aria-live="polite" style="display: none;">
+				<!-- Error State (shown conditionally via HTMX or server-side) -->
+				<div id="auth-error" class="auth-error hidden" role="alert" aria-live="polite">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 							<circle cx="12" cy="12" r="10"/>
 							<path d="M12 8v4M12 16h.01"/>

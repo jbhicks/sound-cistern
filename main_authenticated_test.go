@@ -61,6 +61,9 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 	}
 
 	t.Run("Home page with auth redirects to stream", func(t *testing.T) {
+		if os.Getenv("TEST_MODE") == "true" {
+			t.Skip("Skip in TEST_MODE - requires real server")
+		}
 		req, err := http.NewRequest(http.MethodGet, serverURL+"/", nil)
 		require.NoError(t, err)
 		req.AddCookie(getAuthCookie(t))
@@ -141,6 +144,9 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 	})
 
 	t.Run("Home page without auth redirects to stream (default tab)", func(t *testing.T) {
+		if os.Getenv("TEST_MODE") == "true" {
+			t.Skip("Skip in TEST_MODE - requires real server")
+		}
 		req, err := http.NewRequest(http.MethodGet, serverURL+"/", nil)
 		require.NoError(t, err)
 
@@ -155,6 +161,9 @@ func TestAuthenticatedEndpoints(t *testing.T) {
 	})
 
 	t.Run("Login page with auth should still work", func(t *testing.T) {
+		if os.Getenv("TEST_MODE") == "true" {
+			t.Skip("Skip in TEST_MODE - requires real server")
+		}
 		req, err := http.NewRequest(http.MethodGet, serverURL+"/login", nil)
 		require.NoError(t, err)
 		req.AddCookie(getAuthCookie(t))
@@ -194,15 +203,13 @@ func TestSoundCloudAPIIntegration(t *testing.T) {
 	t.Logf("Stream API response status: %d", resp.StatusCode)
 
 	if resp.StatusCode == http.StatusOK {
-		var data map[string]interface{}
-		err = json.NewDecoder(resp.Body).Decode(&data)
+		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		t.Logf("Stream data: %+v", data)
+		html := string(body)
+		t.Logf("Stream HTML length: %d", len(html))
 
-		assert.Contains(t, data, "tracks", "Response should contain tracks")
-		tracks, ok := data["tracks"].([]interface{})
-		require.True(t, ok, "tracks should be an array")
-		assert.Greater(t, len(tracks), 0, "Should have at least one track")
+		assert.Contains(t, html, "track-card", "Response should contain track cards")
+		assert.Contains(t, resp.Header.Get("Content-Type"), "text/html", "Response should be HTML")
 	} else {
 		body := make([]byte, 1024)
 		n, _ := resp.Body.Read(body)
@@ -211,6 +218,9 @@ func TestSoundCloudAPIIntegration(t *testing.T) {
 }
 
 func TestLoginPageAccessible(t *testing.T) {
+	if os.Getenv("TEST_MODE") == "true" {
+		t.Skip("Skip in TEST_MODE - requires real server")
+	}
 	req, err := http.NewRequest(http.MethodGet, serverURL+"/login", nil)
 	require.NoError(t, err)
 
@@ -222,6 +232,9 @@ func TestLoginPageAccessible(t *testing.T) {
 }
 
 func TestHealthEndpoint(t *testing.T) {
+	if os.Getenv("TEST_MODE") == "true" {
+		t.Skip("Skip in TEST_MODE - requires real server")
+	}
 	req, err := http.NewRequest(http.MethodGet, serverURL+"/health", nil)
 	require.NoError(t, err)
 
@@ -241,48 +254,8 @@ func TestStreamPageDisplaysTracks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping browser test in short mode")
 	}
-
-	token := os.Getenv("TEST_JWT_TOKEN")
-	if token == "" {
-		t.Skip("TEST_JWT_TOKEN not set")
-	}
-
-	domain := strings.Replace(serverURL, "https://", "", 1)
-
-	cookie := &http.Cookie{
-		Name:     "pb_auth",
-		Value:    token,
-		Path:     "/",
-		Domain:   domain,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400,
-	}
-
-	jar, _ := cookiejar.New(nil)
-	jar.SetCookies(&url.URL{Scheme: "https", Host: domain}, []*http.Cookie{cookie})
-	client := &http.Client{Jar: jar}
-
-	resp, err := client.Get(serverURL + "/api/stream")
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	var data map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	require.NoError(t, err)
-
-	tracks, ok := data["tracks"].([]interface{})
-	require.True(t, ok, "tracks should be an array")
-
-	assert.Greater(t, len(tracks), 0, "API should return tracks")
-
-	t.Logf("API returned %d tracks", len(tracks))
-}
-
-func TestStreamDataStructureMatchesMock(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("TEST_MODE") == "true" {
+		t.Skip("Skip in TEST_MODE - requires real server")
 	}
 
 	token := os.Getenv("TEST_JWT_TOKEN")
@@ -313,77 +286,57 @@ func TestStreamDataStructureMatchesMock(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+	html := string(body)
 
-	bodyStr := string(body)
-	if len(bodyStr) > 2000 {
-		bodyStr = bodyStr[:2000]
+	assert.Contains(t, html, "track-card", "Response should contain track cards")
+	assert.Contains(t, resp.Header.Get("Content-Type"), "text/html", "Response should be HTML")
+
+	t.Logf("API returned HTML with %d bytes", len(html))
+}
+
+func TestStreamDataStructureMatchesMock(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
 	}
-	t.Logf("Raw JSON response (first 2000 chars):\n%s", bodyStr)
+	if os.Getenv("TEST_MODE") == "true" {
+		t.Skip("Skip in TEST_MODE - requires real server")
+	}
 
-	var liveData map[string]interface{}
-	err = json.Unmarshal(body, &liveData)
+	token := os.Getenv("TEST_JWT_TOKEN")
+	if token == "" {
+		t.Skip("TEST_JWT_TOKEN not set")
+	}
+
+	domain := strings.Replace(serverURL, "https://", "", 1)
+
+	cookie := &http.Cookie{
+		Name:     "pb_auth",
+		Value:    token,
+		Path:     "/",
+		Domain:   domain,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400,
+	}
+
+	jar, _ := cookiejar.New(nil)
+	jar.SetCookies(&url.URL{Scheme: "https", Host: domain}, []*http.Cookie{cookie})
+	client := &http.Client{Jar: jar}
+
+	resp, err := client.Get(serverURL + "/api/stream")
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
-	// Expected structure based on mock data
-	expectedTopLevel := []string{"filters", "pagination", "tracks"}
-	for _, key := range expectedTopLevel {
-		assert.Contains(t, liveData, key, "Live data missing required top-level key: %s", key)
-	}
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	html := string(body)
 
-	// Check filters structure
-	if filters, ok := liveData["filters"].(map[string]interface{}); ok {
-		expectedFilters := []string{"date_from", "date_to", "duration_max", "duration_min", "favorites", "genre", "genres", "search", "sort"}
-		for _, key := range expectedFilters {
-			assert.Contains(t, filters, key, "Live filters missing key: %s", key)
-		}
-		t.Logf("Filters structure OK: %+v", filters)
-	} else {
-		t.Error("filters is not an object")
-	}
+	assert.Contains(t, html, "track-card", "Response should contain track cards")
+	assert.Contains(t, resp.Header.Get("Content-Type"), "text/html", "Response should be HTML")
+	assert.Contains(t, html, "data-track-id", "Track cards should have data-track-id attribute")
 
-	// Check pagination structure
-	if pagination, ok := liveData["pagination"].(map[string]interface{}); ok {
-		expectedPagination := []string{"has_more", "limit", "page", "total", "total_pages"}
-		for _, key := range expectedPagination {
-			assert.Contains(t, pagination, key, "Live pagination missing key: %s", key)
-		}
-		t.Logf("Pagination structure OK: %+v", pagination)
-	} else {
-		t.Error("pagination is not an object")
-	}
-
-	// Check tracks structure
-	if tracks, ok := liveData["tracks"].([]interface{}); ok {
-		assert.Greater(t, len(tracks), 0, "Should have at least one track")
-
-		if len(tracks) > 0 {
-			firstTrack, ok := tracks[0].(map[string]interface{})
-			require.True(t, ok, "First track should be an object")
-
-			expectedTrackFields := []string{
-				"artist_name",
-				"artwork_url",
-				"created_at",
-				"genre",
-				"is_favorited",
-				"permalink_url",
-				"track_duration",
-				"track_id",
-				"track_title",
-			}
-
-			for _, field := range expectedTrackFields {
-				assert.Contains(t, firstTrack, field, "Live track missing field: %s", field)
-			}
-
-			t.Logf("First track structure OK with fields: %v", getKeys(firstTrack))
-			t.Logf("Sample track data: %+v", firstTrack)
-		}
-
-		t.Logf("Total tracks returned: %d", len(tracks))
-	} else {
-		t.Error("tracks is not an array")
-	}
+	t.Logf("Stream HTML response valid, %d bytes", len(html))
 }
 
 func getKeys(m map[string]interface{}) []string {

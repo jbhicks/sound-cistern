@@ -1,577 +1,177 @@
 package views
 
-import "github.com/jbhicks/sound-cistern/views/components"
+import (
+	"github.com/jbhicks/sound-cistern/views/components"
+)
 
-type FavoritesData struct {
+type FavoritesPageData struct {
 	PageData
-	Favorites []Track
+	Favorites     []Track
+	ActiveTab     string
+	ViewMode      string
+	Filters       map[string]interface{}
+	IsLoggedIn    string
+	MinDuration   int64
+	MaxDuration   int64
 }
 
-templ Favorites(data FavoritesData) {
+templ FavoritesPage(data FavoritesPageData) {
 	@Layout(data.PageData) {
-		<!-- Page header section with semantic h1 -->
-		<section class="page-header" aria-labelledby="favorites-title">
-			<hgroup>
-				<h1 id="favorites-title" class="page-title">Your Favorites</h1>
-				<p class="page-description">Your favorited Soundcloud tracks</p>
-			</hgroup>
-		</section>
-		
-		<!-- Filter bar with semantic form and proper ARIA labels -->
-		<section class="filter-section" aria-label="Favorite filters">
-			<form 
-				class="filter-form" 
-				id="filter-form"
-				role="search"
-				aria-label="Filter favorites"
-				hx-get="/api/favorites/search"
-				hx-target="#track-container"
-				hx-swap="innerHTML"
-				hx-indicator="#loading-indicator"
-				hx-trigger="change from:select, input delay:300ms from:input[type='search']"
-			>
-				<div class="filter-group filter-group--search">
-					<label for="search-input" class="filter-label">
-						<span class="filter-label-text">Search favorites</span>
-					</label>
-					<div class="search-input-wrapper">
+		<main class="container">
+			<!-- Vapor Wave Filter Bar -->
+			<div class="vapor-filter-bar">
+				<div class="vapor-filter-main">
+					<div class="vapor-search">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 						<input 
-							type="search" 
-							id="search-input"
+							type="text" 
 							name="q"
-							class="filter-input filter-input--search"
-							placeholder="Search your favorite tracks..."
-							aria-describedby="search-help"
+							id="filter-q"
+							placeholder="Search favorites..."
 							autocomplete="off"
+							hx-get="/api/favorites"
+							hx-target="#track-container"
+							hx-trigger="input delay:300ms, load"
+							hx-include="#filter-content-type,#filter-sort,#filter-limit,#duration-range"
 						/>
-						<span class="search-icon" aria-hidden="true">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<circle cx="11" cy="11" r="8"></circle>
-								<path d="m21 21-4.35-4.35"></path>
-							</svg>
-						</span>
 					</div>
-					<span id="search-help" class="filter-help">Type to filter your favorites</span>
-				</div>
-				
-				<div class="filter-group">
-					<label for="sort-filter" class="filter-label">
-						<span class="filter-label-text">Sort</span>
-					</label>
-					<select 
-						id="sort-filter"
-						name="sort"
-						class="filter-input filter-input--select"
-						aria-label="Sort favorites"
-					>
-						<option value="newest">Recently Added</option>
-						<option value="oldest">Oldest First</option>
-						<option value="title">Title A-Z</option>
-						<option value="artist">Artist A-Z</option>
-					</select>
-				</div>
-				
-				<div class="filter-actions">
-					<button 
-						type="button"
-						class="btn btn-secondary filter-clear-btn"
-						onclick="clearFilters()"
-						aria-label="Clear all filters"
-					>
-						<span class="btn-icon" aria-hidden="true">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M18 6 6 18"></path>
-								<path d="m6 6 12 12"></path>
-							</svg>
-						</span>
-						<span class="btn-text">Clear</span>
-					</button>
-				</div>
-			</form>
-			
-			<!-- Active filter indicator -->
-			<div id="active-filters" class="active-filters" aria-live="polite" aria-atomic="true"></div>
-		</section>
-		
-		<!-- Main track container with loading and empty states -->
-		<section class="tracks-section" aria-label="Favorite tracks">
-			<!-- Loading indicator with ARIA live region -->
-			<div 
-				id="loading-indicator" 
-				class="loading-indicator"
-				role="status"
-				aria-live="polite"
-				aria-busy="true"
-			>
-				<div class="loading-spinner" aria-hidden="true">
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="10">
-							<animateTransform
-								attributeName="transform"
-								attributeType="XML"
-								type="rotate"
-								from="0 12 12"
-								to="360 12 12"
-								dur="1s"
-								repeatCount="indefinite"
-							/>
-						</circle>
-					</svg>
-				</div>
-				<span class="loading-text">Loading favorites...</span>
-			</div>
-			
-			<!-- Track list container -->
-			<div id="track-container" class="track-container">
-				if len(data.Favorites) > 0 {
-					<ul class="track-list" role="list" aria-label="List of favorite tracks">
-						for _, track := range data.Favorites {
-							<li role="listitem">
-								@components.TrackCard(
-									track.TrackID,
-									track.TrackTitle,
-									track.ArtistName,
-									track.TrackDuration,
-									track.ArtworkURL,
-									track.PermalinkURL,
-									track.CreatedAt.Format("Jan 2, 2006"),
-									track.IsFavorited,
-								)
-							</li>
-						}
-					</ul>
-				} else {
-					<!-- Empty state - shown when no favorites are available -->
-					@components.EmptyState(
-						"No favorites yet",
-						"Start exploring tracks from your stream and favorite the ones you love. They'll appear here for easy access.",
-						"Start exploring tracks",
-						"/stream",
-					)
-				}
-			</div>
-		</section>
-		
-		<!-- JavaScript for enhanced interactivity -->
-		<script>
-			// Pass logged-in status from template
-			window.isLoggedIn = { data.User != nil ? "true" : "false" };
-			
-			/**
-			 * Clear all filter inputs and reload favorites
-			 */
-			function clearFilters() {
-				const form = document.getElementById('filter-form');
-				const inputs = form.querySelectorAll('input, select');
-				
-				inputs.forEach(input => {
-					if (input.type === 'search') {
-						input.value = '';
-					} else if (input.tagName === 'SELECT') {
-						input.selectedIndex = 0;
-					}
-				});
-				
-				// Update ARIA live region to announce filter reset
-				const activeFilters = document.getElementById('active-filters');
-				if (activeFilters) {
-					activeFilters.textContent = 'Filters cleared';
-					setTimeout(() => {
-						activeFilters.textContent = '';
-					}, 2000);
-				}
-				
-				// Trigger HTMX request to reload with no filters
-				htmx.trigger(form, 'change');
-			}
-			
-			/**
-			 * Toggle favorite status for a track
-			 * Overridden for favorites page to remove from list when unfavorited
-			 * @param {HTMLButtonElement} button - The favorite button element
-			 */
-			function toggleFavorite(button) {
-				const trackId = button.dataset.trackId;
-				const trackTitle = button.dataset.trackTitle || 'track';
-				const isFavorited = button.getAttribute('aria-pressed') === 'true';
-				const newState = !isFavorited;
-				
-				// Prevent double-clicks
-				if (button.disabled) return;
-				
-				// Show loading state
-				button.disabled = true;
-				button.setAttribute('aria-busy', 'true');
-				button.classList.add('loading');
-				
-				// Make API request
-				fetch('/api/favorites/' + trackId + '/toggle', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Requested-With': 'XMLHttpRequest'
-					}
-				})
-				.then(response => {
-					if (!response.ok) {
-						throw new Error('Failed to toggle favorite');
-					}
-					return response.json();
-				})
-				.then(data => {
-					// On favorites page, remove the track card when unfavorited
-					if (!data.favorited) {
-						const trackCard = button.closest('.track-card');
-						if (trackCard) {
-							// Update button state before removal animation
-							button.classList.toggle('favorited', false);
-							button.setAttribute('aria-pressed', 'false');
-							button.setAttribute('aria-label', `Add ${trackTitle} to favorites`);
-							
-							const btnText = button.querySelector('.btn-text');
-							if (btnText) {
-								btnText.textContent = 'Favorite';
-							}
-							
-							const icon = button.querySelector('.favorite-icon');
-							if (icon) {
-								icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
-							}
-							
-							// Remove loading state before animation
-							button.disabled = false;
-							button.removeAttribute('aria-busy');
-							button.classList.remove('loading');
-							
-							// Animate removal (respect prefers-reduced-motion)
-							const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-							if (prefersReducedMotion) {
-								trackCard.remove();
-							} else {
-								trackCard.style.opacity = '0';
-								trackCard.style.transform = 'scale(0.95)';
-								trackCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-								
-								setTimeout(() => {
-									trackCard.remove();
-								}, 300);
-							}
-							
-							// Announce to screen readers (after removal or immediately)
-							const announcement = document.createElement('div');
-							announcement.setAttribute('role', 'status');
-							announcement.setAttribute('aria-live', 'polite');
-							announcement.className = 'sr-only';
-							announcement.textContent = `${trackTitle} removed from favorites`;
-							document.body.appendChild(announcement);
-							setTimeout(() => announcement.remove(), 1000);
-							
-							// Check if no favorites remain
-							const trackList = document.querySelector('.track-list');
-							if (trackList && trackList.children.length === 0) {
-								// Show empty state after a brief delay
-								setTimeout(() => {
-									location.reload();
-								}, 500);
-							}
-					} else {
-						// Update UI on success (favorited)
-						button.classList.toggle('favorited', true);
-						button.setAttribute('aria-pressed', 'true');
-						button.setAttribute('aria-label', `Remove ${trackTitle} from favorites`);
-						
-						const btnText = button.querySelector('.btn-text');
-						if (btnText) {
-							btnText.textContent = 'Favorited';
-						}
-						
-						const icon = button.querySelector('.favorite-icon');
-						if (icon) {
-							icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
-						}
-						
-						// Remove loading state
-						button.disabled = false;
-						button.removeAttribute('aria-busy');
-						button.classList.remove('loading');
-						
-						// Announce to screen readers
-						const announcement = document.createElement('div');
-						announcement.setAttribute('role', 'status');
-						announcement.setAttribute('aria-live', 'polite');
-						announcement.className = 'sr-only';
-						announcement.textContent = `${trackTitle} added to favorites`;
-						document.body.appendChild(announcement);
-						setTimeout(() => announcement.remove(), 1000);
-					}
-				})
-				.catch(error => {
-					console.error('Error toggling favorite:', error);
-					// Revert UI on error
-					button.disabled = false;
-					button.removeAttribute('aria-busy');
-					button.classList.remove('loading');
 					
-					// Show error notification
-					if (typeof showErrorNotification === 'function') {
-						showErrorNotification('Failed to update favorite. Please try again.');
+					<div class="vapor-filters">
+						<select name="content_type" id="filter-content-type" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-include="#filter-q,#filter-sort,#filter-limit,#duration-range">
+							<option value="">All</option>
+							<option value="posts">Posts</option>
+							<option value="reposts">Reposts</option>
+						</select>
+						<select name="sort" id="filter-sort" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-include="#filter-q,#filter-content-type,#filter-limit,#duration-range">
+							<option value="newest">Newest</option>
+							<option value="oldest">Oldest</option>
+							<option value="title">Title</option>
+							<option value="artist">Artist</option>
+							<option value="duration">Duration</option>
+						</select>
+					</div>
+					
+					<div class="vapor-actions">
+						<select name="limit" id="filter-limit" hx-get="/api/favorites?refresh=true" hx-target="#track-container" hx-trigger="change" hx-include="#duration-range">
+							<option value="20">20</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</select>
+						<button type="button" class="vapor-btn vapor-btn-clear" onclick="resetFilters()">
+							Reset
+						</button>
+						<div class="export-actions" style="margin-left: 0.5rem;">
+							<a href="/api/export/favorites/json" class="vapor-btn" style="background: rgba(139, 92, 246, 0.3); border: 1px solid rgba(139, 92, 246, 0.5);" download="">
+								JSON
+							</a>
+							<a href="/api/export/favorites/csv" class="vapor-btn" style="background: rgba(139, 92, 246, 0.3); border: 1px solid rgba(139, 92, 246, 0.5);" download="">
+								CSV
+							</a>
+						</div>
+					</div>
+				</div>
+				
+				<div class="vapor-filter-row">
+					<label class="vapor-duration">
+						<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></span>
+						<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
+							hx-get="/api/favorites?refresh=true"
+							hx-target="#track-container"
+							hx-trigger="input delay:300ms, load"
+							hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
+							name="duration_min"
+							oninput="updateDurationDisplay(this.value)"
+						/>
+					</label>
+				</div>
+			</div>
+
+			<div id="loading" aria-busy="true" hidden>
+				<small>Loading favorites...</small>
+			</div>
+
+		<div id="track-container">
+			if len(data.Favorites) > 0 {
+				<div class="stream-flip-grid">
+					for _, track := range data.Favorites {
+						@components.StreamFlipCard(
+							track.TrackID,
+							track.TrackTitle,
+							track.ArtistName,
+							track.Genre,
+							track.TrackDuration,
+							track.ArtworkURL,
+							track.PlaybackCount,
+							track.FavoritingsCount,
+							track.RepostsCount,
+						)
 					}
+				</div>
+			} else {
+					<article>
+						<hgroup>
+							<h3>No favorites yet</h3>
+							<p>Start exploring your stream and favorite tracks you love.</p>
+						</hgroup>
+						<footer>
+							<a href="/stream" role="button">Go to Stream</a>
+						</footer>
+					</article>
+				}
+			</div>
+
+			<div style="text-align: center; margin-top: 1rem;" id="load-more-sentinel">
+				<button 
+					class="btn btn-secondary load-more-btn"
+					id="load-more-btn"
+					data-page="2"
+					data-loaded="0"
+					hx-get="/api/favorites"
+					hx-vals='{"page":"2"}'
+					hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
+					hx-target="#track-container"
+					hx-swap="beforeend"
+					hx-trigger="revealed"
+					hx-indicator="#load-more-indicator"
+					hx-on::after-request="handleLoadMore(this, event)"
+					aria-label="Load more favorites"
+				>
+					Load More
+				</button>
+				<span id="load-more-indicator" class="htmx-indicator" aria-busy="true" hidden>
+					<small>Loading more...</small>
+				</span>
+				<small id="no-more" hidden>All favorites loaded</small>
+			</div>
+		</main>
+
+		<div id="player-container"></div>
+
+		<script>
+			// Initialize filter state on page load
+			(function() {
+				loadFilterState();
+				setupFilterListeners();
+				
+				// Enhance all artwork to highest quality
+				document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
+					img.src = upgradeArtwork(img.src);
 				});
-			}
-			
-			/**
-			 * Update active filters display
-			 */
-			function updateActiveFilters() {
-				const form = document.getElementById('filter-form');
-				const searchValue = form.querySelector('[name="q"]').value;
-				const sortValue = form.querySelector('[name="sort"]').value;
-				const activeFilters = document.getElementById('active-filters');
 				
-				const filters = [];
-				if (searchValue) filters.push(`Search: "${searchValue}"`);
-				if (sortValue && sortValue !== 'newest') {
-					const sortLabels = {
-						'oldest': 'Oldest First',
-						'title': 'Title A-Z',
-						'artist': 'Artist A-Z'
-					};
-					filters.push(`Sort: ${sortLabels[sortValue] || sortValue}`);
-				}
-				
-				if (filters.length > 0) {
-					activeFilters.innerHTML = '<span class="active-filters-label">Active filters:</span> ' + 
-						filters.map(f => `<span class="filter-tag">${f}</span>`).join(' ');
-				} else {
-					activeFilters.innerHTML = '';
-				}
-			}
-			
-			// Initialize on DOM ready
-			document.addEventListener('DOMContentLoaded', function() {
-				// Update active filters when form inputs change
-				const form = document.getElementById('filter-form');
-				if (form) {
-					form.addEventListener('input', updateActiveFilters);
-					form.addEventListener('change', updateActiveFilters);
-				}
-				
-				// Add HTMX event listeners for filter results
-				document.body.addEventListener('htmx:afterRequest', function(evt) {
-					if (evt.detail.target.id === 'track-container') {
-						updateActiveFilters();
-						
-						// Re-attach event listeners to new content
-						const favoriteButtons = document.querySelectorAll('.favorite-btn');
-						favoriteButtons.forEach(btn => {
-							btn.onclick = function() { toggleFavorite(this); };
-						});
+				// Initialize loaded count from initial tracks
+				const loadMoreBtn = document.getElementById('load-more-btn');
+				const trackContainer = document.getElementById('track-container');
+				if (loadMoreBtn && trackContainer) {
+					const initialTracks = trackContainer.querySelectorAll('.stream-flip-card, .track-card-pill').length;
+					loadMoreBtn.setAttribute('data-loaded', initialTracks);
+					
+					const limit = parseInt(document.getElementById('filter-limit')?.value) || 20;
+					if (initialTracks >= limit) {
+						loadMoreBtn.hidden = true;
+						document.getElementById('no-more').hidden = false;
 					}
-				});
-			});
+				}
+			})();
 		</script>
-		
-		<style>
-			/* Page header styles */
-			.page-header {
-				margin-bottom: var(--space-6);
-				padding-bottom: var(--space-4);
-				border-bottom: 1px solid var(--color-border-default);
-			}
-			
-			.page-title {
-				font-size: var(--text-2xl);
-				font-weight: var(--font-semibold);
-				color: var(--color-fg-default);
-				margin: 0 0 var(--space-2) 0;
-				line-height: var(--lh-tight);
-			}
-			
-			.page-description {
-				font-size: var(--text-lg);
-				color: var(--color-fg-muted);
-				margin: 0;
-			}
-			
-			/* Filter section styles */
-			.filter-section {
-				background: var(--color-canvas-subtle);
-				border: 1px solid var(--color-border-default);
-				border-radius: var(--radius-lg);
-				padding: var(--space-4);
-				margin-bottom: var(--space-6);
-			}
-			
-			.filter-form {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--space-4);
-				align-items: flex-end;
-			}
-			
-			.filter-group {
-				display: flex;
-				flex-direction: column;
-				gap: var(--space-1);
-			}
-			
-			.filter-group--search {
-				flex: 1;
-				min-width: 250px;
-			}
-			
-			.filter-label {
-				font-size: var(--text-sm);
-				font-weight: var(--font-medium);
-				color: var(--color-fg-default);
-			}
-			
-			.filter-label-text {
-				display: block;
-				margin-bottom: var(--space-1);
-			}
-			
-			.filter-input {
-				padding: var(--space-2) var(--space-3);
-				font-size: var(--text-sm);
-				color: var(--color-fg-default);
-				background: var(--color-canvas-default);
-				border: 1px solid var(--color-border-default);
-				border-radius: var(--radius-md);
-				transition: border-color var(--duration-fast) var(--ease-out),
-				            box-shadow var(--duration-fast) var(--ease-out);
-				min-height: 44px;
-			}
-			
-			.filter-input:focus {
-				outline: none;
-				border-color: var(--color-accent-fg);
-				box-shadow: 0 0 0 3px var(--color-accent-muted);
-			}
-			
-			.filter-input--search {
-				padding-left: var(--space-8);
-			}
-			
-			.search-input-wrapper {
-				position: relative;
-			}
-			
-			.search-icon {
-				position: absolute;
-				left: var(--space-3);
-				top: 50%;
-				transform: translateY(-50%);
-				color: var(--color-fg-muted);
-				pointer-events: none;
-			}
-			
-			.filter-help {
-				font-size: var(--text-xs);
-				color: var(--color-fg-muted);
-				margin-top: var(--space-1);
-			}
-			
-			.filter-actions {
-				display: flex;
-				align-items: flex-end;
-			}
-			
-			.filter-clear-btn {
-				display: inline-flex;
-				align-items: center;
-				gap: var(--space-2);
-			}
-			
-			/* Active filters display */
-			.active-filters {
-				margin-top: var(--space-3);
-				font-size: var(--text-sm);
-			}
-			
-			.active-filters-label {
-				color: var(--color-fg-muted);
-				margin-right: var(--space-2);
-			}
-			
-			.filter-tag {
-				display: inline-flex;
-				align-items: center;
-				padding: var(--space-1) var(--space-2);
-				background: var(--color-accent-muted);
-				color: var(--color-accent-fg);
-				border-radius: var(--radius-md);
-				font-size: var(--text-xs);
-				margin-right: var(--space-2);
-			}
-			
-			/* Loading states */
-			.loading-indicator {
-				display: none;
-				text-align: center;
-				padding: var(--space-8);
-				color: var(--color-fg-muted);
-			}
-			
-			.loading-indicator.htmx-request {
-				display: block;
-			}
-			
-			.loading-text {
-				margin-top: var(--space-3);
-				display: block;
-			}
-			
-			/* Tracks section */
-			.tracks-section {
-				min-height: 300px;
-			}
-			
-			.track-container {
-				min-height: 200px;
-			}
-			
-			/* Track list grid */
-			.track-list {
-				list-style: none;
-				margin: 0;
-				padding: 0;
-				display: grid;
-				gap: var(--space-4);
-			}
-			
-			.track-list > li {
-				margin: 0;
-				padding: 0;
-			}
-			
-			/* Responsive adjustments */
-			@media (max-width: 768px) {
-				.filter-form {
-					flex-direction: column;
-					gap: var(--space-3);
-				}
-				
-				.filter-group {
-					width: 100%;
-				}
-				
-				.filter-group--search {
-					min-width: 100%;
-				}
-				
-				.filter-input {
-					width: 100%;
-				}
-				
-				.page-title {
-					font-size: var(--text-xl);
-				}
-				
-				.page-description {
-					font-size: var(--text-base);
-				}
-			}
-		</style>
 	}
 }

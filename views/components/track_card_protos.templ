@@ -1,0 +1,1555 @@
+package components
+
+import (
+	"fmt"
+	"strings"
+)
+
+func ternary(cond bool, yes, no string) string {
+	if cond {
+		return yes
+	}
+	return no
+}
+
+func getInitials(name string) string {
+	parts := strings.Split(name, " ")
+	if len(parts) >= 2 {
+		return strings.ToUpper(string(parts[0][0]) + string(parts[1][0]))
+	}
+	if len(name) >= 2 {
+		return strings.ToUpper(name[:2])
+	}
+	return "??"
+}
+
+func formatCompact(count int64) string {
+	if count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(count)/1000000)
+	}
+	if count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(count)/1000)
+	}
+	return fmt.Sprintf("%d", count)
+}
+
+func escapeJS(s string) string {
+	s = strings.ReplaceAll(s, "'", "\\'")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "")
+	return s
+}
+
+templ TrackCardVerticalProto1(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="track-card-proto-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-artist">{ artistName }</div>
+			<div class="track-card-proto-tags">
+				if genre != "" {
+					<span class="track-card-proto-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardProtoGenreA(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="track-card-proto-content">
+			<div class="track-card-proto-header-row">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+				if genre != "" {
+					<span class="track-card-proto-genre-badge-a">{ genre }</span>
+				}
+			</div>
+			<div class="track-card-proto-artist">{ artistName }</div>
+			<div class="track-card-proto-tags">
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardProtoGenreB(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="track-card-proto-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-artist-row">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				if genre != "" {
+					<span class="track-card-proto-genre-badge-b">{ genre }</span>
+				}
+			</div>
+			<div class="track-card-proto-tags">
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardProtoGenreC(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+			if genre != "" {
+				<div class="track-card-proto-genre-overlay">{ genre }</div>
+			}
+		</div>
+		<div class="track-card-proto-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-artist">{ artistName }</div>
+			<div class="track-card-proto-tags">
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardProtoGenreD(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="track-card-proto-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-artist">{ artistName }</div>
+			<div class="track-card-proto-tags">
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+				if genre != "" {
+					<span class="track-card-proto-genre-badge-d">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardProtoGenreE(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	isFavorited bool,
+) {
+	<article class="track-card-proto-50" data-track-id={ trackID }>
+		<div class="track-card-proto-img-container">
+			if artworkURL != "" {
+				<img
+					class="track-card-proto-img"
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+				/>
+			} else {
+				<div class="track-card-proto-img-placeholder">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+				</div>
+			}
+			<div class="track-card-proto-duration-badge">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="track-card-proto-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-artist">{ artistName }</div>
+			<div class="track-card-proto-tags-first">
+				if genre != "" {
+					<span class="track-card-proto-tag-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="track-card-proto-tag">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+				if downloadable {
+					<span class="track-card-proto-tag track-card-proto-tag-download">↓</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<div class="track-card-proto-stats">
+					<span class="track-card-proto-stat" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-stat" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+					<span class="track-card-proto-stat" title="Reposts">↻ { formatCompact(repostsCount) }</span>
+					<span class="track-card-proto-stat" title="Comments">💬 { formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardVerticalProto3(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+) {
+	<article class="track-card-proto-8" data-track-id={ trackID }>
+		<img
+			src={ artworkURL }
+			alt={ trackTitle }
+			loading="lazy"
+		/>
+		<div class="track-card-proto-body">
+			<strong>{ trackTitle }</strong>
+			<br/>
+			<small>{ artistName }</small>
+		</div>
+	</article>
+}
+
+templ TrackCardVerticalProto4(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+) {
+	<article class="track-card-proto-23" data-track-id={ trackID }>
+		<img
+			src={ artworkURL }
+			alt={ trackTitle }
+			loading="lazy"
+		/>
+		<button 
+			class="track-card-proto-23-play"
+			aria-label="Play track"
+			hx-post={ "/api/queue/" + trackID }
+			hx-swap="afterbegin"
+			hx-target="#queue-container"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="track-card-proto-23-overlay">
+			<div class="track-card-proto-23-header">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-23-title">{ trackTitle }</a>
+				<span class="track-card-proto-23-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</span>
+			</div>
+			<div class="track-card-proto-23-artist">{ artistName }</div>
+			<div class="track-card-proto-23-meta">
+				<div class="track-card-proto-23-stats">
+					<span class="track-card-proto-23-stat">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-proto-23-stat">♡ { formatCompact(favoritingsCount) }</span>
+				</div>
+				<div class="track-card-proto-23-tags">
+					if genre != "" {
+						<span class="track-card-proto-23-tag">{ genre }</span>
+					}
+					if bpm > 0 {
+						<span class="track-card-proto-23-tag">{ fmt.Sprintf("%.0f", bpm) } BPM</span>
+					}
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardVerticalProto5(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+) {
+	<article class="track-card-proto-36" data-track-id={ trackID }>
+		<img
+			src={ artworkURL }
+			alt={ trackTitle }
+			loading="lazy"
+		/>
+		<strong>{ trackTitle }</strong>
+		<small>{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</small>
+		if genre != "" {
+			<span class="track-card-proto-36-genre">{ genre }</span>
+		}
+	</article>
+}
+
+templ TrackCardVerticalProto6(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+	waveformURL string,
+) {
+	<article class="track-card-proto-36-enhanced" data-track-id={ trackID } data-stream-url={ streamURL } data-track-title={ trackTitle } data-artist-name={ artistName }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+			data-stream-url={ streamURL }
+			data-track-title={ trackTitle }
+			data-artist-name={ artistName }
+		>
+		</button>
+		<div class="track-card-proto-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				<span class="track-card-proto-stat track-card-proto-stat--plays">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat track-card-proto-stat--likes">♡ { formatCompact(favoritingsCount) }</span>
+				if genre != "" {
+					<span class="track-card-proto-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+		<div class="track-card-proto-waveform-container">
+			<div class="track-card-proto-waveform-fallback">
+				for i := 0; i < 20; i++ {
+					<span class="waveform-bar" style={ templ.SafeCSS(fmt.Sprintf("height: %d%%", 25+((i*17+i*i)%55))) }></span>
+				}
+			</div>
+		</div>
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardPillGenreA(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="track-card-proto-36-enhanced" data-track-id={ trackID }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+		>
+		</button>
+		<div class="track-card-proto-info">
+			<div class="track-card-proto-title-row">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+				if genre != "" {
+					<span class="track-card-proto-genre-pill-a">{ genre }</span>
+				}
+			</div>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				<span class="track-card-proto-stat track-card-proto-stat--plays">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat track-card-proto-stat--likes">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardPillGenreB(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="track-card-proto-36-enhanced" data-track-id={ trackID }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+		>
+		</button>
+		<div class="track-card-proto-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				if genre != "" {
+					<span class="track-card-proto-genre-pill-b">{ genre }</span>
+				}
+			</div>
+			<div class="track-card-proto-stats-row">
+				<span class="track-card-proto-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardPillGenreC(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="track-card-proto-36-enhanced" data-track-id={ trackID }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+		>
+			if genre != "" {
+				<span class="track-card-proto-genre-pill-c">{ genre }</span>
+			}
+		</button>
+		<div class="track-card-proto-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				<span class="track-card-proto-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardPillGenreD(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="track-card-proto-36-enhanced" data-track-id={ trackID }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+		>
+		</button>
+		<div class="track-card-proto-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				<span class="track-card-proto-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		if genre != "" {
+			<span class="track-card-proto-genre-pill-d">{ genre }</span>
+		}
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardPillGenreE(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="track-card-proto-36-enhanced track-card-proto-36-enhanced-e" data-track-id={ trackID }>
+		<button 
+			class="track-card-proto-play-btn"
+			style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }
+			aria-label="Play track"
+		>
+		</button>
+		<div class="track-card-proto-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-proto-title">{ trackTitle }</a>
+			<div class="track-card-proto-meta">
+				<span class="track-card-proto-artist">{ artistName }</span>
+				<span class="track-card-proto-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="track-card-proto-stat">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<div class="track-card-proto-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		if genre != "" {
+			<span class="track-card-proto-genre-pill-e">{ genre }</span>
+		}
+	</article>
+}
+
+templ TrackCardGlassMorph(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-glassmorph" data-track-id={ trackID }>
+		<div class="tc-glassmorph-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<div class="tc-glassmorph-overlay">
+				<button class="tc-glassmorph-play" aria-label="Play">▶</button>
+			</div>
+			<div class="tc-glassmorph-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-glassmorph-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-glassmorph-title">{ trackTitle }</a>
+			<div class="tc-glassmorph-artist">{ artistName }</div>
+			<div class="tc-glassmorph-meta">
+				<span class="tc-glassmorph-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="tc-glassmorph-stat">♡ { formatCompact(favoritingsCount) }</span>
+				<span class="tc-glassmorph-stat">↻ { formatCompact(repostsCount) }</span>
+			</div>
+			if genre != "" {
+				<span class="tc-glassmorph-genre">{ genre }</span>
+			}
+			if bpm > 0 {
+				<span class="tc-glassmorph-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+			}
+		</div>
+	</article>
+}
+
+templ TrackCardVinyl(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-vinyl" data-track-id={ trackID }>
+		<div class="tc-vinyl-container">
+			<div class="tc-vinyl-record" style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }>
+				<div class="tc-vinyl-center"></div>
+			</div>
+			<button class="tc-vinyl-play" aria-label="Play track">▶</button>
+		</div>
+		<div class="tc-vinyl-info">
+			<div class="tc-vinyl-header">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-vinyl-title">{ trackTitle }</a>
+				if genre != "" {
+					<span class="tc-vinyl-genre">{ genre }</span>
+				}
+			</div>
+			<div class="tc-vinyl-artist">{ artistName }</div>
+			<div class="tc-vinyl-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+				<span>↻ { formatCompact(repostsCount) }</span>
+			</div>
+			<div class="tc-vinyl-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+	</article>
+}
+
+templ TrackCardNeon(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-neon" data-track-id={ trackID }>
+		<div class="tc-neon-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<div class="tc-neon-glow"></div>
+			<button class="tc-neon-play" aria-label="Play">▶</button>
+			<div class="tc-neon-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-neon-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-neon-title">{ trackTitle }</a>
+			<div class="tc-neon-artist">{ artistName }</div>
+			<div class="tc-neon-stats">
+				<span class="tc-neon-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="tc-neon-stat">♡ { formatCompact(favoritingsCount) }</span>
+				<span class="tc-neon-stat">↻ { formatCompact(repostsCount) }</span>
+			</div>
+			<div class="tc-neon-tags">
+				if genre != "" {
+					<span class="tc-neon-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="tc-neon-tag">{ fmt.Sprintf("%.0f", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardRetro(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-retro" data-track-id={ trackID }>
+		<div class="tc-retro-cassette">
+			<div class="tc-retro-tape">
+				<div class="tc-retro-spools">
+					<div class="tc-retro-spool"></div>
+					<div class="tc-retro-spool"></div>
+				</div>
+				<div class="tc-retro-label" style={ templ.SafeCSS("background-image: url(" + artworkURL + ")") }>
+					<div class="tc-retro-label-content">
+						<span class="tc-retro-title">{ trackTitle }</span>
+					</div>
+				</div>
+			</div>
+			<button class="tc-retro-play" aria-label="Play">▶</button>
+		</div>
+		<div class="tc-retro-info">
+			<div class="tc-retro-header">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-retro-title-link">{ trackTitle }</a>
+			</div>
+			<div class="tc-retro-artist">{ artistName }</div>
+			<div class="tc-retro-meta">
+				if genre != "" {
+					<span class="tc-retro-genre">{ genre }</span>
+				}
+				<span class="tc-retro-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</span>
+			</div>
+			<div class="tc-retro-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardBento(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-bento" data-track-id={ trackID }>
+		<div class="tc-bento-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<button class="tc-bento-play" aria-label="Play">▶</button>
+			<div class="tc-bento-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-bento-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-bento-title">{ trackTitle }</a>
+			<div class="tc-bento-artist">{ artistName }</div>
+			<div class="tc-bento-grid">
+				<div class="tc-bento-stat">
+					<span class="tc-bento-stat-label">Plays</span>
+					<span class="tc-bento-stat-value">{ formatCompact(playbackCount) }</span>
+				</div>
+				<div class="tc-bento-stat">
+					<span class="tc-bento-stat-label">Likes</span>
+					<span class="tc-bento-stat-value">{ formatCompact(favoritingsCount) }</span>
+				</div>
+				<div class="tc-bento-stat">
+					<span class="tc-bento-stat-label">Reposts</span>
+					<span class="tc-bento-stat-value">{ formatCompact(repostsCount) }</span>
+				</div>
+			</div>
+			<div class="tc-bento-footer">
+				if genre != "" {
+					<span class="tc-bento-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="tc-bento-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardBold(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-bold" data-track-id={ trackID }>
+		<div class="tc-bold-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<div class="tc-bold-overlay">
+				<button class="tc-bold-play" aria-label="Play">▶</button>
+			</div>
+			<div class="tc-bold-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-bold-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-bold-title">{ trackTitle }</a>
+			<div class="tc-bold-artist">{ artistName }</div>
+			<div class="tc-bold-stats">
+				<div class="tc-bold-stat">
+					<span class="tc-bold-stat-num">{ formatCompact(playbackCount) }</span>
+					<span class="tc-bold-stat-label">Plays</span>
+				</div>
+				<div class="tc-bold-stat">
+					<span class="tc-bold-stat-num">{ formatCompact(favoritingsCount) }</span>
+					<span class="tc-bold-stat-label">Likes</span>
+				</div>
+				<div class="tc-bold-stat">
+					<span class="tc-bold-stat-num">{ formatCompact(repostsCount) }</span>
+					<span class="tc-bold-stat-label">Reposts</span>
+				</div>
+			</div>
+			<div class="tc-bold-tags">
+				if genre != "" {
+					<span class="tc-bold-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="tc-bold-tag">{ fmt.Sprintf("%.0f", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardAmbient(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-ambient" data-track-id={ trackID }>
+		<div class="tc-ambient-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<div class="tc-ambient-glow"></div>
+			<button class="tc-ambient-play" aria-label="Play">▶</button>
+			<div class="tc-ambient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-ambient-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-ambient-title">{ trackTitle }</a>
+			<div class="tc-ambient-artist">{ artistName }</div>
+			<div class="tc-ambient-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+				<span>↻ { formatCompact(repostsCount) }</span>
+			</div>
+			<div class="tc-ambient-meta">
+				if genre != "" {
+					<span class="tc-ambient-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="tc-ambient-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardSoundwave(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	playbackCount int64,
+	favoritingsCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="tc-soundwave" data-track-id={ trackID }>
+		<div class="tc-soundwave-visualizer">
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+			<div class="tc-soundwave-bar"></div>
+		</div>
+		<div class="tc-soundwave-artwork">
+			if artworkURL != "" {
+				<img src={ artworkURL } alt={ trackTitle } loading="lazy"/>
+			}
+			<button class="tc-soundwave-play" aria-label="Play">▶</button>
+			<div class="tc-soundwave-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+		<div class="tc-soundwave-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="tc-soundwave-title">{ trackTitle }</a>
+			<div class="tc-soundwave-artist">{ artistName }</div>
+			<div class="tc-soundwave-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+				<span>↻ { formatCompact(repostsCount) }</span>
+			</div>
+			if genre != "" {
+				<span class="tc-soundwave-genre">{ genre }</span>
+			}
+		</div>
+	</article>
+}
+
+templ TrackCardGradient1(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-1" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-overlay">
+			<button class="track-card-gradient-play" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title">{ trackTitle }</a>
+				<div class="track-card-gradient-artist">{ artistName }</div>
+				<div class="track-card-gradient-stats">
+					<span>▶ { formatCompact(playbackCount) }</span>
+					<span>♡ { formatCompact(favoritingsCount) }</span>
+					if genre != "" {
+						<span class="track-card-gradient-genre">{ genre }</span>
+					}
+				</div>
+			</div>
+			<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+	</article>
+}
+
+templ TrackCardGradient2(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-2" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-hover-overlay">
+			<button class="track-card-gradient-play-lg" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-hover-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-lg">{ trackTitle }</a>
+				<div class="track-card-gradient-artist-lg">{ artistName }</div>
+				<div class="track-card-gradient-meta-row">
+					<span class="track-card-gradient-stat">▶ { formatCompact(playbackCount) }</span>
+					<span class="track-card-gradient-stat">♡ { formatCompact(favoritingsCount) }</span>
+					if genre != "" {
+						<span class="track-card-gradient-tag">{ genre }</span>
+					}
+					if bpm > 0 {
+						<span class="track-card-gradient-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+					}
+				</div>
+			</div>
+			<div class="track-card-gradient-duration-lg">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+		</div>
+	</article>
+}
+
+templ TrackCardGradient3(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-3" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-diagonal"></div>
+		<button class="track-card-gradient-play-corner" aria-label="Play track">
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="track-card-gradient-corner-content">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title">{ trackTitle }</a>
+			<div class="track-card-gradient-artist">{ artistName }</div>
+			<div class="track-card-gradient-mini-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient4(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-4" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-radial"></div>
+		<button class="track-card-gradient-play-center" aria-label="Play track">
+			<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="track-card-gradient-top-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-sm">{ trackTitle }</a>
+			<div class="track-card-gradient-artist-sm">{ artistName }</div>
+		</div>
+		<div class="track-card-gradient-bottom-stats">
+			<span>▶ { formatCompact(playbackCount) }</span>
+			<span>♡ { formatCompact(favoritingsCount) }</span>
+			if genre != "" {
+				<span class="track-card-gradient-genre-sm">{ genre }</span>
+			}
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient5(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-5" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-glass">
+			<button class="track-card-gradient-play-glass" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-glass-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title">{ trackTitle }</a>
+				<div class="track-card-gradient-artist">{ artistName }</div>
+				<div class="track-card-gradient-stats">
+					<span>▶ { formatCompact(playbackCount) }</span>
+					<span>♡ { formatCompact(favoritingsCount) }</span>
+				</div>
+			</div>
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient6(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-6" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-side-panel">
+			<button class="track-card-gradient-play-sm" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-side-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-side">{ trackTitle }</a>
+				<div class="track-card-gradient-artist-side">{ artistName }</div>
+				<div class="track-card-gradient-stats-side">
+					<span>▶ { formatCompact(playbackCount) }</span>
+					<span>♡ { formatCompact(favoritingsCount) }</span>
+				</div>
+				if genre != "" {
+					<span class="track-card-gradient-genre-side">{ genre }</span>
+				}
+			</div>
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient7(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-7" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-top-bar">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-bar">{ trackTitle }</a>
+			<span class="track-card-gradient-duration-bar">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</span>
+		</div>
+		<button class="track-card-gradient-play-float" aria-label="Play track">
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="track-card-gradient-bottom-fade">
+			<div class="track-card-gradient-artist">{ artistName }</div>
+			<div class="track-card-gradient-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+				if genre != "" {
+					<span class="track-card-gradient-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ TrackCardGradient8(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-8" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-minimal-overlay">
+			<button class="track-card-gradient-play-grow" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-minimal-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title">{ trackTitle }</a>
+				<div class="track-card-gradient-artist">{ artistName }</div>
+				<div class="track-card-gradient-stats">
+					<span>▶ { formatCompact(playbackCount) }</span>
+					<span>♡ { formatCompact(favoritingsCount) }</span>
+					if bpm > 0 {
+						<span>{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+					}
+				</div>
+			</div>
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient9(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-9" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg"/>
+		<div class="track-card-gradient-spotlight"></div>
+		<button class="track-card-gradient-play-spot" aria-label="Play track">
+			<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="track-card-gradient-edge-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-edge">{ trackTitle }</a>
+			<div class="track-card-gradient-artist-edge">{ artistName }</div>
+		</div>
+		<div class="track-card-gradient-edge-stats">
+			<span>▶ { formatCompact(playbackCount) }</span>
+			<span>♡ { formatCompact(favoritingsCount) }</span>
+			if genre != "" {
+				<span class="track-card-gradient-genre-edge">{ genre }</span>
+			}
+		</div>
+		<div class="track-card-gradient-duration">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</div>
+	</article>
+}
+
+templ TrackCardGradient10(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	streamURL string,
+) {
+	<article class="track-card-gradient track-card-gradient-10" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } loading="lazy" class="track-card-gradient-bg-wide"/>
+		<div class="track-card-gradient-cinematic">
+			<button class="track-card-gradient-play-cinema" aria-label="Play track">
+				<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+			<div class="track-card-gradient-waveform">
+				for i := 0; i < 40; i++ {
+					<span class="cinema-bar" style={ templ.SafeCSS(fmt.Sprintf("height: %d%%", 20+((i*13+i*i)%60))) }></span>
+				}
+			</div>
+			<div class="track-card-gradient-cinema-content">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="track-card-gradient-title-cinema">{ trackTitle }</a>
+				<div class="track-card-gradient-cinema-meta">
+					<span class="track-card-gradient-artist-cinema">{ artistName }</span>
+					<span class="track-card-gradient-duration-cinema">{ trackDuration / 1000 / 60 }:{ fmt.Sprintf("%02d", (trackDuration/1000)%60) }</span>
+				</div>
+				<div class="track-card-gradient-cinema-stats">
+					<span>▶ { formatCompact(playbackCount) }</span>
+					<span>♡ { formatCompact(favoritingsCount) }</span>
+					if genre != "" {
+						<span class="track-card-gradient-genre-cinema">{ genre }</span>
+					}
+					if bpm > 0 {
+						<span>{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+					}
+				</div>
+			</div>
+		</div>
+	</article>
+}

@@ -1,0 +1,873 @@
+package views
+
+import "fmt"
+
+type UIProtoData struct {
+	PageData
+	Track Track
+}
+
+templ UIProto(data UIProtoData) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>UI Proto - Track Card Experiments</title>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+			<style>
+				.proto-grid {
+					display: grid;
+					grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+					gap: 1.5rem;
+					padding: 1rem 0;
+				}
+				.proto-item {
+					padding: 1rem;
+					border: 1px dashed var(--pico-muted-border-color);
+					border-radius: var(--pico-border-radius);
+					background: var(--pico-background-color);
+				}
+				.proto-label {
+					font-size: 0.75rem;
+					font-weight: 600;
+					color: var(--pico-muted-color);
+					margin-bottom: 0.75rem;
+					text-transform: uppercase;
+					letter-spacing: 0.05em;
+				}
+				/* Card 1: Minimal */
+				.card-1 a { text-decoration: none; }
+				.card-1 a:hover { text-decoration: underline; }
+				
+				/* Card 2: Compact Row */
+				.card-2 { display: flex; align-items: center; gap: 0.75rem; }
+				.card-2 img { width: 48px; height: 48px; border-radius: 4px; flex-shrink: 0; }
+				.card-2-content { flex: 1; min-width: 0; }
+				.card-2-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+				.card-2-meta { font-size: 0.75rem; color: var(--pico-muted-color); }
+				
+				/* Card 3: Large Artwork */
+				.card-3 img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--pico-border-radius); }
+				.card-3-body { padding-top: 0.75rem; }
+				.card-3-title { font-size: 1rem; font-weight: 600; margin: 0 0 0.25rem; }
+				.card-3-artist { color: var(--pico-muted-color); font-size: 0.875rem; margin: 0; }
+				
+				/* Card 4: Bordered Left */
+				.card-4 { border-left: 3px solid var(--pico-primary); padding-left: 0.75rem; }
+				
+				/* Card 5: Stats Focus */
+				.card-5-stats { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--pico-muted-color); }
+				.card-5-stat { display: flex; align-items: center; gap: 0.25rem; }
+				
+				/* Card 6: Tags Prominent */
+				.card-6-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem; }
+				.card-6-tag { font-size: 0.625rem; padding: 0.125rem 0.375rem; background: var(--pico-muted-background); border-radius: 999px; }
+				
+				/* Card 7: Play Button Overlay */
+				.card-7 { position: relative; }
+				.card-7 img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--pico-border-radius); }
+				.card-7-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: var(--pico-border-radius); opacity: 0; transition: opacity 0.2s; cursor: pointer; }
+				.card-7:hover .card-7-play { opacity: 1; }
+				.card-7-play-icon { width: 48px; height: 48px; background: var(--pico-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; }
+				
+				/* Card 8: Horizontal Full */
+				.card-8 { display: flex; align-items: stretch; gap: 0; }
+				.card-8 img { width: 80px; height: 80px; object-fit: cover; border-radius: var(--pico-border-radius) 0 0 var(--pico-border-radius); }
+				.card-8-body { flex: 1; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; justify-content: center; background: var(--pico-muted-background); border-radius: 0 var(--pico-border-radius) var(--pico-border-radius) 0; }
+				
+				/* Card 9: Dark Card */
+				.card-9 { background: #1a1a1a; color: #fff; border-radius: var(--pico-border-radius); padding: 0.75rem; }
+				.card-9 img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: calc(var(--pico-border-radius) - 2px); margin-bottom: 0.5rem; }
+				.card-9 * { color: #fff; }
+				.card-9-meta { opacity: 0.7; font-size: 0.75rem; }
+				
+				/* Card 10: Outlined */
+				.card-10 { border: 2px solid var(--pico-primary); background: transparent; }
+				.card-10:hover { background: var(--pico-primary-background); }
+				
+				/* Card 11: Avatar Inline */
+				.card-11 { display: flex; align-items: center; gap: 0.5rem; }
+				.card-11-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--pico-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.625rem; font-weight: 600; }
+				
+				/* Card 12: Duration Badge */
+				.card-12-duration { display: inline-block; background: var(--pico-primary); color: #fff; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem; font-weight: 600; }
+				
+				/* Card 13: BPM Highlight */
+				.card-13-bpm { font-size: 1.5rem; font-weight: 700; color: var(--pico-primary); }
+				.card-13-unit { font-size: 0.75rem; font-weight: 400; }
+				
+				/* Card 14: Year Badge */
+				.card-14-year { display: inline-block; padding: 0.25rem 0.5rem; background: var(--pico-muted-background); border-radius: var(--pico-border-radius); font-size: 0.75rem; font-weight: 500; }
+				
+				/* Card 15: Downloadable Indicator */
+				.card-15-download { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.625rem; color: var(--pico-primary); }
+				
+				/* Card 16: Compact Grid */
+				.card-16 { display: grid; grid-template-columns: 40px 1fr auto; gap: 0.5rem; align-items: center; }
+				.card-16 img { width: 40px; height: 40px; border-radius: 4px; }
+				
+				/* Card 17: Stacked */
+				.card-17 { display: flex; flex-direction: column; }
+				.card-17-header { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+				.card-17 img { width: 32px; height: 32px; border-radius: 4px; }
+				
+				/* Card 18: Link Style */
+				.card-18 { padding: 0; border: none; background: none; }
+				.card-18 a { color: var(--pico-primary); }
+				.card-18 a:hover { text-decoration: underline; }
+				
+				/* Card 19: Table Style */
+				.card-19 table { width: 100%; font-size: 0.75rem; }
+				.card-19 td { padding: 0.25rem 0; }
+				
+				/* Card 20: Definition List */
+				.card-20 dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.5rem; font-size: 0.75rem; }
+				.card-20 dt { color: var(--pico-muted-color); }
+				
+				/* Card 21: Progress Bar */
+				.card-21-progress { height: 4px; background: var(--pico-muted-background); border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
+				.card-21-progress-bar { height: 100%; background: var(--pico-primary); width: 65%; }
+				
+				/* Card 22: Circle Artwork */
+				.card-22 { text-align: center; }
+				.card-22 img { width: 80px; height: 80px; border-radius: 50%; margin-bottom: 0.5rem; }
+				
+				/* Card 23: Gradient Overlay */
+				.card-23 { position: relative; border-radius: var(--pico-border-radius); overflow: hidden; }
+				.card-23 img { width: 100%; aspect-ratio: 1.5; object-fit: cover; }
+				.card-23-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 1rem; background: linear-gradient(transparent, rgba(0,0,0,0.8)); color: #fff; }
+				
+				/* Card 24: Split Tone */
+				.card-24 { display: flex; }
+				.card-24-left { flex: 1; padding: 0.75rem; background: var(--pico-primary-background); border-radius: var(--pico-border-radius) 0 0 var(--pico-border-radius); }
+				.card-24-right { flex: 1; padding: 0.75rem; background: var(--pico-muted-background); border-radius: 0 var(--pico-border-radius) var(--pico-border-radius) 0; }
+				
+				/* Card 25: Icon Focus */
+				.card-25 { display: flex; align-items: center; gap: 0.75rem; }
+				.card-25-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--pico-primary); color: #fff; border-radius: 50%; font-size: 1rem; }
+				
+				/* Card 26: Numbered */
+				.card-26 { display: flex; align-items: center; gap: 0.5rem; }
+				.card-26-num { font-size: 1.25rem; font-weight: 700; color: var(--pico-muted-color); min-width: 1.5rem; }
+				
+				/* Card 27: Badge Collection */
+				.card-27-badges { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+				.card-27-badge { font-size: 0.625rem; padding: 0.125rem 0.375rem; border-radius: 2px; }
+				.card-27-badge-primary { background: var(--pico-primary); color: #fff; }
+				.card-27-badge-secondary { background: var(--pico-muted-background); }
+				
+				/* Card 28: Two Line */
+				.card-28-line { height: 1px; background: var(--pico-muted-border-color); margin: 0.5rem 0; }
+				
+				/* Card 29: Indented */
+				.card-29 { padding-left: 1rem; border-left: 2px solid var(--pico-muted-border-color); }
+				
+				/* Card 30: Floating Play */
+				.card-30 { position: relative; }
+				.card-30 img { width: 64px; height: 64px; border-radius: var(--pico-border-radius); float: left; margin-right: 0.75rem; }
+				.card-30-play { position: absolute; top: 20px; left: 20px; width: 24px; height: 24px; background: rgba(255,255,255,0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+				
+				/* Card 31: Quote Style */
+				.card-31 { border-left: 4px solid var(--pico-muted-border-color); padding-left: 1rem; font-style: italic; }
+				
+				/* Card 32: Monospace */
+				.card-32 { font-family: monospace; font-size: 0.75rem; background: var(--pico-code-background); padding: 0.5rem; border-radius: var(--pico-border-radius); }
+				
+				/* Card 33: Card in Card */
+				.card-33 { background: var(--pico-muted-background); padding: 0.5rem; border-radius: var(--pico-border-radius); }
+				.card-33-inner { background: var(--pico-background-color); padding: 0.5rem; border-radius: calc(var(--pico-border-radius) - 2px); }
+				
+				/* Card 34: Shadow Deep */
+				.card-34 { box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: none; }
+				
+				/* Card 35: Border Bottom Only */
+				.card-35 { border: none; border-bottom: 1px solid var(--pico-muted-border-color); border-radius: 0; padding-bottom: 1rem; }
+				
+				/* Card 36: Rounded Pill */
+				.card-36 { border-radius: 999px; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem; background: var(--pico-muted-background); }
+				.card-36 img { width: 32px; height: 32px; border-radius: 50%; }
+				
+				/* Card 37: Glass Effect */
+				.card-37 { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); }
+				
+				/* Card 38: Neon Border */
+				.card-38 { border: 2px solid var(--pico-primary); box-shadow: 0 0 10px rgba(9,105,218,0.3); }
+				
+				/* Card 39: Dotted Border */
+				.card-39 { border: 2px dotted var(--pico-muted-border-color); }
+				
+				/* Card 40: Striped Background */
+				.card-40 { background: repeating-linear-gradient(45deg, var(--pico-background-color), var(--pico-background-color) 10px, var(--pico-muted-background) 10px, var(--pico-muted-background) 20px); padding: 1rem; }
+				
+				/* Card 41: Folded Corner */
+				.card-41 { position: relative; }
+				.card-41::after { content: ''; position: absolute; top: 0; right: 0; border-width: 0 16px 16px 0; border-style: solid; border-color: var(--pico-muted-background) var(--pico-background-color); background: var(--pico-muted-background); display: block; width: 0; }
+				
+				/* Card 42: Highlight Bar */
+				.card-42 { border: none; border-left: 4px solid var(--pico-primary); background: linear-gradient(90deg, var(--pico-primary-background) 0%, transparent 50%); }
+				
+				/* Card 43: Tag Cloud */
+				.card-43-tags { display: flex; flex-wrap: wrap; gap: 0.125rem; margin-top: 0.25rem; }
+				.card-43-tag { font-size: 0.5rem; padding: 0.0625rem 0.25rem; background: var(--pico-muted-background); border-radius: 2px; }
+				
+				/* Card 44: Stat Boxes */
+				.card-44-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; margin-top: 0.5rem; }
+				.card-44-stat { text-align: center; padding: 0.25rem; background: var(--pico-muted-background); border-radius: 4px; }
+				.card-44-value { font-size: 0.875rem; font-weight: 600; }
+				.card-44-label { font-size: 0.5rem; color: var(--pico-muted-color); }
+				
+				/* Card 45: Timeline */
+				.card-45 { display: flex; gap: 0.5rem; }
+				.card-45-time { writing-mode: vertical-rl; text-orientation: mixed; font-size: 0.625rem; color: var(--pico-muted-color); }
+				
+				/* Card 46: Mega Stats */
+				.card-46 { text-align: center; }
+				.card-46-plays { font-size: 2rem; font-weight: 700; color: var(--pico-primary); }
+				.card-46-label { font-size: 0.75rem; color: var(--pico-muted-color); }
+				
+				/* Card 47: Compact Badge */
+				.card-47 { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: var(--pico-muted-background); border-radius: var(--pico-border-radius); font-size: 0.75rem; }
+				
+				/* Card 48: Expandable Hint */
+				.card-48 { cursor: pointer; }
+				.card-48::after { content: '→'; float: right; color: var(--pico-muted-color); }
+				.card-48:hover::after { color: var(--pico-primary); }
+				
+				/* Card 49: Status Dot */
+				.card-49 { display: flex; align-items: center; gap: 0.5rem; }
+				.card-49-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pico-primary); }
+				
+				/* Card 50: Final Polish */
+				.card-50 { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; gap: 0 0.75rem; padding: 0.75rem; background: var(--pico-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); }
+				.card-50 img { width: 56px; height: 56px; border-radius: 4px; grid-row: span 2; }
+				.card-50-title { font-weight: 600; font-size: 0.875rem; margin: 0; }
+				.card-50-artist { color: var(--pico-muted-color); font-size: 0.75rem; margin: 0; }
+				.card-50-meta { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--pico-muted-border-color); font-size: 0.75rem; }
+				.card-50-stats { display: flex; gap: 0.75rem; color: var(--pico-muted-color); }
+				.card-50-actions { display: flex; gap: 0.25rem; }
+			</style>
+		</head>
+		<body class="container">
+			<hgroup>
+				<h1>Track Card Prototypes</h1>
+				<p>50 experimental layouts for displaying track data</p>
+			</hgroup>
+
+			<details open>
+				<summary>Track Data</summary>
+				<pre style="font-size: 0.75rem; overflow: auto;">
+ID:             { data.Track.TrackID }
+Title:          { data.Track.TrackTitle }
+Artist:         { data.Track.ArtistName }
+Genre:          { data.Track.Genre }
+Duration:       { formatDuration(data.Track.TrackDuration) }
+Plays:          { formatCount(data.Track.PlaybackCount) }
+Likes:          { formatCount(data.Track.FavoritingsCount) }
+BPM:            { fmt.Sprintf("%.0f", data.Track.BPM) }
+Year:           { fmt.Sprintf("%d", data.Track.ReleaseYear) }
+Downloadable:   { fmt.Sprintf("%t", data.Track.Downloadable) }
+				</pre>
+			</details>
+
+			<div class="proto-grid">
+				<!-- Card 1: Minimal -->
+				<div class="proto-item">
+					<div class="proto-label">1. Minimal</div>
+					<div class="card-1">
+						<a href={ data.Track.PermalinkURL } target="_blank"><strong>{ data.Track.TrackTitle }</strong></a>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 2: Compact Row -->
+				<div class="proto-item">
+					<div class="proto-label">2. Compact Row</div>
+					<div class="card-2">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-2-content">
+							<div class="card-2-title">{ data.Track.TrackTitle }</div>
+							<div class="card-2-meta">{ data.Track.ArtistName } • { formatDuration(data.Track.TrackDuration) }</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 3: Large Artwork -->
+				<div class="proto-item">
+					<div class="proto-label">3. Large Artwork</div>
+					<div class="card-3">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-3-body">
+							<div class="card-3-title">{ data.Track.TrackTitle }</div>
+							<div class="card-3-artist">{ data.Track.ArtistName }</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 4: Bordered Left -->
+				<div class="proto-item">
+					<div class="proto-label">4. Bordered Left</div>
+					<div class="card-4">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 5: Stats Focus -->
+				<div class="proto-item">
+					<div class="proto-label">5. Stats Focus</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<small> • { data.Track.ArtistName }</small>
+					<div class="card-5-stats">
+						<span class="card-5-stat">▶ { formatCount(data.Track.PlaybackCount) }</span>
+						<span class="card-5-stat">♡ { formatCount(data.Track.FavoritingsCount) }</span>
+						<span class="card-5-stat">↻ { formatCount(data.Track.RepostsCount) }</span>
+					</div>
+				</div>
+
+				<!-- Card 6: Tags Prominent -->
+				<div class="proto-item">
+					<div class="proto-label">6. Tags Prominent</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<div class="card-6-tags">
+						<span class="card-6-tag">{ data.Track.Genre }</span>
+						if data.Track.ReleaseYear > 0 {
+							<span class="card-6-tag">{ fmt.Sprintf("%d", data.Track.ReleaseYear) }</span>
+						}
+						if data.Track.BPM > 0 {
+							<span class="card-6-tag">{ fmt.Sprintf("%.0f BPM", data.Track.BPM) }</span>
+						}
+					</div>
+				</div>
+
+				<!-- Card 7: Play Button Overlay -->
+				<div class="proto-item">
+					<div class="proto-label">7. Play Overlay</div>
+					<div class="card-7">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-7-play">
+							<div class="card-7-play-icon">▶</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 8: Horizontal Full -->
+				<div class="proto-item">
+					<div class="proto-label">8. Horizontal Full</div>
+					<div class="card-8">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-8-body">
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 9: Dark Card -->
+				<div class="proto-item">
+					<div class="proto-label">9. Dark Card</div>
+					<div class="card-9">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<span class="card-9-meta">{ data.Track.ArtistName } • { formatDuration(data.Track.TrackDuration) }</span>
+					</div>
+				</div>
+
+				<!-- Card 10: Outlined -->
+				<div class="proto-item">
+					<div class="proto-label">10. Outlined</div>
+					<div class="card-10">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 11: Avatar Inline -->
+				<div class="proto-item">
+					<div class="proto-label">11. Avatar Inline</div>
+					<div class="card-11">
+						<div class="card-11-avatar">{ string(data.Track.ArtistName[0]) }</div>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<small> • { formatDuration(data.Track.TrackDuration) }</small>
+					</div>
+				</div>
+
+				<!-- Card 12: Duration Badge -->
+				<div class="proto-item">
+					<div class="proto-label">12. Duration Badge</div>
+					<span class="card-12-duration">{ formatDuration(data.Track.TrackDuration) }</span>
+					<strong> { data.Track.TrackTitle }</strong>
+					<br/>
+					<small>{ data.Track.ArtistName }</small>
+				</div>
+
+				<!-- Card 13: BPM Highlight -->
+				<div class="proto-item">
+					<div class="proto-label">13. BPM Highlight</div>
+					<span class="card-13-bpm">{ fmt.Sprintf("%.0f", data.Track.BPM) }</span><span class="card-13-unit"> BPM</span>
+					<br/>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<small> • { data.Track.ArtistName }</small>
+				</div>
+
+				<!-- Card 14: Year Badge -->
+				<div class="proto-item">
+					<div class="proto-label">14. Year Badge</div>
+					<span class="card-14-year">{ fmt.Sprintf("%d", data.Track.ReleaseYear) }</span>
+					<br/>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<small> • { data.Track.ArtistName }</small>
+				</div>
+
+				<!-- Card 15: Downloadable Indicator -->
+				<div class="proto-item">
+					<div class="proto-label">15. Download Indicator</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					if data.Track.Downloadable {
+						<span class="card-15-download">↓ Downloadable</span>
+					}
+					<br/>
+					<small>{ data.Track.ArtistName }</small>
+				</div>
+
+				<!-- Card 16: Compact Grid -->
+				<div class="proto-item">
+					<div class="proto-label">16. Compact Grid</div>
+					<div class="card-16">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div>
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+						<small>{ formatDuration(data.Track.TrackDuration) }</small>
+					</div>
+				</div>
+
+				<!-- Card 17: Stacked -->
+				<div class="proto-item">
+					<div class="proto-label">17. Stacked</div>
+					<div class="card-17">
+						<div class="card-17-header">
+							<img src={ data.Track.ArtworkURL } alt=""/>
+							<div>
+								<strong>{ data.Track.TrackTitle }</strong>
+								<br/>
+								<small>{ data.Track.ArtistName }</small>
+							</div>
+						</div>
+						<small>{ data.Track.Genre } • { formatCount(data.Track.PlaybackCount) } plays</small>
+					</div>
+				</div>
+
+				<!-- Card 18: Link Style -->
+				<div class="proto-item">
+					<div class="proto-label">18. Link Style</div>
+					<div class="card-18">
+						<a href={ data.Track.PermalinkURL } target="_blank">{ data.Track.TrackTitle }</a>
+						<small> • { data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 19: Table Style -->
+				<div class="proto-item">
+					<div class="proto-label">19. Table Style</div>
+					<div class="card-19">
+						<table>
+							<tr><td>Title</td><td>{ data.Track.TrackTitle }</td></tr>
+							<tr><td>Artist</td><td>{ data.Track.ArtistName }</td></tr>
+							<tr><td>Duration</td><td>{ formatDuration(data.Track.TrackDuration) }</td></tr>
+							<tr><td>Plays</td><td>{ formatCount(data.Track.PlaybackCount) }</td></tr>
+						</table>
+					</div>
+				</div>
+
+				<!-- Card 20: Definition List -->
+				<div class="proto-item">
+					<div class="proto-label">20. Definition List</div>
+					<dl class="card-20">
+						<dt>Title</dt><dd>{ data.Track.TrackTitle }</dd>
+						<dt>Artist</dt><dd>{ data.Track.ArtistName }</dd>
+						<dt>Genre</dt><dd>{ data.Track.Genre }</dd>
+						<dt>Plays</dt><dd>{ formatCount(data.Track.PlaybackCount) }</dd>
+					</dl>
+				</div>
+
+				<!-- Card 21: Progress Bar -->
+				<div class="proto-item">
+					<div class="proto-label">21. Progress Bar</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<small> • { data.Track.ArtistName }</small>
+					<div class="card-21-progress">
+						<div class="card-21-progress-bar"></div>
+					</div>
+					<small style="float: right;">{ formatDuration(data.Track.TrackDuration) }</small>
+				</div>
+
+				<!-- Card 22: Circle Artwork -->
+				<div class="proto-item">
+					<div class="proto-label">22. Circle Artwork</div>
+					<div class="card-22">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 23: Gradient Overlay -->
+				<div class="proto-item">
+					<div class="proto-label">23. Gradient Overlay</div>
+					<div class="card-23">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-23-overlay">
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 24: Split Tone -->
+				<div class="proto-item">
+					<div class="proto-label">24. Split Tone</div>
+					<div class="card-24">
+						<div class="card-24-left">
+							<strong>{ data.Track.TrackTitle }</strong>
+						</div>
+						<div class="card-24-right">
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 25: Icon Focus -->
+				<div class="proto-item">
+					<div class="proto-label">25. Icon Focus</div>
+					<div class="card-25">
+						<div class="card-25-icon">♪</div>
+						<div>
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 26: Numbered -->
+				<div class="proto-item">
+					<div class="proto-label">26. Numbered</div>
+					<div class="card-26">
+						<span class="card-26-num">1</span>
+						<div>
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName } • { formatDuration(data.Track.TrackDuration) }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 27: Badge Collection -->
+				<div class="proto-item">
+					<div class="proto-label">27. Badge Collection</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<br/>
+					<div class="card-27-badges">
+						<span class="card-27-badge card-27-badge-primary">{ data.Track.Genre }</span>
+						<span class="card-27-badge card-27-badge-secondary">{ formatCount(data.Track.PlaybackCount) } plays</span>
+						<span class="card-27-badge card-27-badge-secondary">{ formatDuration(data.Track.TrackDuration) }</span>
+					</div>
+				</div>
+
+				<!-- Card 28: Two Line -->
+				<div class="proto-item">
+					<div class="proto-label">28. Two Line</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<div class="card-28-line"></div>
+					<small>{ data.Track.ArtistName }</small>
+				</div>
+
+				<!-- Card 29: Indented -->
+				<div class="proto-item">
+					<div class="proto-label">29. Indented</div>
+					<div class="card-29">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+						<br/>
+						<small style="color: var(--pico-muted-color);">{ formatDuration(data.Track.TrackDuration) } • { formatCount(data.Track.PlaybackCount) } plays</small>
+					</div>
+				</div>
+
+				<!-- Card 30: Floating Play -->
+				<div class="proto-item">
+					<div class="proto-label">30. Floating Play</div>
+					<div class="card-30">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-30-play">▶</div>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 31: Quote Style -->
+				<div class="proto-item">
+					<div class="proto-label">31. Quote Style</div>
+					<div class="card-31">
+						"{ data.Track.TrackTitle }"
+						<br/>
+						<small>— { data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 32: Monospace -->
+				<div class="proto-item">
+					<div class="proto-label">32. Monospace</div>
+					<div class="card-32">
+						<strong>{ data.Track.TrackTitle }</strong><br/>
+						{ data.Track.ArtistName } | { formatDuration(data.Track.TrackDuration) } | { formatCount(data.Track.PlaybackCount) } plays
+					</div>
+				</div>
+
+				<!-- Card 33: Card in Card -->
+				<div class="proto-item">
+					<div class="proto-label">33. Card in Card</div>
+					<div class="card-33">
+						<div class="card-33-inner">
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 34: Shadow Deep -->
+				<div class="proto-item">
+					<div class="proto-label">34. Shadow Deep</div>
+					<div class="card-34">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 35: Border Bottom Only -->
+				<div class="proto-item">
+					<div class="proto-label">35. Border Bottom</div>
+					<div class="card-35">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 36: Rounded Pill -->
+				<div class="proto-item">
+					<div class="proto-label">36. Rounded Pill</div>
+					<div class="card-36">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<small> • { formatDuration(data.Track.TrackDuration) }</small>
+					</div>
+				</div>
+
+				<!-- Card 37: Glass Effect -->
+				<div class="proto-item">
+					<div class="proto-label">37. Glass Effect</div>
+					<div class="card-37">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 38: Neon Border -->
+				<div class="proto-item">
+					<div class="proto-label">38. Neon Border</div>
+					<div class="card-38">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 39: Dotted Border -->
+				<div class="proto-item">
+					<div class="proto-label">39. Dotted Border</div>
+					<div class="card-39">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 40: Striped Background -->
+				<div class="proto-item">
+					<div class="proto-label">40. Striped Background</div>
+					<div class="card-40">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 41: Folded Corner -->
+				<div class="proto-item">
+					<div class="proto-label">41. Folded Corner</div>
+					<div class="card-41">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 42: Highlight Bar -->
+				<div class="proto-item">
+					<div class="proto-label">42. Highlight Bar</div>
+					<div class="card-42">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 43: Tag Cloud -->
+				<div class="proto-item">
+					<div class="proto-label">43. Tag Cloud</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<small> • { data.Track.ArtistName }</small>
+					<div class="card-43-tags">
+						<span class="card-43-tag">{ data.Track.Genre }</span>
+						<span class="card-43-tag">{ fmt.Sprintf("%d", data.Track.ReleaseYear) }</span>
+						<span class="card-43-tag">{ fmt.Sprintf("%.0f", data.Track.BPM) }bpm</span>
+						<span class="card-43-tag">{ formatDuration(data.Track.TrackDuration) }</span>
+						<span class="card-43-tag">{ formatCount(data.Track.PlaybackCount) }</span>
+					</div>
+				</div>
+
+				<!-- Card 44: Stat Boxes -->
+				<div class="proto-item">
+					<div class="proto-label">44. Stat Boxes</div>
+					<strong>{ data.Track.TrackTitle }</strong>
+					<br/>
+					<small>{ data.Track.ArtistName }</small>
+					<div class="card-44-stats">
+						<div class="card-44-stat">
+							<div class="card-44-value">{ formatCount(data.Track.PlaybackCount) }</div>
+							<div class="card-44-label">PLAYS</div>
+						</div>
+						<div class="card-44-stat">
+							<div class="card-44-value">{ formatCount(data.Track.FavoritingsCount) }</div>
+							<div class="card-44-label">LIKES</div>
+						</div>
+						<div class="card-44-stat">
+							<div class="card-44-value">{ formatDuration(data.Track.TrackDuration) }</div>
+							<div class="card-44-label">LENGTH</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 45: Timeline -->
+				<div class="proto-item">
+					<div class="proto-label">45. Timeline</div>
+					<div class="card-45">
+						<div class="card-45-time">{ data.Track.CreatedAt.Format("2006") }</div>
+						<div>
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 46: Mega Stats -->
+				<div class="proto-item">
+					<div class="proto-label">46. Mega Stats</div>
+					<div class="card-46">
+						<div class="card-46-plays">{ formatCount(data.Track.PlaybackCount) }</div>
+						<div class="card-46-label">plays</div>
+						<br/>
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 47: Compact Badge -->
+				<div class="proto-item">
+					<div class="proto-label">47. Compact Badge</div>
+					<div class="card-47">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<small> • { data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 48: Expandable Hint -->
+				<div class="proto-item">
+					<div class="proto-label">48. Expandable Hint</div>
+					<div class="card-48">
+						<strong>{ data.Track.TrackTitle }</strong>
+						<br/>
+						<small>{ data.Track.ArtistName }</small>
+					</div>
+				</div>
+
+				<!-- Card 49: Status Dot -->
+				<div class="proto-item">
+					<div class="proto-label">49. Status Dot</div>
+					<div class="card-49">
+						<div class="card-49-dot"></div>
+						<div>
+							<strong>{ data.Track.TrackTitle }</strong>
+							<br/>
+							<small>{ data.Track.ArtistName }</small>
+						</div>
+					</div>
+				</div>
+
+				<!-- Card 50: Final Polish -->
+				<div class="proto-item">
+					<div class="proto-label">50. Final Polish</div>
+					<div class="card-50">
+						<img src={ data.Track.ArtworkURL } alt=""/>
+						<div class="card-50-title">{ data.Track.TrackTitle }</div>
+						<div class="card-50-artist">{ data.Track.ArtistName }</div>
+						<div class="card-50-meta">
+							<div class="card-50-stats">
+								<span>▶ { formatCount(data.Track.PlaybackCount) }</span>
+								<span>♡ { formatCount(data.Track.FavoritingsCount) }</span>
+							</div>
+							<div class="card-50-actions">
+								<small>{ formatDuration(data.Track.TrackDuration) }</small>
+							</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</body>
+	</html>
+}
+
+func formatDuration(ms int64) string {
+	seconds := ms / 1000
+	minutes := seconds / 60
+	remainingSeconds := seconds % 60
+	return fmt.Sprintf("%d:%02d", minutes, remainingSeconds)
+}
+
+func formatCount(count int64) string {
+	if count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(count)/1000000)
+	}
+	if count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(count)/1000)
+	}
+	return fmt.Sprintf("%d", count)
+}

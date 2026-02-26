@@ -8,7 +8,10 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/jbhicks/sound-cistern/views/components"
+import (
+	"strings"
+	"time"
+)
 
 type PageData struct {
 	Title       string
@@ -16,6 +19,51 @@ type PageData struct {
 	CurrentPath string
 	User        interface{}
 	HideNav     bool
+	TestMode    bool
+}
+
+func (p PageData) FirstName() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("first_name")
+	}
+	return ""
+}
+
+func (p PageData) LastName() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("last_name")
+	}
+	return ""
+}
+
+func (p PageData) Username() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("username")
+	}
+	return ""
+}
+
+type Track struct {
+	TrackID          string    `json:"track_id"`
+	TrackTitle       string    `json:"track_title"`
+	ArtistName       string    `json:"artist_name"`
+	ArtistAvatarURL  string    `json:"artist_avatar_url"`
+	Genre            string    `json:"genre"`
+	TagList          string    `json:"tag_list"`
+	TrackDuration    int64     `json:"track_duration"`
+	ArtworkURL       string    `json:"artwork_url"`
+	WaveformURL      string    `json:"waveform_url"`
+	StreamURL        string    `json:"stream_url"`
+	CreatedAt        time.Time `json:"created_at"`
+	PermalinkURL     string    `json:"permalink_url"`
+	IsFavorited      bool      `json:"is_favorited"`
+	PlaybackCount    int64     `json:"playback_count"`
+	FavoritingsCount int64     `json:"favoritings_count"`
+	CommentCount     int64     `json:"comment_count"`
+	RepostsCount     int64     `json:"reposts_count"`
+	BPM              float64   `json:"bpm"`
+	ReleaseYear      int       `json:"release_year"`
+	Downloadable     bool      `json:"downloadable"`
 }
 
 func Layout(data PageData) templ.Component {
@@ -39,7 +87,7 @@ func Layout(data PageData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -47,7 +95,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 21, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 69, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -58,111 +106,125 @@ func Layout(data PageData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "Sound Cistern - Audio Feed Aggregator")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "Sound Cistern")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</title><meta name=\"title\" content=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</title><meta name=\"description\" content=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title + " - Sound Cistern")
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 26, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 74, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"><meta name=\"description\" content=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var4 string
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Description)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 27, Col: 54}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"><meta name=\"robots\" content=\"index, follow\"><meta property=\"og:type\" content=\"website\"><meta property=\"og:url\" content=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs("https://yourdomain.com" + data.CurrentPath)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 30, Col: 80}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><meta property=\"og:title\" content=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title + " - Sound Cistern")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 31, Col: 70}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"><meta property=\"og:description\" content=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(data.Description)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 32, Col: 61}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"><link rel=\"canonical\" href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var8 templ.SafeURL
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("https://yourdomain.com" + data.CurrentPath)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 33, Col: 75}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\"><link rel=\"stylesheet\" href=\"/css/pico.min.css\"><link rel=\"stylesheet\" href=\"/css/custom.css\"><script src=\"/js/icons.js\"></script><script src=\"/js/theme.js\"></script><script src=\"/js/htmx.min.js\"></script><script src=\"/js/htmx-enhancements.js\"></script></head><body><!-- Accessibility: Skip to main content link for keyboard users -->")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.SkipToContent().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<!-- Main navigation with semantic HTML and ARIA landmarks -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#0f3460\"><meta name=\"mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"><link rel=\"stylesheet\" href=\"/css/pico.min.css\"><link rel=\"stylesheet\" href=\"/css/custom.css\"><link rel=\"stylesheet\" href=\"/css/stream.css\"><style>\n\t\t\t\t/* Vapor Wave Nav */\n\t\t\t\t.vapor-nav-header {\n\t\t\t\t\tbackground: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);\n\t\t\t\t\tborder-bottom: 2px solid #ff6b9d;\n\t\t\t\t\tbox-shadow: 0 4px 20px rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: space-between;\n\t\t\t\t\tflex-wrap: wrap;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tmin-height: 56px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav ul {\n\t\t\t\t\tmargin: 0;\n\t\t\t\t\tpadding: 0;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav li {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand {\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand a {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\ttext-shadow: 2px 2px 0 #ff6b9d, -1px -1px 0 #00d4ff;\n\t\t\t\t\tfont-size: 1.25rem;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tgap: 0.25rem;\n\t\t\t\t\tflex: 1;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a {\n\t\t\t\t\tcolor: rgba(255, 255, 255, 0.8) !important;\n\t\t\t\t\tpadding: 0.5rem 1rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t\tposition: relative;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a:hover, .vapor-nav-links a[aria-current=\"page\"] {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\tbackground: rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a[aria-current=\"page\"]::after {\n\t\t\t\t\tcontent: '';\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tbottom: 0;\n\t\t\t\t\tleft: 50%;\n\t\t\t\t\ttransform: translateX(-50%);\n\t\t\t\t\twidth: 20px;\n\t\t\t\t\theight: 2px;\n\t\t\t\t\tbackground: linear-gradient(90deg, #ff6b9d, #00d4ff);\n\t\t\t\t\tborder-radius: 2px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator) {\n\t\t\t\t\tcolor: #00d4ff !important;\n\t\t\t\t\tpadding: 0.5rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator):hover {\n\t\t\t\t\tbackground: rgba(0, 212, 255, 0.2);\n\t\t\t\t\tbox-shadow: 0 0 15px rgba(0, 212, 255, 0.3);\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-avatar {\n\t\t\t\t\tbackground: linear-gradient(135deg, #ff6b9d, #e94560);\n\t\t\t\t\tcolor: #fff;\n\t\t\t\t\twidth: 36px;\n\t\t\t\t\theight: 36px;\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\tfont-size: 0.75rem;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary {\n\t\t\t\t\tlist-style: none;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tcursor: pointer;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary::-webkit-details-marker {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t}\n\t\t\t</style><script src=\"/js/theme.js\" defer></script><script src=\"/js/htmx.min.js\"></script><script src=\"/js/butterchurn.min.js\"></script><script src=\"/js/butterchurnPresets.min.js\"></script></head><body>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !data.HideNav {
-			templ_7745c5c3_Err = components.MainNavigation(components.NavigationData{
-				CurrentPath: data.CurrentPath,
-				User:        data.User,
-			}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<header class=\"vapor-nav-header\"><nav class=\"container vapor-nav\"><ul class=\"vapor-nav-brand\"><li><a href=\"/\" class=\"contrast\"><strong>Sound Cistern</strong></a></li></ul><ul class=\"vapor-nav-links\"><li><a href=\"/stream\" aria-current=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/stream"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 196, Col: 84}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\">Stream</a></li><li><a href=\"/favorites\" aria-current=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/favorites"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 197, Col: 90}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">Favorites</a></li><li><a href=\"/playlists\" aria-current=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var6 string
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/playlists"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 198, Col: 90}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Playlists</a></li><li><a href=\"/analytics\" aria-current=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/analytics"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 199, Col: 90}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\">Analytics</a></li></ul><ul class=\"vapor-nav-actions\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.TestMode {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<li><a href=\"#\" class=\"test-mode-indicator\" style=\"background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;\" aria-label=\"Test Mode\">🧪 TEST</a></li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<li><a href=\"#\" onclick=\"toggleTheme(); return false;\" class=\"theme-toggle-btn\" aria-label=\"Toggle theme\"><span id=\"theme-icon-header\"></span></a></li>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.User != nil {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<li><details class=\"user-dropdown\"><summary><span class=\"user-avatar\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(userInitials(data.FirstName(), data.LastName(), data.Username()))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 214, Col: 103}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span></summary><ul class=\"user-dropdown-menu\"><li><a href=\"/dashboard\">Dashboard</a></li><li><a href=\"/settings\">Settings</a></li><li><a href=\"/signout\">Sign out</a></li></ul></details></li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<li><a href=\"/signin\">Sign in</a></li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</ul></nav></header>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<!-- Main content area with role=\"main\" for ARIA landmark --><main id=\"main-content\" class=\"main-container\" role=\"main\" tabindex=\"-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<main id=\"main-content\" class=\"container\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -170,20 +232,36 @@ func Layout(data PageData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</main><!-- Site footer with semantic HTML -->")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.SiteFooter().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</main><footer class=\"container\"><small>© 2026 Sound Cistern</small></footer><script src=\"/js/offline.js\"></script><div id=\"offline-indicator\" class=\"offline-indicator\" role=\"alert\" aria-live=\"polite\">You are offline. Some features may be limited.</div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+func ariaCurrent(current, target string) string {
+	if current == target {
+		return "page"
+	}
+	return ""
+}
+
+func userInitials(firstName, lastName, username string) string {
+	initials := ""
+	if len(firstName) > 0 {
+		initials += string(firstName[0])
+	}
+	if len(lastName) > 0 {
+		initials += string(lastName[0])
+	}
+	if initials == "" && len(username) > 0 {
+		return strings.ToUpper(string(username[0]))
+	}
+	if initials == "" {
+		return "U"
+	}
+	return initials
 }
 
 var _ = templruntime.GeneratedTemplate

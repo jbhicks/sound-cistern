@@ -1034,12 +1034,8 @@ func main() {
 
 				// Pre-load tracks server-side for initial render
 				if isTestMode {
-					// Use mock tracks for test mode
-					data.Tracks = []views.Track{
-						{TrackID: "1", TrackTitle: "Test Track One", ArtistName: "Artist A", Genre: "Electronic", TrackDuration: 180000, ArtworkURL: "https://picsum.photos/seed/1/500/500"},
-						{TrackID: "2", TrackTitle: "Another Track", ArtistName: "Artist B", Genre: "House", TrackDuration: 240000, ArtworkURL: "https://picsum.photos/seed/2/500/500"},
-						{TrackID: "3", TrackTitle: "Short Track", ArtistName: "Artist C", Genre: "Techno", TrackDuration: 60000, ArtworkURL: "https://picsum.photos/seed/3/500/500"},
-					}
+					// Leave tracks empty - JS will fetch from API
+					// This prevents duplicates between server render and client fetch
 				} else {
 					// Fetch fresh from SoundCloud API
 					soundcloudUsersCollection, err := app.Dao().FindCollectionByNameOrId("soundcloud_users")
@@ -1918,7 +1914,7 @@ func main() {
 						page = parsed
 					}
 				}
-				pageSize := 9
+				pageSize := 20
 
 				var htmlBuilder strings.Builder
 				isHTMX := c.Request().Header.Get("HX-Request") == "true"

@@ -1,6 +1,9 @@
 package views
 
-import "github.com/jbhicks/sound-cistern/views/components"
+import (
+	"strings"
+	"time"
+)
 
 type PageData struct {
 	Title       string
@@ -8,11 +11,56 @@ type PageData struct {
 	CurrentPath string
 	User        interface{}
 	HideNav     bool
+	TestMode    bool
+}
+
+func (p PageData) FirstName() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("first_name")
+	}
+	return ""
+}
+
+func (p PageData) LastName() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("last_name")
+	}
+	return ""
+}
+
+func (p PageData) Username() string {
+	if u, ok := p.User.(interface{ GetString(string) string }); ok {
+		return u.GetString("username")
+	}
+	return ""
+}
+
+type Track struct {
+	TrackID          string    `json:"track_id"`
+	TrackTitle       string    `json:"track_title"`
+	ArtistName       string    `json:"artist_name"`
+	ArtistAvatarURL  string    `json:"artist_avatar_url"`
+	Genre            string    `json:"genre"`
+	TagList          string    `json:"tag_list"`
+	TrackDuration    int64     `json:"track_duration"`
+	ArtworkURL       string    `json:"artwork_url"`
+	WaveformURL      string    `json:"waveform_url"`
+	StreamURL        string    `json:"stream_url"`
+	CreatedAt        time.Time `json:"created_at"`
+	PermalinkURL     string    `json:"permalink_url"`
+	IsFavorited      bool      `json:"is_favorited"`
+	PlaybackCount    int64     `json:"playback_count"`
+	FavoritingsCount int64     `json:"favoritings_count"`
+	CommentCount     int64     `json:"comment_count"`
+	RepostsCount     int64     `json:"reposts_count"`
+	BPM              float64   `json:"bpm"`
+	ReleaseYear      int       `json:"release_year"`
+	Downloadable     bool      `json:"downloadable"`
 }
 
 templ Layout(data PageData) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang="en" data-theme="light">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -20,45 +68,201 @@ templ Layout(data PageData) {
 				if data.Title != "" {
 					{ data.Title } - Sound Cistern
 				} else {
-					Sound Cistern - Audio Feed Aggregator
+					Sound Cistern
 				}
 			</title>
-			<meta name="title" content={ data.Title + " - Sound Cistern" }/>
 			<meta name="description" content={ data.Description }/>
-			<meta name="robots" content="index, follow"/>
-			<meta property="og:type" content="website"/>
-			<meta property="og:url" content={ "https://yourdomain.com" + data.CurrentPath }/>
-			<meta property="og:title" content={ data.Title + " - Sound Cistern" }/>
-			<meta property="og:description" content={ data.Description }/>
-			<link rel="canonical" href={ "https://yourdomain.com" + data.CurrentPath }/>
 			<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-			<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+			<link rel="manifest" href="/manifest.json"/>
+			<meta name="theme-color" content="#0f3460"/>
+			<meta name="mobile-web-app-capable" content="yes"/>
+			<meta name="apple-mobile-web-app-capable" content="yes"/>
+			<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 			<link rel="stylesheet" href="/css/pico.min.css"/>
 			<link rel="stylesheet" href="/css/custom.css"/>
-		<script src="/js/icons.js"></script>
-		<script src="/js/theme.js"></script>
-		<script src="/js/htmx.min.js"></script>
-		<script src="/js/htmx-enhancements.js"></script>
+			<link rel="stylesheet" href="/css/stream.css"/>
+			<style>
+				/* Vapor Wave Nav */
+				.vapor-nav-header {
+					background: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);
+					border-bottom: 2px solid #ff6b9d;
+					box-shadow: 0 4px 20px rgba(255, 107, 157, 0.2);
+				}
+				.vapor-nav {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					flex-wrap: wrap;
+					gap: 0.5rem;
+					min-height: 56px;
+				}
+				.vapor-nav ul {
+					margin: 0;
+					padding: 0;
+					display: flex;
+					align-items: center;
+				}
+				.vapor-nav li {
+					display: flex;
+					align-items: center;
+				}
+				.vapor-nav-brand {
+					flex-shrink: 0;
+				}
+				.vapor-nav-brand a {
+					color: #fff !important;
+					text-shadow: 2px 2px 0 #ff6b9d, -1px -1px 0 #00d4ff;
+					font-size: 1.25rem;
+				}
+				.vapor-nav-links {
+					display: flex;
+					gap: 0.25rem;
+					flex: 1;
+					justify-content: center;
+				}
+				.vapor-nav-links a {
+					color: rgba(255, 255, 255, 0.8) !important;
+					padding: 0.5rem 1rem;
+					border-radius: 8px;
+					transition: all 0.3s ease;
+					position: relative;
+				}
+				.vapor-nav-links a:hover, .vapor-nav-links a[aria-current="page"] {
+					color: #fff !important;
+					background: rgba(255, 107, 157, 0.2);
+				}
+				.vapor-nav-links a[aria-current="page"]::after {
+					content: '';
+					position: absolute;
+					bottom: 0;
+					left: 50%;
+					transform: translateX(-50%);
+					width: 20px;
+					height: 2px;
+					background: linear-gradient(90deg, #ff6b9d, #00d4ff);
+					border-radius: 2px;
+				}
+				.vapor-nav-actions {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					flex-shrink: 0;
+				}
+				.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator) {
+					color: #00d4ff !important;
+					padding: 0.5rem;
+					border-radius: 8px;
+					transition: all 0.3s ease;
+				}
+				.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator):hover {
+					background: rgba(0, 212, 255, 0.2);
+					box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+				}
+				.vapor-nav .user-avatar {
+					background: linear-gradient(135deg, #ff6b9d, #e94560);
+					color: #fff;
+					width: 36px;
+					height: 36px;
+					border-radius: 50%;
+					font-weight: 600;
+					font-size: 0.75rem;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				}
+				.vapor-nav .user-dropdown summary {
+					list-style: none;
+					display: flex;
+					align-items: center;
+					cursor: pointer;
+				}
+				.vapor-nav .user-dropdown summary::-webkit-details-marker {
+					display: none;
+				}
+			</style>
+			<script src="/js/theme.js" defer></script>
+			<script src="/js/htmx.min.js"></script>
+			<script src="/js/butterchurn.min.js"></script>
+			<script src="/js/butterchurnPresets.min.js"></script>
 		</head>
 		<body>
-			<!-- Accessibility: Skip to main content link for keyboard users -->
-			@components.SkipToContent()
-			
-			<!-- Main navigation with semantic HTML and ARIA landmarks -->
 			if !data.HideNav {
-				@components.MainNavigation(components.NavigationData{
-					CurrentPath: data.CurrentPath,
-					User:        data.User,
-				})
+				<header class="vapor-nav-header">
+					<nav class="container vapor-nav">
+						<ul class="vapor-nav-brand">
+							<li><a href="/" class="contrast"><strong>Sound Cistern</strong></a></li>
+						</ul>
+						<ul class="vapor-nav-links">
+							<li><a href="/stream" aria-current={ ariaCurrent(data.CurrentPath, "/stream") }>Stream</a></li>
+							<li><a href="/favorites" aria-current={ ariaCurrent(data.CurrentPath, "/favorites") }>Favorites</a></li>
+							<li><a href="/playlists" aria-current={ ariaCurrent(data.CurrentPath, "/playlists") }>Playlists</a></li>
+							<li><a href="/analytics" aria-current={ ariaCurrent(data.CurrentPath, "/analytics") }>Analytics</a></li>
+						</ul>
+						<ul class="vapor-nav-actions">
+							if data.TestMode {
+								<li><a href="#" class="test-mode-indicator" style="background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;" aria-label="Test Mode">🧪 TEST</a></li>
+							}
+							<li>
+								<a href="#" onclick="toggleTheme(); return false;" class="theme-toggle-btn" aria-label="Toggle theme">
+									<span id="theme-icon-header"></span>
+								</a>
+							</li>
+							if data.User != nil {
+								<li>
+									<details class="user-dropdown">
+										<summary>
+											<span class="user-avatar">{ userInitials(data.FirstName(), data.LastName(), data.Username()) }</span>
+										</summary>
+										<ul class="user-dropdown-menu">
+											<li><a href="/dashboard">Dashboard</a></li>
+											<li><a href="/settings">Settings</a></li>
+											<li><a href="/signout">Sign out</a></li>
+										</ul>
+									</details>
+								</li>
+							} else {
+								<li><a href="/signin">Sign in</a></li>
+							}
+						</ul>
+					</nav>
+				</header>
 			}
 			
-			<!-- Main content area with role="main" for ARIA landmark -->
-			<main id="main-content" class="main-container" role="main" tabindex="-1">
+			<main id="main-content" class="container">
 				{ children... }
 			</main>
 			
-			<!-- Site footer with semantic HTML -->
-			@components.SiteFooter()
+			<footer class="container">
+				<small>© 2026 Sound Cistern</small>
+			</footer>
+			<script src="/js/offline.js"></script>
+			<div id="offline-indicator" class="offline-indicator" role="alert" aria-live="polite">
+				You are offline. Some features may be limited.
+			</div>
 		</body>
 	</html>
+}
+
+func ariaCurrent(current, target string) string {
+	if current == target {
+		return "page"
+	}
+	return ""
+}
+
+func userInitials(firstName, lastName, username string) string {
+	initials := ""
+	if len(firstName) > 0 {
+		initials += string(firstName[0])
+	}
+	if len(lastName) > 0 {
+		initials += string(lastName[0])
+	}
+	if initials == "" && len(username) > 0 {
+		return strings.ToUpper(string(username[0]))
+	}
+	if initials == "" {
+		return "U"
+	}
+	return initials
 }

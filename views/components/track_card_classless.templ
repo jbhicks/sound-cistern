@@ -1,0 +1,107 @@
+package components
+
+import (
+	"fmt"
+	"time"
+)
+
+templ TrackCardClassless(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	tagList string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	isFavorited bool,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+) {
+	<article>
+		<header>
+			<a href={ templ.URL(permalinkURL) } target="_blank" rel="noopener noreferrer">
+				<img 
+					src={ artworkURL }
+					alt={ trackTitle + " by " + artistName }
+					loading="lazy"
+					style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;"
+				/>
+			</a>
+			<div>
+				<a href={ templ.URL(permalinkURL) } target="_blank" rel="noopener noreferrer">
+					<strong>{ trackTitle }</strong>
+				</a>
+				<small>{ artistName }</small>
+			</div>
+		</header>
+		
+		<p>
+			<small>
+				{ formatDurationCompact(trackDuration) }
+				if createdAt != "" {
+					• { createdAt }
+				}
+				if genre != "" {
+					• <mark>{ genre }</mark>
+				}
+			</small>
+		</p>
+		
+		<footer>
+			<nav>
+				<ul>
+					<li>
+						<a href={ templ.URL(permalinkURL) } target="_blank" rel="noopener noreferrer" role="button" class="secondary">
+							▶ Play
+						</a>
+					</li>
+					<li>
+						<a 
+							href={ templ.URL("#") }
+							role="button"
+							class={ map[bool]string{true: "", false: "secondary"}[isFavorited] }
+							hx-post={ "/api/favorites/" + trackID + "/htmx" }
+							hx-swap="outerHTML"
+							hx-target="this"
+						>
+							if isFavorited {
+								♥ Favorited
+							} else {
+								♡ Favorite
+							}
+						</a>
+					</li>
+				</ul>
+			</nav>
+		</footer>
+	</article>
+}
+
+func formatDurationCompact(ms int64) string {
+	seconds := ms / 1000
+	minutes := seconds / 60
+	remainingSeconds := seconds % 60
+	return fmt.Sprintf("%d:%02d", minutes, remainingSeconds)
+}
+
+func formatCountCompact(count int64) string {
+	if count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(count)/1000000)
+	}
+	if count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(count)/1000)
+	}
+	return fmt.Sprintf("%d", count)
+}
+
+func init() {
+	_ = time.Now // unused but imported for time package
+}

@@ -44,6 +44,84 @@ This skill provides comprehensive UI/UX guidelines for building beautiful, acces
 - **Flexibility** - Systematic but not rigid
 - **Accessibility-first** - Design for everyone from the start
 
+### Working WITH Pico.css (Not Against It)
+
+The biggest lesson from refactoring: **Pico.css already provides beautiful form styling**. Don't override it with explicit heights and `!important` declarations.
+
+✅ **DO:**
+- Use CSS Grid for form layouts instead of fighting flexbox
+- Let Pico handle input sizing naturally
+- Override only layout (widths, positioning), not element styling
+- Use semantic HTML: `<input type="search">`, `<select>`, etc.
+
+❌ **DON'T:**
+- Hardcode heights like `height: 44px !important` on inputs
+- Use `!important` to override Pico's sensible defaults
+- Fight with `flex: 0 0 auto` to prevent flexbox squeezing
+- Duplicate form element CSS that Pico already provides
+
+**Example: Filter Bar Layout**
+```css
+/* ✅ Good: Grid layout, Pico handles the rest */
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+@media (min-width: 1024px) {
+  .filter-form {
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  }
+}
+
+/* ❌ Bad: Fighting with flexbox and !important */
+.filter-input {
+  height: 44px !important;
+  padding: 0 var(--space-3) !important;
+  /* Don't do this - let Pico breathe */
+}
+```
+
+### Modular CSS Architecture
+
+Split your CSS into logical modules for maintainability:
+
+```
+css/
+├── tokens.css      # Design tokens only (colors, spacing, typography)
+├── layout.css      # Header, footer, containers, navigation
+├── components.css  # Reusable UI elements (buttons, cards, forms)
+└── pages.css       # Page-specific styles (stream, auth, blog)
+```
+
+**Benefits:**
+- **44% smaller** total CSS footprint
+- No duplicate rules across files
+- Clear separation of concerns
+- Easier to find and modify styles
+
+### Performance Warnings
+
+⚠️ **NEVER use `* { transition: ... }`**
+```css
+/* ❌ Performance killer - applies to EVERY element */
+* {
+  transition: background-color var(--duration-slow) var(--ease-out),
+              color var(--duration-slow) var(--ease-out);
+}
+
+/* ✅ Good: Target specific interactive elements */
+.btn, .card, .nav-link {
+  transition: 
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+```
+
+This causes jank, especially with HTMX updates and dynamic content changes.
+
 ---
 
 ## 1. Design Tokens
@@ -807,15 +885,32 @@ html {
 
 ### Filter Bar
 
+**Use CSS Grid for better alignment than flexbox:**
+
 ```css
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-canvas-subtle);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-6);
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+/* Desktop: proportional columns */
+@media (min-width: 1024px) {
+  .filter-form {
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  }
+}
+
+/* Tablet: 3 columns with search spanning full width */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .filter-form {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  
+  .filter-group--search {
+    grid-column: 1 / -1;
+  }
 }
 
 .filter-group {
@@ -824,12 +919,47 @@ html {
   gap: var(--space-1);
 }
 
-.filter-group label {
+.filter-label {
   font-size: var(--text-xs);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
   color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Search input with icon - layout only */
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-wrapper input {
+  padding-left: var(--space-8);
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-fg-muted);
+  pointer-events: none;
+}
+
+/* Only constrain widths, let Pico handle heights */
+.filter-input--number {
+  width: 80px;
+}
+
+.filter-input--date {
+  width: 140px;
 }
 ```
+
+**Key points:**
+- Grid handles wrapping and sizing better than flexbox with `flex: 0 0 auto`
+- Use `align-items: end` to align all controls to their bottom edges
+- Only set widths for specific input types (number, date)
+- Never override heights - Pico.css provides consistent sizing
 
 ### Soundcloud Brand Button
 
@@ -940,22 +1070,82 @@ button:focus-visible {
 }
 ```
 
+❌ **Don't use `* { transition }` - Performance Killer**
+```css
+/* ❌ BAD: Applies to every element, causes jank with HTMX */
+* {
+  transition: background-color var(--duration-slow) var(--ease-out),
+              color var(--duration-slow) var(--ease-out);
+}
+
+/* ✅ GOOD: Target only interactive elements */
+.btn, .card, .nav-link {
+  transition: 
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+```
+
+❌ **Don't override Pico.css form element sizing**
+```css
+/* ❌ BAD: Fighting the framework */
+.filter-input {
+  height: 44px !important;
+  padding: 0 1rem !important;
+  line-height: 44px !important;
+  /* Pico already handles this beautifully */
+}
+
+/* ✅ GOOD: Layout only, let Pico breathe */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filter-input--number {
+  width: 80px; /* Only constrain width, not height */
+}
+```
+
+❌ **Don't duplicate CSS across files**
+```css
+/* ❌ BAD: Same rule in multiple files */
+/* layout.css */
+.skip-to-content { ... }
+
+/* components.css */
+.skip-to-content { ... } /* Duplicate! */
+
+/* ✅ GOOD: Single source of truth */
+/* layout.css only */
+.skip-to-content { ... }
+```
+
 ---
 
 ## 10. Development Workflow
 
 ### Adding New Components
 
-1. **Create the CSS** in `public/css/custom.css`:
+1. **Choose the right CSS file** based on what you're building:
+   - `tokens.css` - Only for new design tokens
+   - `layout.css` - Headers, footers, navigation, containers
+   - `components.css` - Reusable UI elements (buttons, cards, forms)
+   - `pages.css` - Page-specific layouts (stream, auth, blog)
+
+2. **Create the CSS** using design tokens:
    ```css
+   /* In public/css/components.css */
    .new-component {
-     /* Use design tokens */
      padding: var(--space-4);
      background: var(--color-canvas-default);
+     border: 1px solid var(--color-border-default);
+     border-radius: var(--radius-lg);
    }
    ```
 
-2. **Create the Templ component** in `views/components/`:
+3. **Create the Templ component** in `views/components/`:
    ```templ
    package components
    
@@ -966,15 +1156,55 @@ button:focus-visible {
    }
    ```
 
-3. **Use in templates**:
+4. **Use in templates**:
    ```templ
    @components.NewComponent(trackData)
    ```
 
-4. **Regenerate templates**:
+5. **Regenerate templates**:
    ```bash
    make templ
    ```
+
+### CSS File Organization Rules
+
+**When to use each file:**
+
+- **tokens.css**: Colors, spacing, typography, shadows, animations
+  - Only edit when adding new design system tokens
+  - Never add component styles here
+
+- **layout.css**: Site structure and navigation
+  - Headers, footers, main containers
+  - Navigation patterns
+  - Grid/flexbox layouts for page structure
+
+- **components.css**: Reusable UI building blocks
+  - Buttons, cards, badges, alerts
+  - Form components (wrappers, layouts)
+  - Navigation dropdowns, tooltips
+
+- **pages.css**: Page-specific layouts
+  - Stream page filters and track cards
+  - Auth page layouts
+  - Blog post styling
+  - Admin dashboard patterns
+
+**Pico.css Integration:**
+```css
+/* ✅ Good: Add layout/behavior only */
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ❌ Bad: Don't override Pico's form element styles */
+.filter-input {
+  height: 44px;  /* Let Pico handle this */
+  padding: 0 1rem;  /* Use Pico's defaults */
+}
+```
 
 ### Testing UI Changes
 

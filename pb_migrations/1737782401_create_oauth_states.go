@@ -42,7 +42,7 @@ func init() {
 				&schema.SchemaField{
 					Name:     "user_id",
 					Type:     schema.FieldTypeRelation,
-					Required: true,
+					Required: false,
 					Options: &schema.RelationOptions{
 						MaxSelect:     types.Pointer(1),
 						CollectionId:  "_pb_users_auth_",

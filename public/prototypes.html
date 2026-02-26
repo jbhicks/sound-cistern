@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duration Filter Prototypes</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        body {
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .prototype-section {
+            margin-bottom: 3rem;
+            padding: 2rem;
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: var(--pico-border-radius);
+            background: var(--pico-card-background-color);
+        }
+
+        .prototype-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--pico-primary);
+        }
+
+        .prototype-desc {
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        /* === OPTION 1: Two Separate Sliders === */
+        .option1-container {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .option1-slider-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .option1-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+        }
+
+        .option1-label span:first-child {
+            color: var(--pico-primary);
+            font-weight: 500;
+        }
+
+        .option1-slider {
+            width: 100%;
+            margin: 0;
+        }
+
+        /* === OPTION 2: YouTube-Style Range Slider === */
+        .option2-container {
+            position: relative;
+            height: 40px;
+            padding: 10px 0;
+        }
+
+        .option2-track {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--pico-muted-border-color);
+            border-radius: 3px;
+            transform: translateY(-50%);
+        }
+
+        .option2-range {
+            position: absolute;
+            top: 50%;
+            height: 6px;
+            background: var(--pico-primary);
+            border-radius: 3px;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .option2-handle {
+            position: absolute;
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            background: var(--pico-primary);
+            border: 3px solid var(--pico-background-color);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+
+        .option2-handle:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .option2-handle:active {
+            cursor: grabbing;
+        }
+
+        .option2-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.875rem;
+            color: var(--pico-muted-color);
+        }
+
+        .option2-labels span {
+            color: var(--pico-primary);
+            font-weight: 500;
+        }
+
+        /* === OPTION 3: Numeric + Slider Hybrid === */
+        .option3-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .option3-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 100px;
+        }
+
+        .option3-input-group label {
+            font-size: 0.75rem;
+            color: var(--pico-muted-color);
+        }
+
+        .option3-input-group input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .option3-slider-container {
+            flex: 1;
+            position: relative;
+            height: 40px;
+        }
+
+        .option3-visual {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: var(--pico-muted-border-color);
+            border-radius: 4px;
+            transform: translateY(-50%);
+        }
+
+        .option3-selected {
+            position: absolute;
+            top: 50%;
+            height: 8px;
+            background: var(--pico-primary);
+            border-radius: 4px;
+            transform: translateY(-50%);
+        }
+
+        .option3-handle {
+            position: absolute;
+            top: 50%;
+            width: 16px;
+            height: 24px;
+            background: var(--pico-primary);
+            border-radius: 4px;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .option3-handle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 12px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 2px;
+        }
+
+        /* === Additional Slider Types === */
+        .option4-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .option4-btn {
+            padding: 0.5rem 1rem;
+            background: var(--pico-muted-border-color);
+            border: none;
+            border-radius: var(--pico-border-radius);
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .option4-btn.active {
+            background: var(--pico-primary);
+            color: white;
+        }
+
+        .option5-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .option5-preset {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .option5-chip {
+            padding: 0.25rem 0.75rem;
+            background: var(--pico-muted-border-color);
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .option5-chip.active {
+            background: var(--pico-primary);
+            color: white;
+        }
+
+        .value-display {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--pico-muted-color);
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Duration Filter Prototypes</h1>
+    <p>Compare different approaches to filtering tracks by length. Try dragging the handles on each prototype.</p>
+
+    <!-- Option 1: Two Separate Sliders (Side by Side) -->
+    <div class="prototype-section">
+        <div class="prototype-title">Option 1: Two Separate Sliders</div>
+        <div class="prototype-desc">Min and max on separate sliders, side by side with clear labels</div>
+        
+        <div class="option1-container">
+            <div class="option1-slider-group">
+                <div class="option1-label">
+                    <span>Min: <strong id="opt1-min-val">0 min</strong></span>
+                    <span>0</span>
+                </div>
+                <input type="range" class="option1-slider" id="opt1-min" min="0" max="94" value="0">
+            </div>
+            <div style="color: var(--pico-muted-color);">→</div>
+            <div class="option1-slider-group">
+                <div class="option1-label">
+                    <span>Max: <strong id="opt1-max-val">1 hr 34 min</strong></span>
+                    <span>94</span>
+                </div>
+                <input type="range" class="option1-slider" id="opt1-max" min="0" max="94" value="94">
+            </div>
+        </div>
+        <div class="value-display" id="opt1-display">Range: 0 min - 94 min</div>
+    </div>
+
+    <!-- Option 2: YouTube-Style Single Track with Two Handles -->
+    <div class="prototype-section">
+        <div class="prototype-title">Option 2: YouTube-Style Range Selection</div>
+        <div class="prototype-desc">Single track with highlighted range between two draggable handles</div>
+        
+        <div style="padding: 10px;">
+            <div class="option2-container" id="opt2-container">
+                <div class="option2-track"></div>
+                <div class="option2-range" id="opt2-range"></div>
+                <div class="option2-handle" id="opt2-handle-min" style="left: 0%;"></div>
+                <div class="option2-handle" id="opt2-handle-max" style="left: 100%;"></div>
+            </div>
+            <div class="option2-labels">
+                <span id="opt2-min-val">0 min</span>
+                <span id="opt2-max-val">1 hr 34 min</span>
+            </div>
+        </div>
+        <div class="value-display" id="opt2-display">Range: 0 min - 94 min</div>
+    </div>
+
+    <!-- Option 3: Numeric Inputs + Visual Slider -->
+    <div class="prototype-section">
+        <div class="prototype-title">Option 3: Numeric + Slider Hybrid</div>
+        <div class="prototype-desc">Type exact values OR drag handles. Best for precision.</div>
+        
+        <div class="option3-container">
+            <div class="option3-input-group">
+                <label>Min (minutes)</label>
+                <input type="number" id="opt3-min-input" min="0" max="94" value="0">
+            </div>
+            
+            <div class="option3-slider-container" id="opt3-container">
+                <div class="option3-visual"></div>
+                <div class="option3-selected" id="opt3-selected"></div>
+                <div class="option3-handle" id="opt3-handle-min" style="left: 0%;"></div>
+                <div class="option3-handle" id="opt3-handle-max" style="left: 100%;"></div>
+            </div>
+            
+            <div class="option3-input-group">
+                <label>Max (minutes)</label>
+                <input type="number" id="opt3-max-input" min="0" max="94" value="94">
+            </div>
+        </div>
+        <div class="value-display" id="opt3-display">Range: 0 min - 94 min</div>
+    </div>
+
+    <!-- Option 4: Quick Preset Buttons -->
+    <div class="prototype-section">
+        <div class="prototype-title">Option 4: Quick Presets</div>
+        <div class="prototype-desc">One-click preset durations for common use cases</div>
+        
+        <div class="option4-container">
+            <button class="option4-btn" data-min="0" data-max="5">Under 5 min</button>
+            <button class="option4-btn" data-min="5" data-max="15">5-15 min</button>
+            <button class="option4-btn" data-min="15" data-max="30">15-30 min</button>
+            <button class="option4-btn" data-min="30" data-max="60">30-60 min</button>
+            <button class="option4-btn active" data-min="0" data-max="94">All</button>
+        </div>
+        <div class="value-display" style="margin-top: 1rem;" id="opt4-display">Range: 0 min - 94 min</div>
+    </div>
+
+    <!-- Option 5: Chips/Tags Style -->
+    <div class="prototype-section">
+        <div class="prototype-title">Option 5: Duration Chips</div>
+        <div class="prototype-desc">Select multiple duration ranges like filters/tags</div>
+        
+        <div class="option5-container">
+            <div class="option5-preset">
+                <span class="option5-chip active" data-min="0" data-max="5">Short (&lt;5m)</span>
+                <span class="option5-chip active" data-min="5" data-max="15">Medium (5-15m)</span>
+                <span class="option5-chip active" data-min="15" data-max="30">Long (15-30m)</span>
+                <span class="option5-chip active" data-min="30" data-max="60">Extended (30-60m)</span>
+                <span class="option5-chip active" data-min="60" data-max="94">Mix (&gt;60m)</span>
+            </div>
+        </div>
+        <div class="value-display" style="margin-top: 1rem;" id="opt5-display">Selected: Short, Medium, Long, Extended, Mix</div>
+    </div>
+
+    <script>
+        const MAX_DURATION = 94; // 1 hr 34 min in minutes
+
+        function formatDuration(minutes) {
+            const mins = parseInt(minutes);
+            if (mins < 60) {
+                return mins + ' min';
+            }
+            const hours = Math.floor(mins / 60);
+            const remainingMins = mins % 60;
+            if (remainingMins === 0) {
+                return hours + ' hr';
+            }
+            return hours + ' hr ' + remainingMins + ' min';
+        }
+
+        // Option 1: Two Separate Sliders
+        const opt1Min = document.getElementById('opt1-min');
+        const opt1Max = document.getElementById('opt1-max');
+        const opt1MinVal = document.getElementById('opt1-min-val');
+        const opt1MaxVal = document.getElementById('opt1-max-val');
+        const opt1Display = document.getElementById('opt1-display');
+
+        function updateOpt1() {
+            let min = parseInt(opt1Min.value);
+            let max = parseInt(opt1Max.value);
+            
+            if (min >= max) {
+                min = max - 1;
+                opt1Min.value = min;
+            }
+            
+            opt1MinVal.textContent = formatDuration(min);
+            opt1MaxVal.textContent = formatDuration(max);
+            opt1Display.textContent = `Range: ${formatDuration(min)} - ${formatDuration(max)}`;
+        }
+
+        opt1Min.addEventListener('input', updateOpt1);
+        opt1Max.addEventListener('input', updateOpt1);
+
+        // Option 2: YouTube-Style (Drag handles)
+        const opt2Container = document.getElementById('opt2-container');
+        const opt2HandleMin = document.getElementById('opt2-handle-min');
+        const opt2HandleMax = document.getElementById('opt2-handle-max');
+        const opt2Range = document.getElementById('opt2-range');
+        const opt2MinVal = document.getElementById('opt2-min-val');
+        const opt2MaxVal = document.getElementById('opt2-max-val');
+        const opt2Display = document.getElementById('opt2-display');
+
+        let opt2Dragging = null;
+        let opt2Min = 0;
+        let opt2Max = 94;
+
+        function updateOpt2() {
+            const minPercent = (opt2Min / MAX_DURATION) * 100;
+            const maxPercent = (opt2Max / MAX_DURATION) * 100;
+            
+            opt2HandleMin.style.left = minPercent + '%';
+            opt2HandleMax.style.left = maxPercent + '%';
+            opt2Range.style.left = minPercent + '%';
+            opt2Range.style.width = (maxPercent - minPercent) + '%';
+            
+            opt2MinVal.textContent = formatDuration(opt2Min);
+            opt2MaxVal.textContent = formatDuration(opt2Max);
+            opt2Display.textContent = `Range: ${formatDuration(opt2Min)} - ${formatDuration(opt2Max)}`;
+        }
+
+        function handleOpt2Drag(e) {
+            if (!opt2Dragging) return;
+            
+            const rect = opt2Container.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const percent = Math.max(0, Math.min(1, x / rect.width));
+            const value = Math.round(percent * MAX_DURATION);
+            
+            if (opt2Dragging === 'min') {
+                opt2Min = Math.min(value, opt2Max - 1);
+            } else {
+                opt2Max = Math.max(value, opt2Min + 1);
+            }
+            
+            updateOpt2();
+        }
+
+        opt2HandleMin.addEventListener('mousedown', () => opt2Dragging = 'min');
+        opt2HandleMin.addEventListener('touchstart', () => opt2Dragging = 'min');
+        opt2HandleMax.addEventListener('mousedown', () => opt2Dragging = 'max');
+        opt2HandleMax.addEventListener('touchstart', () => opt2Dragging = 'max');
+        
+        document.addEventListener('mousemove', handleOpt2Drag);
+        document.addEventListener('touchmove', handleOpt2Drag);
+        document.addEventListener('mouseup', () => opt2Dragging = null);
+        document.addEventListener('touchend', () => opt2Dragging = null);
+
+        // Option 3: Numeric + Slider
+        const opt3Container = document.getElementById('opt3-container');
+        const opt3HandleMin = document.getElementById('opt3-handle-min');
+        const opt3HandleMax = document.getElementById('opt3-handle-max');
+        const opt3Selected = document.getElementById('opt3-selected');
+        const opt3MinInput = document.getElementById('opt3-min-input');
+        const opt3MaxInput = document.getElementById('opt3-max-input');
+        const opt3Display = document.getElementById('opt3-display');
+
+        let opt3Dragging = null;
+        let opt3Min = 0;
+        let opt3Max = 94;
+
+        function updateOpt3() {
+            const minPercent = (opt3Min / MAX_DURATION) * 100;
+            const maxPercent = (opt3Max / MAX_DURATION) * 100;
+            
+            opt3HandleMin.style.left = minPercent + '%';
+            opt3HandleMax.style.left = maxPercent + '%';
+            opt3Selected.style.left = minPercent + '%';
+            opt3Selected.style.width = (maxPercent - minPercent) + '%';
+            
+            opt3MinInput.value = opt3Min;
+            opt3MaxInput.value = opt3Max;
+            opt3Display.textContent = `Range: ${formatDuration(opt3Min)} - ${formatDuration(opt3Max)}`;
+        }
+
+        function handleOpt3Drag(e) {
+            if (!opt3Dragging) return;
+            
+            const rect = opt3Container.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const percent = Math.max(0, Math.min(1, x / rect.width));
+            const value = Math.round(percent * MAX_DURATION);
+            
+            if (opt3Dragging === 'min') {
+                opt3Min = Math.min(value, opt3Max - 1);
+            } else {
+                opt3Max = Math.max(value, opt3Min + 1);
+            }
+            
+            updateOpt3();
+        }
+
+        opt3HandleMin.addEventListener('mousedown', () => opt3Dragging = 'min');
+        opt3HandleMin.addEventListener('touchstart', () => opt3Dragging = 'min');
+        opt3HandleMax.addEventListener('mousedown', () => opt3Dragging = 'max');
+        opt3HandleMax.addEventListener('touchstart', () => opt3Dragging = 'max');
+        
+        document.addEventListener('mousemove', handleOpt3Drag);
+        document.addEventListener('touchmove', handleOpt3Drag);
+        document.addEventListener('mouseup', () => opt3Dragging = null);
+        document.addEventListener('touchend', () => opt3Dragging = null);
+
+        opt3MinInput.addEventListener('change', (e) => {
+            opt3Min = Math.max(0, Math.min(parseInt(e.target.value) || 0, opt3Max - 1));
+            updateOpt3();
+        });
+
+        opt3MaxInput.addEventListener('change', (e) => {
+            opt3Max = Math.min(MAX_DURATION, Math.max(parseInt(e.target.value) || 0, opt3Min + 1));
+            updateOpt3();
+        });
+
+        // Option 4: Preset Buttons
+        const opt4Buttons = document.querySelectorAll('.option4-btn');
+        const opt4Display = document.getElementById('opt4-display');
+
+        opt4Buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                opt4Buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const min = btn.dataset.min;
+                const max = btn.dataset.max;
+                opt4Display.textContent = `Range: ${formatDuration(min)} - ${formatDuration(max)}`;
+            });
+        });
+
+        // Option 5: Chips
+        const opt5Chips = document.querySelectorAll('.option5-chip');
+        const opt5Display = document.getElementById('opt5-display');
+
+        opt5Chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
+                
+                const active = Array.from(opt5Chips).filter(c => c.classList.contains('active'));
+                const names = active.map(c => c.textContent);
+                opt5Display.textContent = `Selected: ${names.join(', ') || 'None'}`;
+            });
+        });
+
+        // Initialize
+        updateOpt2();
+        updateOpt3();
+    </script>
+</body>
+</html>

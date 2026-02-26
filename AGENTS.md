@@ -2,6 +2,9 @@
 
 Auto-generated from all feature plans. Last updated: 2025-10-21
 
+## ⚠️ Important: Dev Server Management
+**DO NOT start or stop the dev server.** The user manages the dev server manually. If you need to check if the server is running, use `curl` to check the health endpoint. Never use `pkill`, `kill`, or similar commands to stop the server.
+
 ## Active Technologies
 - Go 1.23 + PocketBase v0.22.0, SQLite (embedded), Templ v0.3.960, Soundcloud API
 
@@ -25,6 +28,22 @@ make serve       # Production server
 make clean       # Clean build artifacts
 ```
 
+## Testing
+```bash
+make test              # Run unit tests (mock functions)
+make test-integration  # Run integration tests (API mocks)
+make test-all          # Run all Go tests (unit + integration)
+make test-browser      # Run browser automation tests (Chromedp)
+make test-e2e          # Run E2E tests (starts test server on port 8090)
+make test-server-start # Start test server in TEST_MODE
+```
+
+### E2E Testing Infrastructure
+- `TEST_MODE=true` enables auto-authentication (no JWT token needed)
+- `pb_data_test/` directory for isolated test database
+- Mock Soundcloud API responses for testing without external dependencies
+- Test server auto-starts/stops with `make test-e2e`
+
 ## Code Style
 Go 1.23: Follow standard conventions
 - Use Templ for type-safe templates
@@ -44,6 +63,12 @@ Go 1.23: Follow standard conventions
 - Favor conventions over configurations
 - Documentation is as important as code
 
+## Browser Management (IMPORTANT)
+- Use curl instead of Playwright for quick checks (e.g., checking if server is up, testing API responses)
+- After every Playwright use, call playwright_browser_close to prevent memory leaks
+- Kill runaway Chrome processes if they freeze: `pkill -9 -f "chrome.*mcp"`
+- Check for stuck processes: `ps aux | grep chrome`
+
 ## Ralph Wiggum Autonomous Loop Support
 
 This project supports Ralph Wiggum-style autonomous development loops. The skills are discovered automatically but must be loaded on-demand - see:
@@ -59,6 +84,10 @@ The following skills are available for development assistance (use `/skill <name
 3. **soundcloud-oauth** - Soundcloud OAuth 2.0/2.1 integration
 4. **pocketbase-htmx** - HTMX integration with PocketBase
 5. **sound-cistern-ux** - UI/UX design system using Pico.css and Primer design principles
+6. **soundcloud-api** - Complete Soundcloud API reference with endpoint documentation
+7. **soundcloud-api-favorites** - Soundcloud Favorites/Likes API endpoints
+8. **soundcloud-api-stream** - Soundcloud Stream/Activities API endpoints
+9. **soundcloud-api-tracks** - Soundcloud Tracks API endpoints
 
 **Note:** Skills are discovered automatically from `.agents/skills/` but must be loaded into context using the `/skill` command when needed.
 

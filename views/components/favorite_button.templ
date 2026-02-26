@@ -1,0 +1,36 @@
+package components
+
+// FavoriteButton renders just the favorite button for HTMX swaps
+// This is a partial component that can be returned from API endpoints
+templ FavoriteButton(trackID string, trackTitle string, isFavorited bool) {
+	<button 
+		type="button"
+		class={ "btn btn-secondary favorite-btn", templ.KV("favorited", isFavorited) }
+		hx-post={ "/api/favorites/" + trackID + "/htmx" }
+		hx-target="this"
+		hx-swap="outerHTML"
+		hx-indicator=".btn-loading"
+		aria-label={ getFavoriteLabel(isFavorited, trackTitle) }
+		aria-pressed={ getAriaPressed(isFavorited) }
+	>
+		<span class="btn-icon favorite-icon" aria-hidden="true">
+			if isFavorited {
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+				</svg>
+			} else {
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+				</svg>
+			}
+		</span>
+		<span class="btn-text">{ getFavoriteText(isFavorited) }</span>
+		<span class="btn-loading" aria-hidden="true">
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="10">
+					<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+				</circle>
+			</svg>
+		</span>
+	</button>
+}

@@ -1,0 +1,61 @@
+package views
+
+type PlaylistInfo struct {
+	ID          string
+	Name        string
+	Description string
+	TrackCount  int
+}
+
+templ Playlists(data PageData, playlists []PlaylistInfo) {
+	@Layout(data) {
+		<main class="container">
+			<hgroup>
+				<h1>My Playlists</h1>
+				<p>Organize your favorite tracks into custom playlists</p>
+			</hgroup>
+
+			<div id="playlist-list" role="list" aria-label="Playlists">
+				if len(playlists) == 0 {
+					<article>
+						<hgroup>
+							<h3>No playlists yet</h3>
+							<p>Create your first playlist to start organizing your music.</p>
+						</hgroup>
+					</article>
+				} else {
+					for _, p := range playlists {
+						<article class="playlist-card" role="listitem">
+							<h3><a href={ templ.URL("/playlists/" + p.ID) }>{ p.Name }</a></h3>
+							<p class="track-count" aria-label={ formatTrackCountLabel(p.TrackCount) }>{ p.TrackCount } tracks</p>
+							if p.Description != "" {
+								<p class="description">{ p.Description }</p>
+							}
+						</article>
+					}
+				}
+			</div>
+
+			<button 
+				class="create-playlist-btn"
+				hx-post="/api/playlists"
+				hx-target="#playlist-list"
+				hx-swap="beforeend"
+				hx-indicator="#creating-indicator"
+				aria-label="Create new playlist"
+			>
+				Create New Playlist
+			</button>
+			<span id="creating-indicator" class="htmx-indicator" aria-busy="true" hidden>
+				<small>Creating...</small>
+			</span>
+		</main>
+	}
+}
+
+func formatTrackCountLabel(count int) string {
+	if count == 1 {
+		return "1 track"
+	}
+	return ""
+}

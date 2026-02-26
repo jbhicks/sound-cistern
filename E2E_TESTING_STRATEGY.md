@@ -62,8 +62,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Stream Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Set test mode and navigate
-    await page.goto('http://localhost:8090?test_mode=true');
+    // Navigate to app
+    await page.goto('http://localhost:8090');
   });
 
   test('displays tracks from Soundcloud', async ({ page }) => {

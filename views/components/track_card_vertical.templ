@@ -1,0 +1,50 @@
+package components
+
+templ TrackCardVertical(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	artistAvatarURL string,
+	genre string,
+	tagList string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	createdAt string,
+	isFavorited bool,
+	playbackCount int64,
+	favoritingsCount int64,
+	commentCount int64,
+	repostsCount int64,
+	bpm float64,
+	releaseYear int,
+	downloadable bool,
+	streamURL string,
+) {
+	<article class="vcard vcard-3" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-gradient-top"></div>
+		<div class="vcard-gradient-bottom"></div>
+		<div class="vcard-play-wrap">
+			<button class="vcard-play" aria-label="Play">
+				<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-top-info">
+			<span class="vcard-duration-badge">{ formatDurationCompact(trackDuration) }</span>
+			if genre != "" {
+				<span class="vcard-genre-badge">{ genre }</span>
+			}
+		</div>
+		<div class="vcard-bottom-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+			<span class="vcard-artist">{ artistName }</span>
+			<div class="vcard-stat-bar">
+				<span style="color: #60a5fa;">▶ { formatCountCompact(playbackCount) }</span>
+				<span style="color: #f472b6;">♡ { formatCountCompact(favoritingsCount) }</span>
+				<span style="color: #34d399;">↻ { formatCountCompact(repostsCount) }</span>
+				<span style="color: #fbbf24;">💬 { formatCountCompact(commentCount) }</span>
+			</div>
+		</div>
+	</article>
+}

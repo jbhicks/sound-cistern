@@ -1,0 +1,1267 @@
+package components
+
+import "fmt"
+
+templ VignetteCard1(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+) {
+	<article class="vcard vcard-1" data-track-id={ trackID }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade"></div>
+		<div class="vcard-play-wrap">
+			<button class="vcard-play" aria-label="Play">
+				<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+			<span class="vcard-artist">{ artistName }</span>
+			<div class="vcard-stats">
+				<span>▶ { formatCompact(playbackCount) }</span>
+				<span>♡ { formatCompact(favoritingsCount) }</span>
+				<span>↻ { formatCompact(repostsCount) }</span>
+			</div>
+			<div class="vcard-tags">
+				<span class="vcard-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span>{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ VignetteCard2(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+) {
+	<article class="vcard vcard-2" data-track-id={ trackID }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade vcard-shade--heavy"></div>
+		<div class="vcard-play-wrap vcard-play-wrap--bordered">
+			<button class="vcard-play vcard-play--lg" aria-label="Play">
+				<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-info vcard-info--center">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title vcard-title--lg">{ trackTitle }</a>
+			<span class="vcard-artist vcard-artist--lg">{ artistName }</span>
+			<span class="vcard-duration-big">{ formatDuration(trackDuration) }</span>
+		</div>
+		<div class="vcard-corners">
+			<div class="vcard-corner-tl">
+				<span class="vcard-pill">{ formatCompact(playbackCount) } plays</span>
+			</div>
+			<div class="vcard-corner-tr">
+				<span class="vcard-pill">{ formatCompact(favoritingsCount) } likes</span>
+			</div>
+			<div class="vcard-corner-bl">
+				if genre != "" {
+					<span class="vcard-pill vcard-pill--accent">{ genre }</span>
+				}
+			</div>
+			<div class="vcard-corner-br">
+				if bpm > 0 {
+					<span class="vcard-pill">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ VignetteCard3(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-gradient-top"></div>
+		<div class="vcard-gradient-bottom"></div>
+		<div class="vcard-play-wrap">
+			<button class="vcard-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+				<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-top-info">
+			<span class="vcard-duration-badge">{ formatDuration(trackDuration) }</span>
+			if genre != "" {
+				<span class="vcard-genre-badge">{ genre }</span>
+			}
+		</div>
+		<div class="vcard-bottom-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+			<span class="vcard-artist">{ artistName }</span>
+		<div class="vcard-stat-bar">
+			<span style="color: #60a5fa;">▶ { formatCompact(playbackCount) }</span>
+			<span style="color: #f472b6;">♡ { formatCompact(favoritingsCount) }</span>
+			<span style="color: #34d399;">↻ { formatCompact(repostsCount) }</span>
+			<span style="color: #fbbf24;">💬 { formatCompact(commentCount) }</span>
+				if bpm > 0 {
+					<span class="vcard-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ VignetteCard4(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+) {
+	<article class="vcard vcard-4" data-track-id={ trackID }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-spotlight"></div>
+		<div class="vcard-play-wrap vcard-play-wrap--glow">
+			<button class="vcard-play vcard-play--xl" aria-label="Play">
+				<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-float-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+			<span class="vcard-artist">{ artistName }</span>
+		</div>
+		<div class="vcard-meta-grid">
+			<div class="vcard-meta-item">
+				<span class="vcard-meta-num">{ formatCompact(playbackCount) }</span>
+				<span class="vcard-meta-label">plays</span>
+			</div>
+			<div class="vcard-meta-item">
+				<span class="vcard-meta-num">{ formatCompact(favoritingsCount) }</span>
+				<span class="vcard-meta-label">likes</span>
+			</div>
+			<div class="vcard-meta-item">
+				<span class="vcard-meta-num">{ formatCompact(repostsCount) }</span>
+				<span class="vcard-meta-label">reposts</span>
+			</div>
+			<div class="vcard-meta-item">
+				<span class="vcard-meta-num">{ formatCompact(commentCount) }</span>
+				<span class="vcard-meta-label">comments</span>
+			</div>
+		</div>
+		<div class="vcard-bottom-bar">
+			<span class="vcard-time">{ formatDuration(trackDuration) }</span>
+			if genre != "" {
+				<span class="vcard-chip">{ genre }</span>
+			}
+			if bpm > 0 {
+				<span class="vcard-chip">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+			}
+			if releaseYear > 0 {
+				<span class="vcard-chip">{ releaseYear }</span>
+			}
+		</div>
+	</article>
+}
+
+// VignetteCard1A - Classic A with Stats on Right Side
+templ VignetteCard1A(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-1a" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade vcard-shade--side"></div>
+		<div class="vcard-play-wrap vcard-play-wrap--corner">
+			<button class="vcard-play vcard-play--sm" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-main">
+			<div class="vcard-info-left">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+				<span class="vcard-artist">{ artistName }</span>
+				<div class="vcard-tags-row">
+					<span class="vcard-time">{ formatDuration(trackDuration) }</span>
+					if genre != "" {
+						<span class="vcard-genre">{ genre }</span>
+					}
+					if bpm > 0 {
+						<span class="vcard-bpm-badge">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+					}
+				</div>
+			</div>
+			<div class="vcard-stats-vertical">
+				<div class="vcard-stat-item">
+					<span class="vcard-stat-icon">▶</span>
+					<span class="vcard-stat-val">{ formatCompact(playbackCount) }</span>
+				</div>
+				<div class="vcard-stat-item">
+					<span class="vcard-stat-icon">♡</span>
+					<span class="vcard-stat-val">{ formatCompact(favoritingsCount) }</span>
+				</div>
+				<div class="vcard-stat-item">
+					<span class="vcard-stat-icon">↻</span>
+					<span class="vcard-stat-val">{ formatCompact(repostsCount) }</span>
+				</div>
+				<div class="vcard-stat-item">
+					<span class="vcard-stat-icon">💬</span>
+					<span class="vcard-stat-val">{ formatCompact(commentCount) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+// VignetteCard1B - Classic A with Top Header
+templ VignetteCard1B(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-1b" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade vcard-shade--top-heavy"></div>
+		<div class="vcard-header">
+			<div class="vcard-header-stats">
+				<span class="vcard-header-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="vcard-header-stat">♡ { formatCompact(favoritingsCount) }</span>
+			</div>
+			<button class="vcard-play vcard-play--float" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+				<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-body">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title vcard-title--large">{ trackTitle }</a>
+			<span class="vcard-artist vcard-artist--dim">{ artistName }</span>
+			<div class="vcard-meta-row">
+				<span class="vcard-duration-pill">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-genre-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-bpm">{ fmt.Sprintf("%.0f", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="vcard-year">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+			</div>
+			<div class="vcard-footer-stats">
+				<span>↻ { formatCompact(repostsCount) }</span>
+				<span>💬 { formatCompact(commentCount) }</span>
+			</div>
+		</div>
+	</article>
+}
+
+// VignetteCard1C - Classic A with Overlay Grid
+templ VignetteCard1C(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-1c" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade vcard-shade--gradient"></div>
+		<div class="vcard-grid-overlay">
+			<div class="vcard-grid-top">
+				<div class="vcard-grid-cell">
+					<span class="vcard-grid-label">Plays</span>
+					<span class="vcard-grid-num">{ formatCompact(playbackCount) }</span>
+				</div>
+				<div class="vcard-grid-cell">
+					<span class="vcard-grid-label">Likes</span>
+					<span class="vcard-grid-num">{ formatCompact(favoritingsCount) }</span>
+				</div>
+			</div>
+			<div class="vcard-grid-mid">
+				<button class="vcard-play vcard-play--center" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+					<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+				</button>
+			</div>
+			<div class="vcard-grid-bottom">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+				<span class="vcard-artist">{ artistName }</span>
+				<div class="vcard-grid-tags">
+					<span class="vcard-time-badge">{ formatDuration(trackDuration) }</span>
+					if genre != "" {
+						<span class="vcard-genre-mini">{ genre }</span>
+					}
+					if bpm > 0 {
+						<span class="vcard-bpm-mini">{ fmt.Sprintf("%.0f", bpm) }</span>
+					}
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+// VignetteCard1D - Classic A with Audio Waveform Bar
+templ VignetteCard1D(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-1d" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-shade"></div>
+		<div class="vcard-waveform-container">
+			<div class="vcard-waveform" data-track-id={ trackID }>
+				for i := 0; i < 30; i++ {
+					<span class="vcard-wave-bar" style={ fmt.Sprintf("height: %d%%", 20+(i*3)%60) }></span>
+				}
+			</div>
+			<div class="vcard-waveform-progress" id={ "wave-progress-" + trackID }></div>
+		</div>
+		<div class="vcard-controls">
+			<button class="vcard-play-btn" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) } id={ "play-btn-" + trackID }>
+				<svg class="play-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+				<svg class="pause-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+			</button>
+		</div>
+		<div class="vcard-info-stack">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title">{ trackTitle }</a>
+			<div class="vcard-subtitle-row">
+				<span class="vcard-artist">{ artistName }</span>
+				<span class="vcard-dot">•</span>
+				<span class="vcard-duration">{ formatDuration(trackDuration) }</span>
+			</div>
+			<div class="vcard-stats-row">
+				<span class="vcard-stat">▶ { formatCompact(playbackCount) }</span>
+				<span class="vcard-stat">♡ { formatCompact(favoritingsCount) }</span>
+				<span class="vcard-stat">↻ { formatCompact(repostsCount) }</span>
+			</div>
+			<div class="vcard-tags-row">
+				if genre != "" {
+					<span class="vcard-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-tag vcard-tag--bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+				if releaseYear > 0 {
+					<span class="vcard-tag vcard-tag--year">{ fmt.Sprintf("%d", releaseYear) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// VignetteCard1E - Classic A Compact with Inline Player
+templ VignetteCard1E(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-1e" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-art-container">
+			<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+			<div class="vcard-play-overlay" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+				<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+			</div>
+		</div>
+		<div class="vcard-inline-content">
+			<div class="vcard-inline-header">
+				<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-title vcard-title--compact">{ trackTitle }</a>
+				<div class="vcard-inline-actions">
+					<span class="vcard-stat-inline" title="Plays">▶ { formatCompact(playbackCount) }</span>
+					<span class="vcard-stat-inline" title="Likes">♡ { formatCompact(favoritingsCount) }</span>
+				</div>
+			</div>
+			<div class="vcard-inline-meta">
+				<span class="vcard-artist-inline">{ artistName }</span>
+				<span class="vcard-meta-divider">|</span>
+				<span class="vcard-time-inline">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-meta-divider">|</span>
+					<span class="vcard-genre-inline">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-meta-divider">|</span>
+					<span class="vcard-bpm-inline">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+			<div class="vcard-audio-player" id={ "audio-player-" + trackID }>
+				<audio preload="none" data-track-id={ trackID }>
+					<source src={ streamURL } type="audio/mpeg"/>
+				</audio>
+				<div class="vcard-player-controls">
+					<button class="vcard-player-btn" onclick={ togglePlay(trackID) } aria-label="Play/Pause">
+						<svg class="icon-play" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+						<svg class="icon-pause" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+					</button>
+					<div class="vcard-player-progress">
+						<div class="vcard-player-bar">
+							<div class="vcard-player-fill" id={ "progress-fill-" + trackID }></div>
+						</div>
+						<span class="vcard-player-time" id={ "time-" + trackID }>0:00 / { formatDuration(trackDuration) }</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+script playTrack(trackID string, streamURL string, trackTitle string, artistName string) {
+	// Dispatch custom event for the audio player
+	const event = new CustomEvent('playTrack', {
+		detail: { trackID, streamURL, trackTitle, artistName }
+	});
+	document.dispatchEvent(event);
+}
+
+script togglePlay(trackID string) {
+	const event = new CustomEvent('togglePlay', {
+		detail: { trackID }
+	});
+	document.dispatchEvent(event);
+}
+
+
+// ============================================================
+// GLASSMORPHISM VARIATIONS - 6 Layout Arrangements
+// ============================================================
+
+// Glass Variation 1: Top Bar - Horizontal glass bar at top with stats
+templ GlassCard_TopBar(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v1" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v1-overlay"></div>
+		<div class="glass-v1-topbar">
+			<div class="glass-v1-stat">
+				<span class="glass-v1-icon">▶</span>
+				<span class="glass-v1-val">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="glass-v1-stat">
+				<span class="glass-v1-icon">♡</span>
+				<span class="glass-v1-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="glass-v1-stat">
+				<span class="glass-v1-icon">↻</span>
+				<span class="glass-v1-val">{ formatCompact(repostsCount) }</span>
+			</div>
+			<div class="glass-v1-stat">
+				<span class="glass-v1-icon">💬</span>
+				<span class="glass-v1-val">{ formatCompact(commentCount) }</span>
+			</div>
+		</div>
+		<button class="glass-v1-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v1-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v1-title">{ trackTitle }</a>
+			<span class="glass-v1-artist">{ artistName }</span>
+			<div class="glass-v1-meta">
+				<span class="glass-v1-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="glass-v1-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="glass-v1-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// Glass Variation 2: Side Panel - Vertical stats on right edge
+templ GlassCard_SidePanel(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v2" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v2-overlay"></div>
+		<div class="glass-v2-sidepanel">
+			<div class="glass-v2-stat">
+				<span class="glass-v2-icon">▶</span>
+				<span class="glass-v2-val">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="glass-v2-stat">
+				<span class="glass-v2-icon">♡</span>
+				<span class="glass-v2-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="glass-v2-stat">
+				<span class="glass-v2-icon">↻</span>
+				<span class="glass-v2-val">{ formatCompact(repostsCount) }</span>
+			</div>
+		</div>
+		<button class="glass-v2-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v2-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v2-title">{ trackTitle }</a>
+			<span class="glass-v2-artist">{ artistName }</span>
+			<div class="glass-v2-meta">
+				<span class="glass-v2-duration">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="glass-v2-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// Glass Variation 3: Bottom Grid - 2x2 grid at bottom with stats
+templ GlassCard_BottomGrid(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v3" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v3-overlay"></div>
+		<button class="glass-v3-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v3-titlebar">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v3-title">{ trackTitle }</a>
+			<span class="glass-v3-artist">{ artistName }</span>
+		</div>
+		<div class="glass-v3-grid">
+			<div class="glass-v3-cell">
+				<span class="glass-v3-num">{ formatCompact(playbackCount) }</span>
+				<span class="glass-v3-label">plays</span>
+			</div>
+			<div class="glass-v3-cell">
+				<span class="glass-v3-num">{ formatCompact(favoritingsCount) }</span>
+				<span class="glass-v3-label">likes</span>
+			</div>
+			<div class="glass-v3-cell">
+				<span class="glass-v3-num">{ formatCompact(repostsCount) }</span>
+				<span class="glass-v3-label">reposts</span>
+			</div>
+			<div class="glass-v3-cell">
+				<span class="glass-v3-num">{ formatDuration(trackDuration) }</span>
+				<span class="glass-v3-label">duration</span>
+			</div>
+		</div>
+		<div class="glass-v3-tags">
+			if genre != "" {
+				<span class="glass-v3-tag">{ genre }</span>
+			}
+			if bpm > 0 {
+				<span class="glass-v3-tag">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+			}
+		</div>
+	</article>
+}
+
+// Glass Variation 4: Corner Clusters - Stats grouped in corners
+templ GlassCard_Corners(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v4" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v4-overlay"></div>
+		<div class="glass-v4-corner glass-v4-tl">
+			<span class="glass-v4-pill">{ formatCompact(playbackCount) } plays</span>
+		</div>
+		<div class="glass-v4-corner glass-v4-tr">
+			<span class="glass-v4-pill">{ formatCompact(favoritingsCount) } likes</span>
+		</div>
+		<div class="glass-v4-corner glass-v4-bl">
+			if genre != "" {
+				<span class="glass-v4-pill glass-v4-pill--accent">{ genre }</span>
+			}
+		</div>
+		<div class="glass-v4-corner glass-v4-br">
+			<span class="glass-v4-pill">{ formatDuration(trackDuration) }</span>
+		</div>
+		<button class="glass-v4-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v4-center">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v4-title">{ trackTitle }</a>
+			<span class="glass-v4-artist">{ artistName }</span>
+		</div>
+	</article>
+}
+
+// Glass Variation 5: Minimal Center - Clean center focus, stats fade in on hover
+templ GlassCard_Minimal(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v5" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v5-overlay"></div>
+		<button class="glass-v5-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v5-center">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v5-title">{ trackTitle }</a>
+			<span class="glass-v5-artist">{ artistName }</span>
+			<div class="glass-v5-duration">{ formatDuration(trackDuration) }</div>
+		</div>
+		<div class="glass-v5-stats">
+			<div class="glass-v5-stat">
+				<span class="glass-v5-icon">▶</span>
+				<span class="glass-v5-val">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="glass-v5-stat">
+				<span class="glass-v5-icon">♡</span>
+				<span class="glass-v5-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="glass-v5-stat">
+				<span class="glass-v5-icon">↻</span>
+				<span class="glass-v5-val">{ formatCompact(repostsCount) }</span>
+			</div>
+			if genre != "" {
+				<div class="glass-v5-stat">
+					<span class="glass-v5-val">{ genre }</span>
+				</div>
+			}
+		</div>
+	</article>
+}
+
+// Glass Variation 6: Floating Pills - Scattered floating stat pills
+templ GlassCard_FloatingPills(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard glass-v6" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="glass-v6-overlay"></div>
+		<div class="glass-v6-pill glass-v6-pill-1">
+			<span>▶ { formatCompact(playbackCount) }</span>
+		</div>
+		<div class="glass-v6-pill glass-v6-pill-2">
+			<span>♡ { formatCompact(favoritingsCount) }</span>
+		</div>
+		<div class="glass-v6-pill glass-v6-pill-3">
+			<span>↻ { formatCompact(repostsCount) }</span>
+		</div>
+		<button class="glass-v6-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="glass-v6-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="glass-v6-title">{ trackTitle }</a>
+			<span class="glass-v6-artist">{ artistName }</span>
+			<div class="glass-v6-footer">
+				<span class="glass-v6-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="glass-v6-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="glass-v6-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 2: Neumorphism Soft - Soft UI with depth and shadows
+templ VignetteCard3_Neumorphism(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-neu" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-neu-bg">
+			<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		</div>
+		<div class="vcard-neu-overlay"></div>
+		<div class="vcard-neu-stats">
+			<div class="vcard-neu-stat">
+				<span class="vcard-neu-stat-val">{ formatCompact(playbackCount) }</span>
+				<span class="vcard-neu-stat-label">plays</span>
+			</div>
+			<div class="vcard-neu-stat">
+				<span class="vcard-neu-stat-val">{ formatCompact(favoritingsCount) }</span>
+				<span class="vcard-neu-stat-label">likes</span>
+			</div>
+			<div class="vcard-neu-stat">
+				<span class="vcard-neu-stat-val">{ formatCompact(repostsCount) }</span>
+				<span class="vcard-neu-stat-label">reposts</span>
+			</div>
+		</div>
+		<button class="vcard-neu-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-neu-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-neu-title">{ trackTitle }</a>
+			<span class="vcard-neu-artist">{ artistName }</span>
+			<div class="vcard-neu-footer">
+				<span class="vcard-neu-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-neu-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 3: Cinematic Dark - Movie poster style with dramatic typography
+templ VignetteCard3_Cinematic(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-cinema" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-cinema-vignette"></div>
+		<div class="vcard-cinema-gradient"></div>
+		<div class="vcard-cinema-stats">
+			<div class="vcard-cinema-rating">
+				<span class="vcard-cinema-star">★</span>
+				<span class="vcard-cinema-score">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<span class="vcard-cinema-views">{ formatCompact(playbackCount) } views</span>
+		</div>
+		<button class="vcard-cinema-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-cinema-info">
+			<h2 class="vcard-cinema-title">{ trackTitle }</h2>
+			<p class="vcard-cinema-artist">{ artistName }</p>
+			<div class="vcard-cinema-meta">
+				<span class="vcard-cinema-duration">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-cinema-genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-cinema-bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 4: Gradient Mesh - Vibrant multi-color gradient overlays
+templ VignetteCard3_GradientMesh(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-mesh" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-mesh-overlay">
+			<div class="vcard-mesh-blob vcard-mesh-blob--1"></div>
+			<div class="vcard-mesh-blob vcard-mesh-blob--2"></div>
+			<div class="vcard-mesh-blob vcard-mesh-blob--3"></div>
+		</div>
+		<div class="vcard-mesh-grid">
+			<div class="vcard-mesh-stat">
+				<span class="vcard-mesh-icon">▶</span>
+				<span class="vcard-mesh-num">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="vcard-mesh-stat">
+				<span class="vcard-mesh-icon">♡</span>
+				<span class="vcard-mesh-num">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="vcard-mesh-stat">
+				<span class="vcard-mesh-icon">↻</span>
+				<span class="vcard-mesh-num">{ formatCompact(repostsCount) }</span>
+			</div>
+		</div>
+		<button class="vcard-mesh-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-mesh-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-mesh-title">{ trackTitle }</a>
+			<span class="vcard-mesh-artist">{ artistName }</span>
+			<div class="vcard-mesh-tags">
+				<span class="vcard-mesh-tag">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-mesh-tag">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-mesh-tag">{ fmt.Sprintf("%.0f", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 5: Brutalist Raw - Bold typography, harsh contrasts
+templ VignetteCard3_Brutalist(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-brutal" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-brutal-overlay"></div>
+		<div class="vcard-brutal-grid">
+			<div class="vcard-brutal-stat vcard-brutal-stat--plays">
+				<span class="vcard-brutal-label">PLAYS</span>
+				<span class="vcard-brutal-val">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="vcard-brutal-stat vcard-brutal-stat--likes">
+				<span class="vcard-brutal-label">LIKES</span>
+				<span class="vcard-brutal-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<button class="vcard-brutal-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-brutal-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-brutal-title">{ trackTitle }</a>
+			<span class="vcard-brutal-artist">{ artistName }</span>
+			<div class="vcard-brutal-footer">
+				<span class="vcard-brutal-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-brutal-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 6: Isometric 3D - 3D tilted card effect
+templ VignetteCard3_Isometric(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-iso" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-iso-container">
+			<div class="vcard-iso-face">
+				<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+				<div class="vcard-iso-overlay"></div>
+				<div class="vcard-iso-stats">
+					<div class="vcard-iso-stat">
+						<span class="vcard-iso-icon">▶</span>
+						<span class="vcard-iso-num">{ formatCompact(playbackCount) }</span>
+					</div>
+					<div class="vcard-iso-stat">
+						<span class="vcard-iso-icon">♡</span>
+						<span class="vcard-iso-num">{ formatCompact(favoritingsCount) }</span>
+					</div>
+				</div>
+				<button class="vcard-iso-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+					<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+				</button>
+				<div class="vcard-iso-info">
+					<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-iso-title">{ trackTitle }</a>
+					<span class="vcard-iso-artist">{ artistName }</span>
+					<span class="vcard-iso-duration">{ formatDuration(trackDuration) }</span>
+				</div>
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 7: Minimal Line Art - Thin borders, elegant whitespace
+templ VignetteCard3_Minimal(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-minimal" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-minimal-frame">
+			<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		</div>
+		<div class="vcard-minimal-overlay"></div>
+		<div class="vcard-minimal-grid">
+			<div class="vcard-minimal-stat">
+				<span class="vcard-minimal-line"></span>
+				<span class="vcard-minimal-val">{ formatCompact(playbackCount) }</span>
+				<span class="vcard-minimal-label">plays</span>
+			</div>
+			<div class="vcard-minimal-stat">
+				<span class="vcard-minimal-line"></span>
+				<span class="vcard-minimal-val">{ formatCompact(favoritingsCount) }</span>
+				<span class="vcard-minimal-label">likes</span>
+			</div>
+		</div>
+		<button class="vcard-minimal-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-minimal-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-minimal-title">{ trackTitle }</a>
+			<span class="vcard-minimal-artist">{ artistName }</span>
+			<div class="vcard-minimal-meta">
+				<span class="vcard-minimal-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-minimal-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 8: Cyberpunk Neon - Neon glows, dark theme, futuristic
+templ VignetteCard3_Cyberpunk(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-cyber" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+		<div class="vcard-cyber-scanlines"></div>
+		<div class="vcard-cyber-grid">
+			<div class="vcard-cyber-stat vcard-cyber-stat--plays">
+				<span class="vcard-cyber-icon">▶</span>
+				<span class="vcard-cyber-val">{ formatCompact(playbackCount) }</span>
+			</div>
+			<div class="vcard-cyber-stat vcard-cyber-stat--likes">
+				<span class="vcard-cyber-icon">♡</span>
+				<span class="vcard-cyber-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="vcard-cyber-stat vcard-cyber-stat--reposts">
+				<span class="vcard-cyber-icon">↻</span>
+				<span class="vcard-cyber-val">{ formatCompact(repostsCount) }</span>
+			</div>
+		</div>
+		<button class="vcard-cyber-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-cyber-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-cyber-title">{ trackTitle }</a>
+			<span class="vcard-cyber-artist">{ artistName }</span>
+			<div class="vcard-cyber-tags">
+				<span class="vcard-cyber-tag vcard-cyber-tag--time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-cyber-tag vcard-cyber-tag--genre">{ genre }</span>
+				}
+				if bpm > 0 {
+					<span class="vcard-cyber-tag vcard-cyber-tag--bpm">{ fmt.Sprintf("%.0f BPM", bpm) }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 9: Vinyl Record - Spinning record aesthetic
+templ VignetteCard3_Vinyl(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-vinyl" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-vinyl-disc">
+			<div class="vcard-vinyl-artwork" style={ fmt.Sprintf("background-image: url(%s)", artworkURL) }></div>
+			<div class="vcard-vinyl-grooves"></div>
+			<div class="vcard-vinyl-label">
+				<span class="vcard-vinyl-label-text">{ artistName }</span>
+			</div>
+		</div>
+		<div class="vcard-vinyl-stats">
+			<div class="vcard-vinyl-stat">
+				<span class="vcard-vinyl-stat-icon">♡</span>
+				<span class="vcard-vinyl-stat-val">{ formatCompact(favoritingsCount) }</span>
+			</div>
+			<div class="vcard-vinyl-stat">
+				<span class="vcard-vinyl-stat-icon">↻</span>
+				<span class="vcard-vinyl-stat-val">{ formatCompact(repostsCount) }</span>
+			</div>
+		</div>
+		<button class="vcard-vinyl-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-vinyl-info">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-vinyl-title">{ trackTitle }</a>
+			<span class="vcard-vinyl-artist">{ artistName }</span>
+			<div class="vcard-vinyl-footer">
+				<span class="vcard-vinyl-time">{ formatDuration(trackDuration) }</span>
+				if genre != "" {
+					<span class="vcard-vinyl-genre">{ genre }</span>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+// A3 Variation 10: Polaroid Stack - Stacked photo cards with handwritten style
+templ VignetteCard3_Polaroid(
+	trackID string,
+	trackTitle string,
+	artistName string,
+	genre string,
+	trackDuration int64,
+	artworkURL string,
+	permalinkURL string,
+	playbackCount int64,
+	favoritingsCount int64,
+	bpm float64,
+	releaseYear int,
+	commentCount int64,
+	repostsCount int64,
+	streamURL string,
+) {
+	<article class="vcard vcard-3-polaroid" data-track-id={ trackID } data-stream-url={ streamURL }>
+		<div class="vcard-polaroid-stack">
+			<div class="vcard-polaroid-card vcard-polaroid-card--back"></div>
+			<div class="vcard-polaroid-card vcard-polaroid-card--mid"></div>
+			<div class="vcard-polaroid-card vcard-polaroid-card--front">
+				<img src={ artworkURL } alt={ trackTitle } class="vcard-art"/>
+			</div>
+		</div>
+		<div class="vcard-polaroid-stats">
+			<div class="vcard-polaroid-stat">
+				<span class="vcard-polaroid-heart">♡</span>
+				<span class="vcard-polaroid-count">{ formatCompact(favoritingsCount) }</span>
+			</div>
+		</div>
+		<button class="vcard-polaroid-play" aria-label="Play" onclick={ playTrack(trackID, streamURL, trackTitle, artistName) }>
+			<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		</button>
+		<div class="vcard-polaroid-caption">
+			<a href={ templ.URL(permalinkURL) } target="_blank" class="vcard-polaroid-title">{ trackTitle }</a>
+			<span class="vcard-polaroid-artist">{ artistName }</span>
+			<span class="vcard-polaroid-time">{ formatDuration(trackDuration) }</span>
+			if genre != "" {
+				<span class="vcard-polaroid-genre">{ genre }</span>
+			}
+		</div>
+	</article>
+}
