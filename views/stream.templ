@@ -3,6 +3,8 @@ package views
 import (
 	"fmt"
 	"time"
+
+	"github.com/jbhicks/sound-cistern/views/components"
 )
 
 func formatTrackDate(t time.Time) string {
@@ -59,7 +61,7 @@ templ Stream(data StreamData) {
 			<div class="vapor-filter-bar">
 				<div class="vapor-filter-main">
 					<div class="vapor-search">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
 						<input 
 							type="text" 
 							name="q"
@@ -67,19 +69,21 @@ templ Stream(data StreamData) {
 							placeholder="Search..."
 							autocomplete="off"
 							hx-get="/api/stream"
-							hx-target="#track-container"
+							hx-target="#cards-grid"
+							hx-swap="innerHTML"
 							hx-trigger="input delay:300ms"
-							hx-include="#filter-content-type,#filter-sort,#filter-limit"
+							hx-include="#filter-content-type,#filter-sort,#filter-limit,#duration-range"
+							hx-on::after-request="restoreActiveFilters(); upgradeAllArtwork();"
 						/>
 					</div>
 					
 					<div class="vapor-filters">
-						<select name="content_type" id="filter-content-type" hx-get="/api/stream" hx-target="#track-container" hx-trigger="change">
+						<select name="content_type" id="filter-content-type" hx-get="/api/stream" hx-target="#cards-grid" hx-swap="innerHTML" hx-trigger="change" hx-include="#filter-q,#filter-sort,#filter-limit,#duration-range" hx-on::after-request="restoreActiveFilters(); upgradeAllArtwork();">
 							<option value="">All</option>
 							<option value="posts">Posts</option>
 							<option value="reposts">Reposts</option>
 						</select>
-						<select name="sort" id="filter-sort" hx-get="/api/stream" hx-target="#track-container" hx-trigger="change">
+						<select name="sort" id="filter-sort" hx-get="/api/stream" hx-target="#cards-grid" hx-swap="innerHTML" hx-trigger="change" hx-include="#filter-q,#filter-content-type,#filter-limit,#duration-range" hx-on::after-request="restoreActiveFilters(); upgradeAllArtwork();">
 							<option value="newest">Newest</option>
 							<option value="oldest">Oldest</option>
 							<option value="title">Title</option>
@@ -89,7 +93,7 @@ templ Stream(data StreamData) {
 					</div>
 					
 					<div class="vapor-actions">
-						<select name="limit" id="filter-limit" hx-get="/api/stream?refresh=true" hx-target="#track-container" hx-trigger="change">
+						<select name="limit" id="filter-limit" hx-get="/api/stream?refresh=true" hx-target="#cards-grid" hx-swap="innerHTML" hx-trigger="change" hx-include="#duration-range" hx-on::after-request="restoreActiveFilters(); upgradeAllArtwork();">
 							<option value="20">20</option>
 							<option value="50">50</option>
 							<option value="100">100</option>
@@ -105,17 +109,21 @@ templ Stream(data StreamData) {
 				</div>
 				
 				<div class="vapor-filter-row">
-					<label class="vapor-duration">
-						<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></span>
-						<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
-							hx-get="/api/stream?refresh=true"
-							hx-target="#track-container"
-							hx-trigger="input delay:300ms"
-							hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit"
-							name="duration_min"
-							oninput="updateDurationDisplay(this.value)"
-						/>
-					</label>
+					if data.MaxDuration > 0 {
+						<label class="vapor-duration">
+							<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></span>
+							<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
+								hx-get="/api/stream?refresh=true"
+								hx-target="#cards-grid"
+								hx-swap="innerHTML"
+								hx-trigger="input delay:300ms"
+								hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
+								name="duration_min"
+								oninput="updateDurationDisplay(this.value)"
+								hx-on::after-request="restoreActiveFilters(); upgradeAllArtwork();"
+							/>
+						</label>
+					}
 				</div>
 			</div>
 
@@ -125,39 +133,19 @@ templ Stream(data StreamData) {
 
 		<div id="track-container">
 			if len(data.Tracks) > 0 {
-				<div class="stream-flip-grid">
+				<div class="stream-flip-grid" id="cards-grid">
 					for _, track := range data.Tracks {
-						<div class="stream-flip-card" 
-							data-track-id={ track.TrackID } 
-							data-stream-url={ "/api/track/" + track.TrackID + "/stream" }
-							data-track-title={ track.TrackTitle }
-							data-artist-name={ track.ArtistName }
-							onclick="handleStreamFlip(this)">
-							<div class="stream-flip">
-								<div class="stream-flip-front">
-									<img src={ track.ArtworkURL } alt={ track.TrackTitle }/>
-									<div class="stream-flip-info">
-										<div class="stream-flip-title">{ track.TrackTitle }</div>
-										<div class="stream-flip-artist">{ track.ArtistName }</div>
-										<div class="stream-flip-stats">
-											<span class="stat-plays">▶ { formatCompact(track.PlaybackCount) }</span>
-											<span class="stat-likes">♡ { formatCompact(track.FavoritingsCount) }</span>
-											<span class="stat-duration">{ formatDuration(track.TrackDuration) }</span>
-										</div>
-										if track.Genre != "" {
-											<div class="stream-flip-genre">{ track.Genre }</div>
-										}
-									</div>
-								</div>
-								<div class="stream-flip-back">
-									<div class="stream-flip-vinyl">
-										<div class="stream-flip-label">
-											<img src={ track.ArtworkURL } alt=""/>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
+						@components.StreamFlipCard(
+							track.TrackID,
+							track.TrackTitle,
+							track.ArtistName,
+							track.Genre,
+							track.TrackDuration,
+							track.ArtworkURL,
+							track.PlaybackCount,
+							track.FavoritingsCount,
+							track.RepostsCount,
+						)
 					}
 				</div>
 			} else {
@@ -182,11 +170,11 @@ templ Stream(data StreamData) {
 					hx-get="/api/stream"
 					hx-vals='{"page":"2"}'
 					hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
-					hx-target="#track-container"
+					hx-target="#cards-grid"
 					hx-swap="beforeend"
 					hx-trigger="revealed"
 					hx-indicator="#load-more-indicator"
-					hx-on::after-request="handleLoadMore(this, event)"
+					hx-on::after-request="handleLoadMore(this, event); upgradeAllArtwork();"
 					aria-label="Load more tracks"
 				>
 					Load More
@@ -200,446 +188,42 @@ templ Stream(data StreamData) {
 
 		<div id="player-container"></div>
 
-		<style>
-			.player-bar {
-				position: fixed;
-				bottom: 0;
-				left: 0;
-				right: 0;
-				background: #1a1a1a;
-				color: white;
-				padding: 0.75rem 1rem;
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-				z-index: 1000;
-				font-family: system-ui, sans-serif;
-			}
-			.player-bar img {
-				width: 48px;
-				height: 48px;
-				border-radius: 4px;
-				object-fit: cover;
-			}
-			.player-bar-info {
-				flex: 1;
-				min-width: 0;
-			}
-			.player-bar-title {
-				font-weight: 600;
-				font-size: 0.9rem;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-			.player-bar-artist {
-				font-size: 0.75rem;
-				color: #999;
-			}
-			.player-bar audio {
-				width: 300px;
-				height: 32px;
-			}
-			.player-bar .close-btn {
-				background: none;
-				border: none;
-				color: #666;
-				cursor: pointer;
-				font-size: 1.25rem;
-				padding: 0.25rem;
-			}
-			.player-bar .close-btn:hover {
-				color: white;
-			}
-			
-			/* Vapor Wave Filter Bar */
-			.vapor-filter-bar {
-				background: linear-gradient(135deg, rgba(26, 10, 46, 0.6), rgba(22, 33, 62, 0.6));
-				padding: 0.75rem 1rem;
-				border-radius: 12px;
-				margin-bottom: 1rem;
-				border: 1px solid rgba(255, 107, 157, 0.2);
-				backdrop-filter: blur(10px);
-			}
-			.vapor-filter-main {
-				display: flex;
-				flex-wrap: wrap;
-				align-items: center;
-				gap: 0.75rem;
-			}
-			.vapor-search {
-				flex: 1;
-				min-width: 180px;
-				position: relative;
-				display: flex;
-				align-items: center;
-			}
-			.vapor-search svg {
-				position: absolute;
-				left: 10px;
-				color: rgba(255, 107, 157, 0.6);
-				pointer-events: none;
-				width: 14px;
-				height: 14px;
-			}
-			.vapor-search input {
-				width: 100%;
-				background: rgba(0, 0, 0, 0.3);
-				border: 1px solid rgba(0, 212, 255, 0.3);
-				color: #fff;
-				padding: 0.5rem 1rem 0.5rem 2rem;
-				border-radius: 8px;
-				font-size: 0.85rem;
-				appearance: none;
-				-webkit-appearance: none;
-			}
-			.vapor-search input::-webkit-search-decoration,
-			.vapor-search input::-webkit-search-cancel-button,
-			.vapor-search input::-webkit-search-results-button,
-			.vapor-search input::-webkit-search-results-decoration {
-				-webkit-appearance: none;
-				display: none;
-			}
-			.vapor-search input::placeholder {
-				color: rgba(255, 107, 157, 0.6);
-			}
-			.vapor-search input:focus {
-				border-color: #ff6b9d;
-				outline: none;
-				box-shadow: 0 0 15px rgba(255, 107, 157, 0.3);
-			}
-			.vapor-filters, .vapor-actions {
-				display: flex;
-				gap: 0.5rem;
-			}
-			.vapor-filters select, .vapor-actions select {
-				background: rgba(0, 0, 0, 0.3);
-				border: 1px solid rgba(0, 212, 255, 0.3);
-				color: #fff;
-				padding: 0.5rem 0.75rem;
-				border-radius: 8px;
-				font-size: 0.85rem;
-				cursor: pointer;
-			}
-			.vapor-filters select:focus, .vapor-actions select:focus {
-				border-color: #ff6b9d;
-				outline: none;
-				box-shadow: 0 0 15px rgba(255, 107, 157, 0.3);
-			}
-			.vapor-filters select option, .vapor-actions select option {
-				background: #1a0a2e;
-				color: #fff;
-			}
-			.vapor-filter-row {
-				margin-top: 0.75rem;
-				padding-top: 0.75rem;
-				border-top: 1px solid rgba(255, 107, 157, 0.15);
-			}
-			.vapor-filter-row .vapor-duration {
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-				width: 100%;
-			}
-			.vapor-filter-row .vapor-duration label {
-				display: flex;
-				align-items: center;
-				gap: 0.75rem;
-				color: #ff6b9d;
-				font-size: 0.8rem;
-				white-space: nowrap;
-			}
-			.vapor-filter-row .vapor-duration label strong {
-				color: #00d4ff;
-				min-width: 60px;
-			}
-			.vapor-filter-row input[type="range"] {
-				flex: 1;
-				height: 6px;
-				-webkit-appearance: none;
-				background: rgba(0, 0, 0, 0.3);
-				border-radius: 3px;
-				cursor: pointer;
-			}
-			.vapor-filter-row input[type="range"]::-webkit-slider-thumb {
-				-webkit-appearance: none;
-				width: 16px;
-				height: 16px;
-				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
-				border-radius: 50%;
-				cursor: pointer;
-			}
-			.vapor-filter-row input[type="range"]::-moz-range-thumb {
-				width: 16px;
-				height: 16px;
-				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
-				border-radius: 50%;
-				cursor: pointer;
-				border: none;
-			}
-			.vapor-btn {
-				display: flex;
-				align-items: center;
-				gap: 0.4rem;
-				padding: 0.5rem 0.85rem;
-				border-radius: 8px;
-				font-weight: 600;
-				cursor: pointer;
-				border: none;
-				font-size: 0.8rem;
-				transition: all 0.2s ease;
-			}
-			.vapor-btn-sync {
-				background: linear-gradient(135deg, #ff6b9d, #e94560);
-				color: #fff;
-				box-shadow: 0 2px 10px rgba(233, 69, 96, 0.3);
-			}
-			.vapor-btn-sync:hover {
-				box-shadow: 0 4px 15px rgba(233, 69, 96, 0.5);
-				transform: translateY(-1px);
-			}
-			.vapor-btn-sync:disabled {
-				opacity: 0.7;
-				cursor: not-allowed;
-			}
-			.vapor-btn-clear {
-				background: rgba(0, 212, 255, 0.15);
-				border: 1px solid rgba(0, 212, 255, 0.4);
-				color: #00d4ff;
-			}
-			.vapor-btn-clear:hover {
-				background: rgba(255, 107, 157, 0.15);
-				border-color: #ff6b9d;
-				color: #ff6b9d;
-			}
-			
-			@media (max-width: 768px) {
-				.vapor-filter-main {
-					flex-direction: column;
-					align-items: stretch;
-				}
-				.vapor-search {
-					order: 1;
-					min-width: 100%;
-				}
-				.vapor-filters {
-					order: 2;
-					justify-content: space-between;
-				}
-				.vapor-filters select {
-					flex: 1;
-				}
-				.vapor-actions {
-					order: 3;
-					justify-content: space-between;
-				}
-				.vapor-filter-row {
-					order: 4;
-				}
-				.vapor-filter-row .vapor-duration {
-					flex-direction: column;
-					align-items: stretch;
-					gap: 0.5rem;
-				}
-			}
-			
-			/* Flip Card Styles for Stream */
-			.stream-flip-grid {
-				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-				gap: 1.5rem;
-				padding: 1rem 0;
-			}
-			.stream-flip-card {
-				perspective: 1000px;
-				cursor: pointer;
-			}
-			.stream-flip {
-				position: relative;
-				width: 100%;
-				aspect-ratio: 1;
-				transform-style: preserve-3d;
-				transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-			}
-			.stream-flip.flipped {
-				transform: rotateY(180deg);
-			}
-			.stream-flip-front, .stream-flip-back {
-				position: absolute;
-				inset: 0;
-				backface-visibility: hidden;
-				border-radius: 12px;
-				overflow: hidden;
-			}
-			.stream-flip-front {
-				background: #1a1a1a;
-			}
-			.stream-flip-front img {
-				width: 100%;
-				height: 100%;
-				object-fit: cover;
-			}
-			.stream-flip-back {
-				transform: rotateY(180deg);
-				background: #0d0d0d;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: 50%;
-			}
-			@keyframes vinylSpin { 
-				from { transform: rotate(0deg); } 
-				to { transform: rotate(360deg); } 
-			}
-			.stream-flip-vinyl {
-				width: 90%;
-				height: 90%;
-				border-radius: 50%;
-				position: relative;
-				background: repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.9) 3px, rgba(40,40,40,0.9) 4px),
-					radial-gradient(circle at center, #1a1a1a 35%, #0a0a0a 100%);
-				box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.3);
-			}
-			.stream-playing .stream-flip-vinyl {
-				animation: vinylSpin 1.8s linear infinite;
-			}
-			.stream-flip-vinyl::before {
-				content: '';
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				width: 38%;
-				height: 38%;
-				border-radius: 50%;
-				background: linear-gradient(135deg, #8b5cf6, #a78bfa);
-				box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
-			}
-			.stream-flip-vinyl::after {
-				content: '';
-				position: absolute;
-				top: 0;
-				left: 0;
-				right: 0;
-				bottom: 0;
-				border-radius: 50%;
-				background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, transparent 100%);
-			}
-			.stream-flip-label {
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				width: 32%;
-				height: 32%;
-				border-radius: 50%;
-				overflow: hidden;
-			}
-			.stream-flip-label img {
-				width: 100%;
-				height: 100%;
-				object-fit: cover;
-			}
-			.stream-flip-info {
-				position: absolute;
-				bottom: 0;
-				left: 0;
-				right: 0;
-				padding: 1.5rem 1rem 1rem;
-				background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-				color: #fff;
-			}
-			.stream-flip-title {
-				font-weight: 700;
-				font-size: 1rem;
-				margin-bottom: 0.25rem;
-				text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-			.stream-flip-artist {
-				font-size: 0.85rem;
-				opacity: 0.85;
-			}
-			.stream-flip-stats {
-				display: flex;
-				gap: 0.5rem;
-				margin-top: 0.5rem;
-				flex-wrap: wrap;
-			}
-			.stream-flip-stats span {
-				padding: 0.15rem 0.4rem;
-				border-radius: 10px;
-				font-size: 0.7rem;
-				font-weight: 600;
-				white-space: nowrap;
-			}
-			.stream-flip-genre {
-				font-size: 0.7rem;
-				margin-top: 0.4rem;
-				opacity: 0.85;
-				color: #c4b5fd;
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
-				font-weight: 600;
-			}
-			.stat-plays { background: linear-gradient(135deg, #00d4ff, #06b6d4); color: #fff; }
-			.stat-likes { background: linear-gradient(135deg, #ff6b9d, #ec4899); color: #fff; }
-			.stat-reposts { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: #fff; }
-			.stat-duration { background: linear-gradient(135deg, #fb923c, #f97316); color: #fff; }
-			
-			/* Playing indicator */
-			@keyframes playingPulse {
-				0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
-				50% { box-shadow: 0 0 0 12px rgba(0, 212, 255, 0); }
-			}
-			.stream-flip-card.stream-playing .stream-flip-front {
-				box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-				animation: playingPulse 2s ease-in-out infinite;
-			}
-			.stream-flip-card.stream-playing .stream-flip-front::after {
-				content: '▶';
-				position: absolute;
-				top: 12px;
-				right: 12px;
-				width: 28px;
-				height: 28px;
-				background: linear-gradient(135deg, #00d4ff, #8b5cf6);
-				border-radius: 50%;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				font-size: 12px;
-				color: white;
-				box-shadow: 0 2px 10px rgba(0, 212, 255, 0.5);
-			}
-		</style>
-
 		<script>
-			// Auto-sync on page load (non-blocking)
-			(function() {
-				const syncBtn = document.getElementById('sync-btn');
-				if (syncBtn) {
-					// Trigger background sync after page loads
-					setTimeout(function() {
-						fetch('/api/sync', {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json'
-							}
-						}).then(function(response) {
-							if (response.ok) {
-								console.log('Background sync completed');
-								// Refresh the track list
-								htmx.trigger('#track-container', 'refresh');
-							}
-						}).catch(function(err) {
-							console.log('Background sync failed:', err);
+			// Load initial tracks on page load
+			document.addEventListener('DOMContentLoaded', function() {
+				var cardsGrid = document.getElementById('cards-grid');
+				if (cardsGrid && cardsGrid.children.length === 0) {
+					fetch('/api/stream')
+						.then(function(response) { return response.text(); })
+						.then(function(html) {
+							cardsGrid.innerHTML = html;
 						});
-					}, 500); // Wait 500ms after page load
 				}
-			})();
+			});
+
+			// Note: Auto-sync disabled - tracks loaded via HTMX on page load
+			// (kept in case we want to re-enable later)
+			// (function() {
+			// 	const syncBtn = document.getElementById('sync-btn');
+			// 	if (syncBtn) {
+			// 		setTimeout(function() {
+			// 			fetch('/api/sync', {
+			// 				method: 'POST',
+			// 				headers: {
+			// 					'Content-Type': 'application/json'
+			// 				}
+			// 			}).then(function(response) {
+			// 				if (response.ok) {
+			// 					console.log('Background sync completed');
+			// 					htmx.trigger('#track-container', 'refresh');
+			// 				}
+			// 			}).catch(function(err) {
+			// 				console.log('Background sync failed:', err);
+			// 			});
+			// 		}, 500);
+			// 	}
+			// })();
+		
 
 			// Sync tracks from SoundCloud (manual trigger)
 			async function syncTracks() {
@@ -668,16 +252,20 @@ templ Stream(data StreamData) {
 						}, 2000);
 						
 						// Reload the track container
-						htmx.trigger('#track-container', 'refresh');
-						location.reload();
+						htmx.trigger('#cards-grid', 'refresh');
+					} else if (response.status === 401) {
+						// Re-authentication required
+						showReauthPrompt();
+						btn.innerHTML = originalText;
+						btn.disabled = false;
 					} else {
 						const error = await response.json();
-						alert('Sync failed: ' + (error.error || 'Unknown error'));
+						showErrorNotification('Sync failed: ' + (error.error || 'Unknown error'), 'error');
 						btn.innerHTML = originalText;
 						btn.disabled = false;
 					}
 				} catch (err) {
-					alert('Sync failed: ' + err.message);
+					showErrorNotification('Sync failed: ' + err.message, 'error');
 					btn.innerHTML = originalText;
 					btn.disabled = false;
 				}
@@ -703,9 +291,11 @@ templ Stream(data StreamData) {
 				const durationRange = document.getElementById('duration-range');
 				if (durationRange) {
 					durationRange.value = 0;
-					const maxDur = parseInt(durationRange.max) || 94;
+					const maxDur = parseInt(durationRange.max) || 0;
 					const display = document.getElementById('duration-min-display');
-					if (display) display.textContent = formatMinutes(0);
+					if (display) {
+						display.textContent = maxDur > 0 ? formatMinutes(0) : 'No limit';
+					}
 				}
 				
 				// Clear localStorage
@@ -728,6 +318,42 @@ templ Stream(data StreamData) {
 					duration_min: document.getElementById('duration-range')?.value || '0'
 				};
 				localStorage.setItem('stream-filters', JSON.stringify(filters));
+			}
+
+			// Restore active filter dropdown selections after HTMX swap
+			function restoreActiveFilters() {
+				const saved = localStorage.getItem('stream-filters');
+				if (!saved) return;
+				
+				try {
+					const filters = JSON.parse(saved);
+					
+					if (filters.content_type !== undefined && filters.content_type !== '') {
+						const ctSelect = document.getElementById('filter-content-type');
+						if (ctSelect) ctSelect.value = filters.content_type;
+					}
+					
+					if (filters.sort !== undefined && filters.sort !== '') {
+						const sortSelect = document.getElementById('filter-sort');
+						if (sortSelect) sortSelect.value = filters.sort;
+					}
+					
+					if (filters.limit !== undefined && filters.limit !== '') {
+						const limitSelect = document.getElementById('filter-limit');
+						if (limitSelect) limitSelect.value = filters.limit;
+					}
+				} catch (e) {
+					console.error('Failed to restore filter state:', e);
+				}
+			}
+
+			// Upgrade all artwork images to highest quality after HTMX swaps
+			function upgradeAllArtwork() {
+				document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
+					if (img.src && !img.src.includes('t500x500')) {
+						img.src = upgradeArtwork(img.src);
+					}
+				});
 			}
 
 			// Load filter state from localStorage
@@ -814,71 +440,45 @@ templ Stream(data StreamData) {
 			let currentPlayerBar = null;
 
 			document.addEventListener('click', function(e) {
-				// Check for vcard play buttons (new style)
+				// Unified player handler - supports both vcard-play and track-card-pill-play
 				const vcardBtn = e.target.closest('.vcard-play');
-				if (vcardBtn) {
-					const card = vcardBtn.closest('.vcard-3');
-					if (!card) return;
-					
-					const trackID = card.dataset.trackId;
-					const streamUrl = card.dataset.streamUrl || '';
-					const titleEl = card.querySelector('.vcard-title');
-					const title = titleEl ? titleEl.textContent : 'Unknown Track';
-					const artistEl = card.querySelector('.vcard-artist');
-					const artist = artistEl ? artistEl.textContent : 'Unknown Artist';
-					const artworkEl = card.querySelector('.vcard-art');
-					const artworkUrl = artworkEl ? artworkEl.src : '';
-					
-					console.log('Playing:', trackID, title, artist, streamUrl);
-					
-					// Remove existing player
-					if (currentPlayerBar) {
-						currentPlayerBar.remove();
-					}
-					if (currentAudio) {
-						currentAudio.pause();
-					}
-					
-					// Create player bar HTML
-					const playerHtml = `
-						<div class="player-bar" id="player-bar">
-							<img src="${artworkUrl}" alt="" />
-							<div class="player-bar-info">
-								<div class="player-bar-title">${title}</div>
-								<div class="player-bar-artist">${artist}</div>
-							</div>
-							<audio controls autoplay>
-								<source src="/api/track/${trackID}/stream" type="audio/mpeg">
-								Your browser does not support audio
-							</audio>
-							<button class="close-btn" onclick="this.parentElement.remove()">×</button>
-						</div>
-					`;
-					
-					const container = document.getElementById('player-container');
-					if (container) {
-						container.innerHTML = playerHtml;
-						currentPlayerBar = container.querySelector('.player-bar');
-						currentAudio = currentPlayerBar.querySelector('audio');
-					}
-					return;
-				}
-			
-				// Check for track-card-pill-play buttons (old style)
-				const btn = e.target.closest('.track-card-pill-play');
+				const legacyBtn = e.target.closest('.track-card-pill-play');
+				
+				const btn = vcardBtn || legacyBtn;
 				if (!btn) return;
 
-				const card = btn.closest('.track-card-pill');
-				const artworkUrl = btn.style.backgroundImage.replace('url(', '').replace(')', '').replace(/"/g, '');
-				const title = card.dataset.title || card.querySelector('.track-card-pill-title')?.textContent || 'Unknown Track';
-				const artist = card.dataset.artist || card.querySelector('.track-card-pill-artist')?.textContent || 'Unknown Artist';
-				const streamUrl = card.dataset.streamUrl || '';
-
-				if (!streamUrl) {
-					alert('Demo mode: Stream URL not available. Connect your SoundCloud account and sync to enable playback.');
+				// Get the card container
+				const card = vcardBtn ? vcardBtn.closest('.vcard-3') : btn.closest('.track-card-pill');
+				if (!card) return;
+				
+				// Get track info from data attributes or DOM
+				const trackID = card.dataset.trackId;
+				let streamUrl = card.dataset.streamUrl || '';
+				const titleEl = card.querySelector('.vcard-title, .track-card-pill-title');
+				const title = card.dataset.title || (titleEl ? titleEl.textContent : 'Unknown Track');
+				const artistEl = card.querySelector('.vcard-artist, .track-card-pill-artist');
+				const artist = card.dataset.artist || (artistEl ? artistEl.textContent : 'Unknown Artist');
+				
+				// Get artwork
+				let artworkUrl = '';
+				if (vcardBtn) {
+					const artworkEl = card.querySelector('.vcard-art');
+					artworkUrl = artworkEl ? artworkEl.src : '';
+				} else {
+					// Legacy: extract from button style
+					artworkUrl = btn.style.backgroundImage?.replace('url(', '').replace(')', '').replace(/"/g, '') || '';
+				}
+				
+				console.log('Playing:', trackID, title, artist, streamUrl);
+				
+				// For new vcard style, use API endpoint; for legacy, use direct stream URL
+				const audioSrc = vcardBtn ? `/api/track/${trackID}/stream` : streamUrl;
+				
+				if (!audioSrc) {
+					showErrorNotification('Demo mode: Stream URL not available. Connect your SoundCloud account and sync to enable playback.', 'info');
 					return;
 				}
-
+				
 				// Remove existing player
 				if (currentPlayerBar) {
 					currentPlayerBar.remove();
@@ -886,8 +486,8 @@ templ Stream(data StreamData) {
 				if (currentAudio) {
 					currentAudio.pause();
 				}
-
-				// Create player bar HTML
+				
+				// Create unified player bar HTML
 				const playerHtml = `
 					<div class="player-bar" id="player-bar">
 						<img src="${artworkUrl}" alt="" />
@@ -896,16 +496,19 @@ templ Stream(data StreamData) {
 							<div class="player-bar-artist">${artist}</div>
 						</div>
 						<audio controls autoplay>
-							<source src="${streamUrl}" type="audio/mpeg">
+							<source src="${audioSrc}" type="audio/mpeg">
 							Your browser does not support audio
 						</audio>
 						<button class="close-btn" onclick="this.parentElement.remove()">×</button>
 					</div>
 				`;
-
-				document.getElementById('player-container').innerHTML = playerHtml;
-				currentPlayerBar = document.getElementById('player-bar');
-				currentAudio = currentPlayerBar.querySelector('audio');
+				
+				const container = document.getElementById('player-container');
+				if (container) {
+					container.innerHTML = playerHtml;
+					currentPlayerBar = container.querySelector('.player-bar');
+					currentAudio = currentPlayerBar.querySelector('audio');
+				}
 			});
 
 			// Handle load more with limit tracking
@@ -960,6 +563,29 @@ templ Stream(data StreamData) {
 				document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
 					img.src = upgradeArtwork(img.src);
 				});
+				
+				// Save current tracks to localStorage cache
+				const trackContainer = document.getElementById('track-container');
+				if (trackContainer) {
+					const cards = trackContainer.querySelectorAll('.stream-flip-card');
+					if (cards.length > 0) {
+						const tracksData = [];
+						cards.forEach(function(card) {
+							const img = card.querySelector('img');
+							tracksData.push({
+								id: card.dataset.trackId,
+								title: card.dataset.trackTitle,
+								artist: card.dataset.artistName,
+								artwork: img ? img.src : '',
+								genre: card.querySelector('.stream-flip-genre')?.textContent || '',
+								duration: card.querySelector('.stat-duration')?.textContent || '',
+								plays: card.querySelector('.stat-plays')?.textContent || '',
+								likes: card.querySelector('.stat-likes')?.textContent || '',
+							});
+						});
+						localStorage.setItem('stream-tracks-cache', JSON.stringify(tracksData));
+					}
+				}
 				
 				// Initialize loaded count from initial tracks
 				const loadMoreBtn = document.getElementById('load-more-btn');
@@ -1133,6 +759,67 @@ templ Stream(data StreamData) {
 				if (!url) return url;
 				// Replace any small size with largest available (t500x500)
 				return url.replace(/-t\d+x\d+/g, '-t500x500').replace('-large.', '-t500x500.');
+			}
+
+			// Show re-authentication prompt
+			function showReauthPrompt() {
+				const trackContainer = document.getElementById('track-container');
+				if (trackContainer) {
+					trackContainer.innerHTML = `
+						<div style="text-align: center; padding: 3rem;">
+							<h3>🔐 Re-authentication Required</h3>
+							<p>Your SoundCloud session has expired. Please reconnect to continue.</p>
+							<a href="/auth/soundcloud" class="btn btn-primary">Reconnect SoundCloud</a>
+						</div>
+					`;
+				}
+				localStorage.removeItem('stream-tracks-cache');
+			}
+
+			// Restore tracks from localStorage cache
+			function restoreFromCache() {
+				const cached = localStorage.getItem('stream-tracks-cache');
+				if (!cached) return false;
+				
+				try {
+					const tracks = JSON.parse(cached);
+					const trackContainer = document.getElementById('track-container');
+					if (!trackContainer || tracks.length === 0) return false;
+					
+					// Build HTML from cached data
+					let html = '<div class="stream-flip-grid" id="cards-grid">';
+					tracks.forEach(function(track) {
+						html += `
+							<div class="stream-flip-card" data-track-id="${track.id}" 
+							     data-track-title="${track.title}" data-artist-name="${track.artist}"
+							     data-stream-url="/api/track/${track.id}/stream"
+							     onclick="handleStreamFlip(this)">
+								<div class="stream-flip">
+									<div class="stream-flip-front">
+										<img src="${track.artwork}" alt="${track.title}">
+										<div class="stream-flip-info">
+											<div class="stream-flip-title">${track.title}</div>
+											<div class="stream-flip-artist">${track.artist}</div>
+											<div class="stream-flip-stats">
+												<span class="stat-plays">${track.plays}</span>
+												<span class="stat-likes">${track.likes}</span>
+											</div>
+											<div class="stream-flip-genre">${track.genre}</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						`;
+					});
+					html += '</div>';
+					
+					trackContainer.innerHTML = html;
+					upgradeAllArtwork();
+					return true;
+				} catch (e) {
+					console.error('Failed to restore from cache:', e);
+					return false;
+				}
 			}
 		</script>
 	}
