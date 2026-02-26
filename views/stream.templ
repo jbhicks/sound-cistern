@@ -221,6 +221,20 @@ templ Stream(data StreamData) {
 				}, 100);
 			})();
 
+			// Handle load more button - update page number after successful load
+			window.handleLoadMore = function(btn, event) {
+				if (event && event.detail && event.detail.successful) {
+					var currentPage = parseInt(btn.getAttribute('data-page')) || 2;
+					// Check if there are more tracks to load (button still visible)
+					var cardsGrid = document.getElementById('cards-grid');
+					var trackCount = cardsGrid ? cardsGrid.querySelectorAll('.stream-flip-card').length : 0;
+					console.log('Loaded page ' + currentPage + ', total tracks: ' + trackCount);
+					// Update page for next request
+					btn.setAttribute('data-page', currentPage + 1);
+					btn.setAttribute('hx-vals', JSON.stringify({ page: String(currentPage + 1) }));
+				}
+			};
+
 			// Note: Auto-sync disabled - tracks loaded via HTMX on page load
 			// (kept in case we want to re-enable later)
 			// (function() {
