@@ -1048,8 +1048,10 @@ func main() {
 				Filters:     map[string]interface{}{},
 				IsLoggedIn:  "false",
 				MinDuration: int64(0),
-				MaxDuration: int64(94),
+				MaxDuration: int64(0),
 			}
+
+			var maxDur int64 = 0
 
 			if authRecord != nil {
 				data.IsLoggedIn = "true"
@@ -1080,8 +1082,8 @@ func main() {
 
 				// Pre-load tracks server-side for initial render
 				if isTestMode {
-					// Leave tracks empty - JS will fetch from API
-					// This prevents duplicates between server render and client fetch
+					// Set max duration for test mode based on longest mock track (9 min)
+					data.MaxDuration = 9
 				} else {
 					// Fetch fresh from SoundCloud API
 					soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
@@ -1098,6 +1100,13 @@ func main() {
 							if err == nil && len(tracks) > 0 {
 								log.Printf("[Stream] Fetched %d fresh tracks from SoundCloud API", len(tracks))
 								data.Tracks = tracks
+								for _, t := range tracks {
+									durMin := t.TrackDuration / 60000
+									if durMin > maxDur {
+										maxDur = durMin
+									}
+								}
+								data.MaxDuration = maxDur
 							} else {
 								// Auth failed - redirect to re-auth
 								log.Printf("[Stream] SoundCloud auth failed: %v - redirecting to re-auth", err)
@@ -2430,7 +2439,9 @@ func main() {
 					CurrentPath: "/favorites",
 					TestMode:    isTestMode,
 				},
-				Favorites: []views.Track{}, // Load via API
+				Favorites:   []views.Track{},
+				MinDuration: 0,
+				MaxDuration: 94,
 			}
 
 			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)

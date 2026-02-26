@@ -73,7 +73,7 @@ templ FavoritesPage(data FavoritesPageData) {
 				
 				<div class="vapor-filter-row">
 					<label class="vapor-duration">
-						<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong></span>
+						<span>Min Duration: <strong id="duration-min-display">{ formatDurationMinutes(data.MinDuration) }</strong> / { formatDurationMinutes(data.MaxDuration) }</span>
 						<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
 							hx-get="/api/favorites?refresh=true"
 							hx-target="#track-container"

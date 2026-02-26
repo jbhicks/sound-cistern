@@ -69,38 +69,51 @@ func FavoritesPage(data FavoritesPageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</strong></span> <input type=\"range\" id=\"duration-range\" min=\"0\" max=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</strong> / ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(formatInt64(data.MaxDuration))
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(formatDurationMinutes(data.MaxDuration))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/favorites.templ`, Line: 77, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/favorites.templ`, Line: 76, Col: 156}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span> <input type=\"range\" id=\"duration-range\" min=\"0\" max=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(formatInt64(data.MinDuration))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(formatInt64(data.MaxDuration))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/favorites.templ`, Line: 77, Col: 129}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/favorites.templ`, Line: 77, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" hx-get=\"/api/favorites?refresh=true\" hx-target=\"#track-container\" hx-trigger=\"input delay:300ms, load\" hx-include=\"#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range\" name=\"duration_min\" oninput=\"updateDurationDisplay(this.value)\"></label></div></div><div id=\"loading\" aria-busy=\"true\" hidden><small>Loading favorites...</small></div><div id=\"track-container\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var6 string
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatInt64(data.MinDuration))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/favorites.templ`, Line: 77, Col: 129}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" hx-get=\"/api/favorites?refresh=true\" hx-target=\"#track-container\" hx-trigger=\"input delay:300ms, load\" hx-include=\"#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range\" name=\"duration_min\" oninput=\"updateDurationDisplay(this.value)\"></label></div></div><div id=\"loading\" aria-busy=\"true\" hidden><small>Loading favorites...</small></div><div id=\"track-container\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(data.Favorites) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"stream-flip-grid\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"stream-flip-grid\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -120,17 +133,17 @@ func FavoritesPage(data FavoritesPageData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<article><hgroup><h3>No favorites yet</h3><p>Start exploring your stream and favorite tracks you love.</p></hgroup><footer><a href=\"/stream\" role=\"button\">Go to Stream</a></footer></article>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<article><hgroup><h3>No favorites yet</h3><p>Start exploring your stream and favorite tracks you love.</p></hgroup><footer><a href=\"/stream\" role=\"button\">Go to Stream</a></footer></article>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div style=\"text-align: center; margin-top: 1rem;\" id=\"load-more-sentinel\"><button class=\"btn btn-secondary load-more-btn\" id=\"load-more-btn\" data-page=\"2\" data-loaded=\"0\" hx-get=\"/api/favorites\" hx-vals='{\"page\":\"2\"}' hx-include=\"#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range\" hx-target=\"#track-container\" hx-swap=\"beforeend\" hx-trigger=\"revealed\" hx-indicator=\"#load-more-indicator\" hx-on::after-request=\"handleLoadMore(this, event)\" aria-label=\"Load more favorites\">Load More</button> <span id=\"load-more-indicator\" class=\"htmx-indicator\" aria-busy=\"true\" hidden><small>Loading more...</small></span> <small id=\"no-more\" hidden>All favorites loaded</small></div></main><div id=\"player-container\"></div><script>\n\t\t\t// Initialize filter state on page load\n\t\t\t(function() {\n\t\t\t\tloadFilterState();\n\t\t\t\tsetupFilterListeners();\n\t\t\t\t\n\t\t\t\t// Enhance all artwork to highest quality\n\t\t\t\tdocument.querySelectorAll('.stream-flip-card img').forEach(function(img) {\n\t\t\t\t\timg.src = upgradeArtwork(img.src);\n\t\t\t\t});\n\t\t\t\t\n\t\t\t\t// Initialize loaded count from initial tracks\n\t\t\t\tconst loadMoreBtn = document.getElementById('load-more-btn');\n\t\t\t\tconst trackContainer = document.getElementById('track-container');\n\t\t\t\tif (loadMoreBtn && trackContainer) {\n\t\t\t\t\tconst initialTracks = trackContainer.querySelectorAll('.stream-flip-card, .track-card-pill').length;\n\t\t\t\t\tloadMoreBtn.setAttribute('data-loaded', initialTracks);\n\t\t\t\t\t\n\t\t\t\t\tconst limit = parseInt(document.getElementById('filter-limit')?.value) || 20;\n\t\t\t\t\tif (initialTracks >= limit) {\n\t\t\t\t\t\tloadMoreBtn.hidden = true;\n\t\t\t\t\t\tdocument.getElementById('no-more').hidden = false;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t})();\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><div style=\"text-align: center; margin-top: 1rem;\" id=\"load-more-sentinel\"><button class=\"btn btn-secondary load-more-btn\" id=\"load-more-btn\" data-page=\"2\" data-loaded=\"0\" hx-get=\"/api/favorites\" hx-vals='{\"page\":\"2\"}' hx-include=\"#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range\" hx-target=\"#track-container\" hx-swap=\"beforeend\" hx-trigger=\"revealed\" hx-indicator=\"#load-more-indicator\" hx-on::after-request=\"handleLoadMore(this, event)\" aria-label=\"Load more favorites\">Load More</button> <span id=\"load-more-indicator\" class=\"htmx-indicator\" aria-busy=\"true\" hidden><small>Loading more...</small></span> <small id=\"no-more\" hidden>All favorites loaded</small></div></main><div id=\"player-container\"></div><script>\n\t\t\t// Initialize filter state on page load\n\t\t\t(function() {\n\t\t\t\tloadFilterState();\n\t\t\t\tsetupFilterListeners();\n\t\t\t\t\n\t\t\t\t// Enhance all artwork to highest quality\n\t\t\t\tdocument.querySelectorAll('.stream-flip-card img').forEach(function(img) {\n\t\t\t\t\timg.src = upgradeArtwork(img.src);\n\t\t\t\t});\n\t\t\t\t\n\t\t\t\t// Initialize loaded count from initial tracks\n\t\t\t\tconst loadMoreBtn = document.getElementById('load-more-btn');\n\t\t\t\tconst trackContainer = document.getElementById('track-container');\n\t\t\t\tif (loadMoreBtn && trackContainer) {\n\t\t\t\t\tconst initialTracks = trackContainer.querySelectorAll('.stream-flip-card, .track-card-pill').length;\n\t\t\t\t\tloadMoreBtn.setAttribute('data-loaded', initialTracks);\n\t\t\t\t\t\n\t\t\t\t\tconst limit = parseInt(document.getElementById('filter-limit')?.value) || 20;\n\t\t\t\t\tif (initialTracks >= limit) {\n\t\t\t\t\t\tloadMoreBtn.hidden = true;\n\t\t\t\t\t\tdocument.getElementById('no-more').hidden = false;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t})();\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
