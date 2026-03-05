@@ -31,18 +31,19 @@ templ FavoritesPage(data FavoritesPageData) {
 							autocomplete="off"
 							hx-get="/api/favorites"
 							hx-target="#track-container"
-							hx-trigger="input delay:300ms, load"
+							hx-trigger="input delay:300ms"
+							hx-vals='js:{"offset": "0"}'
 							hx-include="#filter-content-type,#filter-sort,#filter-limit,#duration-range"
 						/>
 					</div>
 					
 					<div class="vapor-filters">
-						<select name="content_type" id="filter-content-type" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-include="#filter-q,#filter-sort,#filter-limit,#duration-range">
+						<select name="content_type" id="filter-content-type" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-vals='js:{"offset": "0"}' hx-include="#filter-q,#filter-sort,#filter-limit,#duration-range">
 							<option value="">All</option>
 							<option value="posts">Posts</option>
 							<option value="reposts">Reposts</option>
 						</select>
-						<select name="sort" id="filter-sort" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-include="#filter-q,#filter-content-type,#filter-limit,#duration-range">
+						<select name="sort" id="filter-sort" hx-get="/api/favorites" hx-target="#track-container" hx-trigger="change" hx-vals='js:{"offset": "0"}' hx-include="#filter-q,#filter-content-type,#filter-limit,#duration-range">
 							<option value="newest">Newest</option>
 							<option value="oldest">Oldest</option>
 							<option value="title">Title</option>
@@ -52,8 +53,8 @@ templ FavoritesPage(data FavoritesPageData) {
 					</div>
 					
 					<div class="vapor-actions">
-						<select name="limit" id="filter-limit" hx-get="/api/favorites?refresh=true" hx-target="#track-container" hx-trigger="change" hx-include="#duration-range">
-							<option value="20">20</option>
+						<select name="limit" id="filter-limit" hx-get="/api/favorites?refresh=true" hx-target="#track-container" hx-trigger="change" hx-vals='js:{"offset": "0"}' hx-include="#filter-q,#filter-content-type,#filter-sort,#duration-range">
+							<option value="20" selected>20</option>
 							<option value="50">50</option>
 							<option value="100">100</option>
 						</select>
@@ -77,7 +78,9 @@ templ FavoritesPage(data FavoritesPageData) {
 						<input type="range" id="duration-range" min="0" max={ formatInt64(data.MaxDuration) } value={ formatInt64(data.MinDuration) } 
 							hx-get="/api/favorites?refresh=true"
 							hx-target="#track-container"
+							hx-swap="innerHTML"
 							hx-trigger="input delay:300ms, load"
+							hx-vals='js:{"offset": "0"}'
 							hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
 							name="duration_min"
 							oninput="updateDurationDisplay(this.value)"
@@ -124,16 +127,13 @@ templ FavoritesPage(data FavoritesPageData) {
 				<button 
 					class="btn btn-secondary load-more-btn"
 					id="load-more-btn"
-					data-page="2"
-					data-loaded="0"
 					hx-get="/api/favorites"
-					hx-vals='{"page":"2"}'
+					hx-vals='js:{offset: getNextOffset().toString()}'
 					hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
 					hx-target="#track-container"
 					hx-swap="beforeend"
 					hx-trigger="revealed"
 					hx-indicator="#load-more-indicator"
-					hx-on::after-request="handleLoadMore(this, event)"
 					aria-label="Load more favorites"
 				>
 					Load More
@@ -148,30 +148,206 @@ templ FavoritesPage(data FavoritesPageData) {
 		<div id="player-container"></div>
 
 		<script>
+			// Track current offset for infinite scroll
+			let currentOffset = 0;
+			
+			// Save filter state to localStorage
+			function saveFilterState() {
+				const filters = {
+					q: document.getElementById('filter-q')?.value || '',
+					content_type: document.getElementById('filter-content-type')?.value || '',
+					sort: document.getElementById('filter-sort')?.value || 'newest',
+					duration_min: document.getElementById('duration-range')?.value || '0',
+					limit: document.getElementById('filter-limit')?.value || '20'
+				};
+				localStorage.setItem('favorites-filters', JSON.stringify(filters));
+			}
+
+			function formatMinutes(minutes) {
+				const mins = parseInt(minutes);
+				if (mins < 60) {
+					return mins + ' min';
+				}
+				const hours = Math.floor(mins / 60);
+				const remainingMins = mins % 60;
+				if (remainingMins === 0) {
+					return hours + ' hr';
+				}
+				return hours + ' hr ' + remainingMins + ' min';
+			}
+
+			function updateDurationDisplay(value) {
+				const display = document.getElementById('duration-min-display');
+				if (display) {
+					display.textContent = formatMinutes(value);
+				}
+			}
+			
+			// Load filter state from localStorage
+			function loadFilterState() {
+				const saved = localStorage.getItem('favorites-filters');
+				if (!saved) return false;
+				
+				try {
+					const filters = JSON.parse(saved);
+					
+					if (filters.q !== undefined) {
+						const qInput = document.getElementById('filter-q');
+						if (qInput) qInput.value = filters.q;
+					}
+					
+					if (filters.content_type !== undefined) {
+						const ctSelect = document.getElementById('filter-content-type');
+						if (ctSelect) ctSelect.value = filters.content_type;
+					}
+					
+					if (filters.sort !== undefined) {
+						const sortSelect = document.getElementById('filter-sort');
+						if (sortSelect) sortSelect.value = filters.sort;
+					}
+					
+					if (filters.duration_min !== undefined) {
+						const durRange = document.getElementById('duration-range');
+						if (durRange) {
+							durRange.value = filters.duration_min;
+							updateDurationDisplay(filters.duration_min);
+						}
+					}
+					
+					if (filters.limit !== undefined) {
+						const limitSelect = document.getElementById('filter-limit');
+						if (limitSelect) limitSelect.value = filters.limit;
+					}
+					
+					return true;
+				} catch (e) {
+					console.error('Failed to load filter state:', e);
+					return false;
+				}
+			}
+			
+			function getLoadedTrackCount() {
+				const trackContainer = document.getElementById('track-container');
+				if (!trackContainer) return 0;
+				// Count tracks across ALL grids (HTMX appends new grids with beforeend)
+				const grids = trackContainer.querySelectorAll('.stream-flip-grid');
+				let total = 0;
+				grids.forEach(function(grid) {
+					total += grid.children.length;
+				});
+				return total;
+			}
+			
+			function updateOffsetFromDOM() {
+				currentOffset = getLoadedTrackCount();
+			}
+			
+			function getNextOffset() {
+				return getLoadedTrackCount();
+			}
+			
+			// Setup event listeners to save filter state
+			function setupFilterListeners() {
+				const qInput = document.getElementById('filter-q');
+				const contentType = document.getElementById('filter-content-type');
+				const sort = document.getElementById('filter-sort');
+				const durationRange = document.getElementById('duration-range');
+				
+				if (qInput) qInput.addEventListener('input', saveFilterState);
+				if (contentType) contentType.addEventListener('change', saveFilterState);
+				if (sort) sort.addEventListener('change', saveFilterState);
+				if (durationRange) durationRange.addEventListener('input', saveFilterState);
+			}
+			
 			// Initialize filter state on page load
 			(function() {
-				loadFilterState();
+				const filtersLoaded = loadFilterState();
 				setupFilterListeners();
+				
+				// If filters were loaded from localStorage, trigger a fetch with those filters
+				if (filtersLoaded) {
+					setTimeout(function() {
+						var trackContainer = document.getElementById('track-container');
+						if (trackContainer) {
+							var durationRange = document.getElementById('duration-range');
+							var qInput = document.getElementById('filter-q');
+							var contentType = document.getElementById('filter-content-type');
+							var sort = document.getElementById('filter-sort');
+							var limit = document.getElementById('filter-limit');
+							
+							var params = new URLSearchParams();
+							params.set('offset', '0');
+							if (qInput && qInput.value) params.set('q', qInput.value);
+							if (contentType && contentType.value) params.set('content_type', contentType.value);
+							if (sort && sort.value) params.set('sort', sort.value);
+							if (limit && limit.value) params.set('limit', limit.value);
+							if (durationRange && durationRange.value) params.set('duration_min', durationRange.value);
+							
+							htmx.ajax('GET', '/api/favorites?' + params.toString(), {
+								target: '#track-container',
+								swap: 'innerHTML'
+							}).then(function() {
+								document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
+									img.src = upgradeArtwork(img.src);
+								});
+								updateOffsetFromDOM();
+							});
+						}
+					}, 100);
+				}
 				
 				// Enhance all artwork to highest quality
 				document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
 					img.src = upgradeArtwork(img.src);
 				});
 				
-				// Initialize loaded count from initial tracks
+				// Initialize offset from initial tracks
+				updateOffsetFromDOM();
+				
+				// Check if we need to show load more
 				const loadMoreBtn = document.getElementById('load-more-btn');
-				const trackContainer = document.getElementById('track-container');
-				if (loadMoreBtn && trackContainer) {
-					const initialTracks = trackContainer.querySelectorAll('.stream-flip-card, .track-card-pill').length;
-					loadMoreBtn.setAttribute('data-loaded', initialTracks);
-					
+				if (loadMoreBtn) {
 					const limit = parseInt(document.getElementById('filter-limit')?.value) || 20;
-					if (initialTracks >= limit) {
+					if (currentOffset >= limit) {
 						loadMoreBtn.hidden = true;
 						document.getElementById('no-more').hidden = false;
 					}
 				}
 			})();
+			
+			// Reset offset when filters change (search, duration, content type, sort)
+			function resetOffset() {
+				currentOffset = 0;
+				const loadMoreBtn = document.getElementById('load-more-btn');
+				if (loadMoreBtn) {
+					loadMoreBtn.hidden = false;
+					document.getElementById('no-more').hidden = true;
+				}
+			}
+			
+			// Listen for filter changes and reset offset
+			document.addEventListener('htmx:beforeRequest', function(e) {
+				const url = e.detail.requestConfig.url;
+				if (url && (url.includes('/api/favorites') || url.includes('/api/stream'))) {
+					// Check if this is a filter change (not load more)
+					const params = new URLSearchParams(e.detail.requestConfig.parameters);
+					if (!params.has('offset')) {
+						resetOffset();
+					}
+				}
+			});
+			
+			// Update offset after content is swapped
+			document.addEventListener('htmx:afterSwap', function(e) {
+				if (e.detail.target.id === 'track-container') {
+					updateOffsetFromDOM();
+					
+					// Enhance artwork
+					document.querySelectorAll('.stream-flip-card img').forEach(function(img) {
+						img.src = upgradeArtwork(img.src);
+					});
+				}
+			});
 		</script>
 	}
 }

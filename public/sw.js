@@ -1,12 +1,14 @@
-const CACHE_NAME = 'sound-cistern-v1';
-const MAX_TRACKS = 50;
+const CACHE_NAME = 'sound-cistern-v4';
+const MAX_TRACKS = 100;
 
 const STATIC_ASSETS = [
   '/',
   '/css/pico.min.css',
   '/css/custom.css',
+  '/css/stream.css',
   '/js/theme.js',
   '/js/htmx.min.js',
+  '/js/htmx-enhancements.js',
   '/favicon.svg',
   '/manifest.json'
 ];
