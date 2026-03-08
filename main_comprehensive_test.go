@@ -202,23 +202,6 @@ func TestSettingsPage(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/settings", nil)
 		assert.Equal(t, "/settings", req.URL.Path)
 	})
-
-	t.Run("API settings GET endpoint", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
-		assert.Equal(t, "/api/settings", req.URL.Path)
-	})
-
-	t.Run("API settings POST endpoint", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/settings", nil)
-		assert.Equal(t, "/api/settings", req.URL.Path)
-	})
-
-	t.Run("Settings form HTMX attributes", func(t *testing.T) {
-		html := `<form hx-post="/api/settings" hx-target="#settings-container">`
-
-		assert.Contains(t, html, `hx-post="/api/settings"`)
-		assert.Contains(t, html, `hx-target="#settings-container"`)
-	})
 }
 
 // TestDashboardPage tests the dashboard page
@@ -417,8 +400,6 @@ func TestHTMXEndpointsComplete(t *testing.T) {
 		{"POST", "/api/favorites/123/htmx"},
 		{"GET", "/api/search"},
 		{"POST", "/api/sync"},
-		{"GET", "/api/settings"},
-		{"POST", "/api/settings"},
 	}
 
 	for _, endpoint := range endpoints {

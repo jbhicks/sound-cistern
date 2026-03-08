@@ -9,6 +9,8 @@ metadata:
   stack: pico-css-templ-htmx-primer
 ---
 
+> ⚠️ **DEPRECATED**: This skill describes Pico.css + HTMX + Templ UX patterns that are no longer used in Sound Cistern. The v2 frontend uses Tailwind CSS + React + Framer Motion. This skill is kept for historical reference only. Do not use these patterns for new features.
+
 # Sound Cistern UX Development Skill
 
 ## Overview

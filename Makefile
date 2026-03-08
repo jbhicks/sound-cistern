@@ -62,11 +62,13 @@ build: templ
 	@echo "✅ Build complete!"
 
 dev:
-	@echo "🚀 Starting PocketBase development server with hot reload..."
-	@echo "📱 Admin UI: http://127.0.0.1:8090/_/"
-	@echo "📱 Public API: http://127.0.0.1:8090/api/"
-	@echo "🔥 Hot reload enabled - edit .go or .templ files to trigger rebuild"
+	@echo "🚀 Starting PocketBase + Vite dev servers..."
+	@echo "📱 Admin UI:    http://127.0.0.1:8090/_/"
+	@echo "⚛️  React (HMR): http://127.0.0.1:5173"
+	@echo "🌐 Public URL:  https://soundcistern.jbhicks.dev (tunnel → :5173)"
+	@echo "🔥 HMR active on both local and public URL"
 	@mkdir -p tmp
+	@cd v2 && npm run dev &
 	@air -c .air.toml
 
 # Background dev server (non-blocking for agents)
@@ -213,3 +215,34 @@ test-db-setup:
 	@mkdir -p pb_data_test_template
 	@echo "Run 'make dev' first, then visit http://localhost:8090/_/ to create collections and test data"
 	@echo "After setup, copy pb_data to pb_data_test_template: cp -r pb_data/* pb_data_test_template/"
+
+v2-build:
+	cd v2 && npm run build
+
+v2-dev:
+	cd v2 && npm run dev
+
+# Playwright E2E tests — requires server running at localhost:8090
+# For full coverage, start server with TEST_MODE=true first: make dev-test
+# Then in another terminal: make test-playwright
+test-playwright:
+	@echo "🎭 Running Playwright E2E tests..."
+	@echo "ℹ️  Server must be running at localhost:8090"
+	@echo "ℹ️  For full coverage, start with: make dev-test"
+	cd v2 && npx playwright test
+	@echo "✅ Playwright tests complete!"
+
+# Playwright tests with TEST_MODE (auto-auth, full coverage)
+test-playwright-full:
+	@echo "🎭 Running Playwright E2E tests (TEST_MODE)..."
+	cd v2 && TEST_MODE=true npx playwright test
+	@echo "✅ Playwright tests complete!"
+
+# Playwright tests with visible browser
+test-playwright-headed:
+	@echo "🎭 Running Playwright E2E tests (headed)..."
+	cd v2 && npx playwright test --headed
+
+# Show Playwright HTML report
+test-playwright-report:
+	cd v2 && npx playwright show-report

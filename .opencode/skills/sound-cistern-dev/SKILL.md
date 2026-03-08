@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   version: "1.0"
   audience: sound-cistern-developers
-  stack: go-pocketbase-templ
+  stack: go-pocketbase-react-vite-tailwind
 ---
 
 # Sound Cistern Development Skill
@@ -25,7 +25,7 @@ Do NOT run `make dev`, `make serve`, `make test-e2e`, or any command that starts
 
 ## Project Overview
 
-Sound Cistern is a Soundcloud aggregator that lets users authenticate via OAuth and browse their liked/favorited tracks. Built with Go, PocketBase, Templ, and HTMX.
+Sound Cistern is a Soundcloud aggregator that lets users authenticate via OAuth and browse their liked/favorited tracks. Built with Go, PocketBase (backend) and React 18, Vite, Tailwind CSS, Zustand, and Framer Motion (frontend v2).
 
 ## Development Environment
 
@@ -46,6 +46,19 @@ make templ
 
 # Build the binary
 make build
+```
+
+### Building the React v2 Frontend
+
+```bash
+# Install dependencies (first time)
+cd v2 && npm install
+
+# Development server (HMR, proxies /api and /auth to :8090)
+cd v2 && npm run dev   # serves on http://localhost:5173
+
+# Production build (outputs to public/v2/)
+cd v2 && npm run build
 ```
 
 ### Cloudflare Tunnel (Prod == Dev Setup)
@@ -173,7 +186,7 @@ make serve  # Will recreate fresh DB
 | `/stream` | Main track list (requires auth) |
 | `/auth/soundcloud` | Start OAuth flow |
 | `/auth/soundcloud/callback` | OAuth callback |
-| `/api/stream` | Get tracks (HTMX) |
+| `/api/stream` | Get tracks (JSON) |
 | `/api/sync` | Sync tracks from Soundcloud |
 | `/api/favorites` | Get favorites |
 | `/api/favorites/:id/toggle` | Toggle favorite |
@@ -181,20 +194,11 @@ make serve  # Will recreate fresh DB
 
 ## Prototyping
 
-**Single route for all prototypes**: `/proto`
+**Legacy route**: `/proto` (Templ-based, kept for reference)
 
-Usage:
-- `/proto?type=track-cards` - Track card layout experiments
-- `/proto?type=gradient` - Gradient vignette card designs
-- `/proto?type=pill` - Pill-shaped card variations
-- `/proto?type=ui` - General UI component experiments
+The `/proto` route is legacy and uses the old Templ/HTMX stack. New UI work happens in `v2/src/`. Do not add new prototypes to `views/proto.templ`.
 
-To add a new prototype:
-1. Add a new `ProtoType` constant in `views/proto.templ`
-2. Add a case in the switch statement to render the prototype
-3. Components go in `views/components/`
-
-The template uses HTMX boost for seamless navigation between prototype types.
+For new feature prototypes, create components in `v2/src/components/` and add routes via React Router. The v2 frontend uses React Router for navigation and `fetch()` for API calls instead of HTMX boost.
 
 ## Troubleshooting
 

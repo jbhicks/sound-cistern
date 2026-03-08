@@ -496,9 +496,10 @@ templ VignetteCard1E(
 }
 
 script playTrack(trackID string, streamURL string, trackTitle string, artistName string) {
-	// Dispatch custom event for the audio player
+	// Always use the proxy endpoint for best quality streaming
+	const resolvedURL = trackID ? `/api/track/${trackID}/stream` : streamURL;
 	const event = new CustomEvent('playTrack', {
-		detail: { trackID, streamURL, trackTitle, artistName }
+		detail: { trackID, streamURL: resolvedURL, trackTitle, artistName }
 	});
 	document.dispatchEvent(event);
 }

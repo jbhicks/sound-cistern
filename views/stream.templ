@@ -157,14 +157,16 @@ templ Stream(data StreamData) {
 					</footer>
 				</article>
 			}
-			<div 
-				class="stream-flip-grid" 
-				id="cards-grid"
-				hx-get="/api/stream"
-				hx-swap="innerHTML"
-				hx-on::after-request="upgradeAllArtwork()"
-			>
-			</div>
+		<div 
+			class="stream-flip-grid" 
+			id="cards-grid"
+			hx-get="/api/stream"
+			hx-trigger="load"
+			hx-swap="innerHTML"
+			hx-include="#filter-q,#filter-content-type,#filter-sort,#filter-limit,#duration-range"
+			hx-on::after-request="upgradeAllArtwork()"
+		>
+		</div>
 		</div>
 
 			<div style="text-align: center; margin-top: 1rem;" id="load-more-sentinel">
@@ -194,15 +196,10 @@ templ Stream(data StreamData) {
 		<script>
 			// Offset tracking for infinite scroll
 			function getLoadedTrackCount() {
-				var cardsGrid = document.getElementById('cards-grid');
-				if (!cardsGrid) return 0;
-				// Count all cards across all grids (HTMX appends new grids with beforeend)
-				var allGrids = cardsGrid.querySelectorAll('.stream-flip-grid');
-				var total = 0;
-				allGrids.forEach(function(grid) {
-					total += grid.querySelectorAll('.stream-flip-card').length;
-				});
-				return total;
+				// Count all flip cards across the entire track container (SSR + HTMX grids)
+				var container = document.getElementById('track-container');
+				if (!container) return 0;
+				return container.querySelectorAll('.stream-flip-card').length;
 			}
 			
 			function getNextOffset() {
@@ -522,8 +519,8 @@ templ Stream(data StreamData) {
 				
 				console.log('Playing:', trackID, title, artist, streamUrl);
 				
-				// For new vcard style, use API endpoint; for legacy, use direct stream URL
-				const audioSrc = vcardBtn ? `/api/track/${trackID}/stream` : streamUrl;
+				// Always use the API proxy endpoint for best quality streaming
+				const audioSrc = trackID ? `/api/track/${trackID}/stream` : streamUrl;
 				
 				if (!audioSrc) {
 					showErrorNotification('Demo mode: Stream URL not available. Connect your SoundCloud account and sync to enable playback.', 'info');

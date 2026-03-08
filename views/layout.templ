@@ -56,6 +56,7 @@ type Track struct {
 	BPM              float64   `json:"bpm"`
 	ReleaseYear      int       `json:"release_year"`
 	Downloadable     bool      `json:"downloadable"`
+	DownloadURL      string    `json:"download_url"`
 }
 
 templ Layout(data PageData) {
@@ -182,6 +183,7 @@ templ Layout(data PageData) {
 			</style>
 			<script src="/js/theme.js" defer></script>
 			<script src="/js/htmx.min.js"></script>
+			<script src="/js/htmx-enhancements.js?v=3" defer></script>
 			<script src="/js/butterchurn.min.js"></script>
 			<script src="/js/butterchurnPresets.min.js"></script>
 		</head>

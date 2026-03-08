@@ -2373,15 +2373,16 @@ func VignetteCard1E(
 
 func playTrack(trackID string, streamURL string, trackTitle string, artistName string) templ.ComponentScript {
 	return templ.ComponentScript{
-		Name: `__templ_playTrack_aef4`,
-		Function: `function __templ_playTrack_aef4(trackID, streamURL, trackTitle, artistName){// Dispatch custom event for the audio player
+		Name: `__templ_playTrack_e842`,
+		Function: `function __templ_playTrack_e842(trackID, streamURL, trackTitle, artistName){// Always use the proxy endpoint for best quality streaming
+	const resolvedURL = trackID ? ` + "`" + `/api/track/${trackID}/stream` + "`" + ` : streamURL;
 	const event = new CustomEvent('playTrack', {
-		detail: { trackID, streamURL, trackTitle, artistName }
+		detail: { trackID, streamURL: resolvedURL, trackTitle, artistName }
 	});
 	document.dispatchEvent(event);
 }`,
-		Call:       templ.SafeScript(`__templ_playTrack_aef4`, trackID, streamURL, trackTitle, artistName),
-		CallInline: templ.SafeScriptInline(`__templ_playTrack_aef4`, trackID, streamURL, trackTitle, artistName),
+		Call:       templ.SafeScript(`__templ_playTrack_e842`, trackID, streamURL, trackTitle, artistName),
+		CallInline: templ.SafeScriptInline(`__templ_playTrack_e842`, trackID, streamURL, trackTitle, artistName),
 	}
 }
 
@@ -2446,7 +2447,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var146 string
 		templ_7745c5c3_Var146, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 535, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 536, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var146))
 		if templ_7745c5c3_Err != nil {
@@ -2459,7 +2460,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var147 string
 		templ_7745c5c3_Var147, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 535, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 536, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var147))
 		if templ_7745c5c3_Err != nil {
@@ -2472,7 +2473,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var148 string
 		templ_7745c5c3_Var148, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 536, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 537, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var148))
 		if templ_7745c5c3_Err != nil {
@@ -2485,7 +2486,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var149 string
 		templ_7745c5c3_Var149, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 536, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 537, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var149))
 		if templ_7745c5c3_Err != nil {
@@ -2498,7 +2499,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var150 string
 		templ_7745c5c3_Var150, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 541, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 542, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var150))
 		if templ_7745c5c3_Err != nil {
@@ -2511,7 +2512,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var151 string
 		templ_7745c5c3_Var151, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 545, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 546, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var151))
 		if templ_7745c5c3_Err != nil {
@@ -2524,7 +2525,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var152 string
 		templ_7745c5c3_Var152, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 549, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 550, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var152))
 		if templ_7745c5c3_Err != nil {
@@ -2537,7 +2538,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var153 string
 		templ_7745c5c3_Var153, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(commentCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 553, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 554, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var153))
 		if templ_7745c5c3_Err != nil {
@@ -2567,7 +2568,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var155 templ.SafeURL
 		templ_7745c5c3_Var155, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 560, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 561, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var155))
 		if templ_7745c5c3_Err != nil {
@@ -2580,7 +2581,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var156 string
 		templ_7745c5c3_Var156, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 560, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 561, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var156))
 		if templ_7745c5c3_Err != nil {
@@ -2593,7 +2594,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var157 string
 		templ_7745c5c3_Var157, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 561, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 562, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var157))
 		if templ_7745c5c3_Err != nil {
@@ -2606,7 +2607,7 @@ func GlassCard_TopBar(
 		var templ_7745c5c3_Var158 string
 		templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 563, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 564, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var158))
 		if templ_7745c5c3_Err != nil {
@@ -2624,7 +2625,7 @@ func GlassCard_TopBar(
 			var templ_7745c5c3_Var159 string
 			templ_7745c5c3_Var159, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 565, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 566, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var159))
 			if templ_7745c5c3_Err != nil {
@@ -2643,7 +2644,7 @@ func GlassCard_TopBar(
 			var templ_7745c5c3_Var160 string
 			templ_7745c5c3_Var160, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f BPM", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 568, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 569, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var160))
 			if templ_7745c5c3_Err != nil {
@@ -2706,7 +2707,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var162 string
 		templ_7745c5c3_Var162, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 592, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 593, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var162))
 		if templ_7745c5c3_Err != nil {
@@ -2719,7 +2720,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var163 string
 		templ_7745c5c3_Var163, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 592, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 593, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var163))
 		if templ_7745c5c3_Err != nil {
@@ -2732,7 +2733,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var164 string
 		templ_7745c5c3_Var164, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 593, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 594, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var164))
 		if templ_7745c5c3_Err != nil {
@@ -2745,7 +2746,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var165 string
 		templ_7745c5c3_Var165, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 593, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 594, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var165))
 		if templ_7745c5c3_Err != nil {
@@ -2758,7 +2759,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var166 string
 		templ_7745c5c3_Var166, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 598, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 599, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var166))
 		if templ_7745c5c3_Err != nil {
@@ -2771,7 +2772,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var167 string
 		templ_7745c5c3_Var167, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 602, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 603, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var167))
 		if templ_7745c5c3_Err != nil {
@@ -2784,7 +2785,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var168 string
 		templ_7745c5c3_Var168, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 606, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 607, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var168))
 		if templ_7745c5c3_Err != nil {
@@ -2814,7 +2815,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var170 templ.SafeURL
 		templ_7745c5c3_Var170, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 613, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 614, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var170))
 		if templ_7745c5c3_Err != nil {
@@ -2827,7 +2828,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var171 string
 		templ_7745c5c3_Var171, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 613, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 614, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var171))
 		if templ_7745c5c3_Err != nil {
@@ -2840,7 +2841,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var172 string
 		templ_7745c5c3_Var172, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 614, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 615, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var172))
 		if templ_7745c5c3_Err != nil {
@@ -2853,7 +2854,7 @@ func GlassCard_SidePanel(
 		var templ_7745c5c3_Var173 string
 		templ_7745c5c3_Var173, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 616, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 617, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var173))
 		if templ_7745c5c3_Err != nil {
@@ -2871,7 +2872,7 @@ func GlassCard_SidePanel(
 			var templ_7745c5c3_Var174 string
 			templ_7745c5c3_Var174, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 618, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 619, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var174))
 			if templ_7745c5c3_Err != nil {
@@ -2934,7 +2935,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var176 string
 		templ_7745c5c3_Var176, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 642, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 643, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var176))
 		if templ_7745c5c3_Err != nil {
@@ -2947,7 +2948,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var177 string
 		templ_7745c5c3_Var177, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 642, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 643, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var177))
 		if templ_7745c5c3_Err != nil {
@@ -2960,7 +2961,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var178 string
 		templ_7745c5c3_Var178, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 643, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 644, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var178))
 		if templ_7745c5c3_Err != nil {
@@ -2973,7 +2974,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var179 string
 		templ_7745c5c3_Var179, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 643, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 644, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var179))
 		if templ_7745c5c3_Err != nil {
@@ -3003,7 +3004,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var181 templ.SafeURL
 		templ_7745c5c3_Var181, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 649, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 650, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var181))
 		if templ_7745c5c3_Err != nil {
@@ -3016,7 +3017,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var182 string
 		templ_7745c5c3_Var182, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 649, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 650, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var182))
 		if templ_7745c5c3_Err != nil {
@@ -3029,7 +3030,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var183 string
 		templ_7745c5c3_Var183, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 650, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 651, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var183))
 		if templ_7745c5c3_Err != nil {
@@ -3042,7 +3043,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var184 string
 		templ_7745c5c3_Var184, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 654, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 655, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var184))
 		if templ_7745c5c3_Err != nil {
@@ -3055,7 +3056,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var185 string
 		templ_7745c5c3_Var185, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 658, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 659, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var185))
 		if templ_7745c5c3_Err != nil {
@@ -3068,7 +3069,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var186 string
 		templ_7745c5c3_Var186, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 662, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 663, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var186))
 		if templ_7745c5c3_Err != nil {
@@ -3081,7 +3082,7 @@ func GlassCard_BottomGrid(
 		var templ_7745c5c3_Var187 string
 		templ_7745c5c3_Var187, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 666, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 667, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var187))
 		if templ_7745c5c3_Err != nil {
@@ -3099,7 +3100,7 @@ func GlassCard_BottomGrid(
 			var templ_7745c5c3_Var188 string
 			templ_7745c5c3_Var188, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 672, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 673, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var188))
 			if templ_7745c5c3_Err != nil {
@@ -3118,7 +3119,7 @@ func GlassCard_BottomGrid(
 			var templ_7745c5c3_Var189 string
 			templ_7745c5c3_Var189, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f BPM", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 675, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 676, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var189))
 			if templ_7745c5c3_Err != nil {
@@ -3181,7 +3182,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var191 string
 		templ_7745c5c3_Var191, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 698, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 699, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var191))
 		if templ_7745c5c3_Err != nil {
@@ -3194,7 +3195,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var192 string
 		templ_7745c5c3_Var192, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 698, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 699, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var192))
 		if templ_7745c5c3_Err != nil {
@@ -3207,7 +3208,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var193 string
 		templ_7745c5c3_Var193, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 699, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 700, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var193))
 		if templ_7745c5c3_Err != nil {
@@ -3220,7 +3221,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var194 string
 		templ_7745c5c3_Var194, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 699, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 700, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var194))
 		if templ_7745c5c3_Err != nil {
@@ -3233,7 +3234,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var195 string
 		templ_7745c5c3_Var195, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 702, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 703, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var195))
 		if templ_7745c5c3_Err != nil {
@@ -3246,7 +3247,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var196 string
 		templ_7745c5c3_Var196, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 705, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 706, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var196))
 		if templ_7745c5c3_Err != nil {
@@ -3264,7 +3265,7 @@ func GlassCard_Corners(
 			var templ_7745c5c3_Var197 string
 			templ_7745c5c3_Var197, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 709, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 710, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var197))
 			if templ_7745c5c3_Err != nil {
@@ -3282,7 +3283,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var198 string
 		templ_7745c5c3_Var198, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 713, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 714, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var198))
 		if templ_7745c5c3_Err != nil {
@@ -3312,7 +3313,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var200 templ.SafeURL
 		templ_7745c5c3_Var200, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 719, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 720, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var200))
 		if templ_7745c5c3_Err != nil {
@@ -3325,7 +3326,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var201 string
 		templ_7745c5c3_Var201, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 719, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 720, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var201))
 		if templ_7745c5c3_Err != nil {
@@ -3338,7 +3339,7 @@ func GlassCard_Corners(
 		var templ_7745c5c3_Var202 string
 		templ_7745c5c3_Var202, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 720, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 721, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var202))
 		if templ_7745c5c3_Err != nil {
@@ -3396,7 +3397,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var204 string
 		templ_7745c5c3_Var204, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 742, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 743, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var204))
 		if templ_7745c5c3_Err != nil {
@@ -3409,7 +3410,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var205 string
 		templ_7745c5c3_Var205, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 742, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 743, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var205))
 		if templ_7745c5c3_Err != nil {
@@ -3422,7 +3423,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var206 string
 		templ_7745c5c3_Var206, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 743, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 744, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var206))
 		if templ_7745c5c3_Err != nil {
@@ -3435,7 +3436,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var207 string
 		templ_7745c5c3_Var207, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 743, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 744, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var207))
 		if templ_7745c5c3_Err != nil {
@@ -3465,7 +3466,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var209 templ.SafeURL
 		templ_7745c5c3_Var209, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 749, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 750, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var209))
 		if templ_7745c5c3_Err != nil {
@@ -3478,7 +3479,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var210 string
 		templ_7745c5c3_Var210, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 749, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 750, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var210))
 		if templ_7745c5c3_Err != nil {
@@ -3491,7 +3492,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var211 string
 		templ_7745c5c3_Var211, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 750, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 751, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var211))
 		if templ_7745c5c3_Err != nil {
@@ -3504,7 +3505,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var212 string
 		templ_7745c5c3_Var212, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 751, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 752, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var212))
 		if templ_7745c5c3_Err != nil {
@@ -3517,7 +3518,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var213 string
 		templ_7745c5c3_Var213, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 756, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 757, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var213))
 		if templ_7745c5c3_Err != nil {
@@ -3530,7 +3531,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var214 string
 		templ_7745c5c3_Var214, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 760, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 761, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var214))
 		if templ_7745c5c3_Err != nil {
@@ -3543,7 +3544,7 @@ func GlassCard_Minimal(
 		var templ_7745c5c3_Var215 string
 		templ_7745c5c3_Var215, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 764, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 765, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var215))
 		if templ_7745c5c3_Err != nil {
@@ -3561,7 +3562,7 @@ func GlassCard_Minimal(
 			var templ_7745c5c3_Var216 string
 			templ_7745c5c3_Var216, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 768, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 769, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var216))
 			if templ_7745c5c3_Err != nil {
@@ -3624,7 +3625,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var218 string
 		templ_7745c5c3_Var218, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 792, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 793, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var218))
 		if templ_7745c5c3_Err != nil {
@@ -3637,7 +3638,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var219 string
 		templ_7745c5c3_Var219, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 792, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 793, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var219))
 		if templ_7745c5c3_Err != nil {
@@ -3650,7 +3651,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var220 string
 		templ_7745c5c3_Var220, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 793, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 794, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var220))
 		if templ_7745c5c3_Err != nil {
@@ -3663,7 +3664,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var221 string
 		templ_7745c5c3_Var221, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 793, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 794, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var221))
 		if templ_7745c5c3_Err != nil {
@@ -3676,7 +3677,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var222 string
 		templ_7745c5c3_Var222, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 796, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 797, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var222))
 		if templ_7745c5c3_Err != nil {
@@ -3689,7 +3690,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var223 string
 		templ_7745c5c3_Var223, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 799, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 800, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var223))
 		if templ_7745c5c3_Err != nil {
@@ -3702,7 +3703,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var224 string
 		templ_7745c5c3_Var224, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 802, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 803, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var224))
 		if templ_7745c5c3_Err != nil {
@@ -3732,7 +3733,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var226 templ.SafeURL
 		templ_7745c5c3_Var226, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 808, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 809, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var226))
 		if templ_7745c5c3_Err != nil {
@@ -3745,7 +3746,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var227 string
 		templ_7745c5c3_Var227, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 808, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 809, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var227))
 		if templ_7745c5c3_Err != nil {
@@ -3758,7 +3759,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var228 string
 		templ_7745c5c3_Var228, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 809, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 810, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var228))
 		if templ_7745c5c3_Err != nil {
@@ -3771,7 +3772,7 @@ func GlassCard_FloatingPills(
 		var templ_7745c5c3_Var229 string
 		templ_7745c5c3_Var229, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 811, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 812, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var229))
 		if templ_7745c5c3_Err != nil {
@@ -3789,7 +3790,7 @@ func GlassCard_FloatingPills(
 			var templ_7745c5c3_Var230 string
 			templ_7745c5c3_Var230, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 813, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 814, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var230))
 			if templ_7745c5c3_Err != nil {
@@ -3808,7 +3809,7 @@ func GlassCard_FloatingPills(
 			var templ_7745c5c3_Var231 string
 			templ_7745c5c3_Var231, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f BPM", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 816, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 817, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var231))
 			if templ_7745c5c3_Err != nil {
@@ -3871,7 +3872,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var233 string
 		templ_7745c5c3_Var233, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 840, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 841, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var233))
 		if templ_7745c5c3_Err != nil {
@@ -3884,7 +3885,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var234 string
 		templ_7745c5c3_Var234, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 840, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 841, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var234))
 		if templ_7745c5c3_Err != nil {
@@ -3897,7 +3898,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var235 string
 		templ_7745c5c3_Var235, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 842, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 843, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var235))
 		if templ_7745c5c3_Err != nil {
@@ -3910,7 +3911,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var236 string
 		templ_7745c5c3_Var236, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 842, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 843, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var236))
 		if templ_7745c5c3_Err != nil {
@@ -3923,7 +3924,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var237 string
 		templ_7745c5c3_Var237, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 847, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 848, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var237))
 		if templ_7745c5c3_Err != nil {
@@ -3936,7 +3937,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var238 string
 		templ_7745c5c3_Var238, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 851, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 852, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var238))
 		if templ_7745c5c3_Err != nil {
@@ -3949,7 +3950,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var239 string
 		templ_7745c5c3_Var239, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 855, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 856, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var239))
 		if templ_7745c5c3_Err != nil {
@@ -3979,7 +3980,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var241 templ.SafeURL
 		templ_7745c5c3_Var241, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 863, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 864, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var241))
 		if templ_7745c5c3_Err != nil {
@@ -3992,7 +3993,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var242 string
 		templ_7745c5c3_Var242, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 863, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 864, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var242))
 		if templ_7745c5c3_Err != nil {
@@ -4005,7 +4006,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var243 string
 		templ_7745c5c3_Var243, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 864, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 865, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var243))
 		if templ_7745c5c3_Err != nil {
@@ -4018,7 +4019,7 @@ func VignetteCard3_Neumorphism(
 		var templ_7745c5c3_Var244 string
 		templ_7745c5c3_Var244, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 866, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 867, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var244))
 		if templ_7745c5c3_Err != nil {
@@ -4036,7 +4037,7 @@ func VignetteCard3_Neumorphism(
 			var templ_7745c5c3_Var245 string
 			templ_7745c5c3_Var245, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 868, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 869, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var245))
 			if templ_7745c5c3_Err != nil {
@@ -4099,7 +4100,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var247 string
 		templ_7745c5c3_Var247, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 892, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 893, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var247))
 		if templ_7745c5c3_Err != nil {
@@ -4112,7 +4113,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var248 string
 		templ_7745c5c3_Var248, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 892, Col: 92}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 893, Col: 92}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var248))
 		if templ_7745c5c3_Err != nil {
@@ -4125,7 +4126,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var249 string
 		templ_7745c5c3_Var249, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 893, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 894, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var249))
 		if templ_7745c5c3_Err != nil {
@@ -4138,7 +4139,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var250 string
 		templ_7745c5c3_Var250, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 893, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 894, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var250))
 		if templ_7745c5c3_Err != nil {
@@ -4151,7 +4152,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var251 string
 		templ_7745c5c3_Var251, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 899, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 900, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var251))
 		if templ_7745c5c3_Err != nil {
@@ -4164,7 +4165,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var252 string
 		templ_7745c5c3_Var252, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 901, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 902, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var252))
 		if templ_7745c5c3_Err != nil {
@@ -4194,7 +4195,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var254 string
 		templ_7745c5c3_Var254, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 907, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 908, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var254))
 		if templ_7745c5c3_Err != nil {
@@ -4207,7 +4208,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var255 string
 		templ_7745c5c3_Var255, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 908, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 909, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var255))
 		if templ_7745c5c3_Err != nil {
@@ -4220,7 +4221,7 @@ func VignetteCard3_Cinematic(
 		var templ_7745c5c3_Var256 string
 		templ_7745c5c3_Var256, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 910, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 911, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var256))
 		if templ_7745c5c3_Err != nil {
@@ -4238,7 +4239,7 @@ func VignetteCard3_Cinematic(
 			var templ_7745c5c3_Var257 string
 			templ_7745c5c3_Var257, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 912, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 913, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var257))
 			if templ_7745c5c3_Err != nil {
@@ -4257,7 +4258,7 @@ func VignetteCard3_Cinematic(
 			var templ_7745c5c3_Var258 string
 			templ_7745c5c3_Var258, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f BPM", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 915, Col: 66}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 916, Col: 66}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var258))
 			if templ_7745c5c3_Err != nil {
@@ -4320,7 +4321,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var260 string
 		templ_7745c5c3_Var260, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 939, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 940, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var260))
 		if templ_7745c5c3_Err != nil {
@@ -4333,7 +4334,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var261 string
 		templ_7745c5c3_Var261, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 939, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 940, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var261))
 		if templ_7745c5c3_Err != nil {
@@ -4346,7 +4347,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var262 string
 		templ_7745c5c3_Var262, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 940, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 941, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var262))
 		if templ_7745c5c3_Err != nil {
@@ -4359,7 +4360,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var263 string
 		templ_7745c5c3_Var263, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 940, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 941, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var263))
 		if templ_7745c5c3_Err != nil {
@@ -4372,7 +4373,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var264 string
 		templ_7745c5c3_Var264, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 949, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 950, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var264))
 		if templ_7745c5c3_Err != nil {
@@ -4385,7 +4386,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var265 string
 		templ_7745c5c3_Var265, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 953, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 954, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var265))
 		if templ_7745c5c3_Err != nil {
@@ -4398,7 +4399,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var266 string
 		templ_7745c5c3_Var266, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 957, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 958, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var266))
 		if templ_7745c5c3_Err != nil {
@@ -4428,7 +4429,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var268 templ.SafeURL
 		templ_7745c5c3_Var268, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 964, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 965, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var268))
 		if templ_7745c5c3_Err != nil {
@@ -4441,7 +4442,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var269 string
 		templ_7745c5c3_Var269, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 964, Col: 92}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 965, Col: 92}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var269))
 		if templ_7745c5c3_Err != nil {
@@ -4454,7 +4455,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var270 string
 		templ_7745c5c3_Var270, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 965, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 966, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var270))
 		if templ_7745c5c3_Err != nil {
@@ -4467,7 +4468,7 @@ func VignetteCard3_GradientMesh(
 		var templ_7745c5c3_Var271 string
 		templ_7745c5c3_Var271, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 967, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 968, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var271))
 		if templ_7745c5c3_Err != nil {
@@ -4485,7 +4486,7 @@ func VignetteCard3_GradientMesh(
 			var templ_7745c5c3_Var272 string
 			templ_7745c5c3_Var272, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 969, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 970, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var272))
 			if templ_7745c5c3_Err != nil {
@@ -4504,7 +4505,7 @@ func VignetteCard3_GradientMesh(
 			var templ_7745c5c3_Var273 string
 			templ_7745c5c3_Var273, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 972, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 973, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var273))
 			if templ_7745c5c3_Err != nil {
@@ -4567,7 +4568,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var275 string
 		templ_7745c5c3_Var275, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 996, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 997, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var275))
 		if templ_7745c5c3_Err != nil {
@@ -4580,7 +4581,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var276 string
 		templ_7745c5c3_Var276, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 996, Col: 92}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 997, Col: 92}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var276))
 		if templ_7745c5c3_Err != nil {
@@ -4593,7 +4594,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var277 string
 		templ_7745c5c3_Var277, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 997, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 998, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var277))
 		if templ_7745c5c3_Err != nil {
@@ -4606,7 +4607,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var278 string
 		templ_7745c5c3_Var278, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 997, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 998, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var278))
 		if templ_7745c5c3_Err != nil {
@@ -4619,7 +4620,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var279 string
 		templ_7745c5c3_Var279, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1002, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1003, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var279))
 		if templ_7745c5c3_Err != nil {
@@ -4632,7 +4633,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var280 string
 		templ_7745c5c3_Var280, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1006, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1007, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var280))
 		if templ_7745c5c3_Err != nil {
@@ -4662,7 +4663,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var282 templ.SafeURL
 		templ_7745c5c3_Var282, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1013, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1014, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var282))
 		if templ_7745c5c3_Err != nil {
@@ -4675,7 +4676,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var283 string
 		templ_7745c5c3_Var283, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1013, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1014, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var283))
 		if templ_7745c5c3_Err != nil {
@@ -4688,7 +4689,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var284 string
 		templ_7745c5c3_Var284, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1014, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1015, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var284))
 		if templ_7745c5c3_Err != nil {
@@ -4701,7 +4702,7 @@ func VignetteCard3_Brutalist(
 		var templ_7745c5c3_Var285 string
 		templ_7745c5c3_Var285, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1016, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1017, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var285))
 		if templ_7745c5c3_Err != nil {
@@ -4719,7 +4720,7 @@ func VignetteCard3_Brutalist(
 			var templ_7745c5c3_Var286 string
 			templ_7745c5c3_Var286, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1018, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1019, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var286))
 			if templ_7745c5c3_Err != nil {
@@ -4782,7 +4783,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var288 string
 		templ_7745c5c3_Var288, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1042, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1043, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var288))
 		if templ_7745c5c3_Err != nil {
@@ -4795,7 +4796,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var289 string
 		templ_7745c5c3_Var289, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1042, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1043, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var289))
 		if templ_7745c5c3_Err != nil {
@@ -4808,7 +4809,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var290 string
 		templ_7745c5c3_Var290, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1045, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1046, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var290))
 		if templ_7745c5c3_Err != nil {
@@ -4821,7 +4822,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var291 string
 		templ_7745c5c3_Var291, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1045, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1046, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var291))
 		if templ_7745c5c3_Err != nil {
@@ -4834,7 +4835,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var292 string
 		templ_7745c5c3_Var292, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1050, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1051, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var292))
 		if templ_7745c5c3_Err != nil {
@@ -4847,7 +4848,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var293 string
 		templ_7745c5c3_Var293, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1054, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1055, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var293))
 		if templ_7745c5c3_Err != nil {
@@ -4877,7 +4878,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var295 templ.SafeURL
 		templ_7745c5c3_Var295, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1061, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1062, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var295))
 		if templ_7745c5c3_Err != nil {
@@ -4890,7 +4891,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var296 string
 		templ_7745c5c3_Var296, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1061, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1062, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var296))
 		if templ_7745c5c3_Err != nil {
@@ -4903,7 +4904,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var297 string
 		templ_7745c5c3_Var297, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1062, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1063, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var297))
 		if templ_7745c5c3_Err != nil {
@@ -4916,7 +4917,7 @@ func VignetteCard3_Isometric(
 		var templ_7745c5c3_Var298 string
 		templ_7745c5c3_Var298, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1063, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1064, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var298))
 		if templ_7745c5c3_Err != nil {
@@ -4974,7 +4975,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var300 string
 		templ_7745c5c3_Var300, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1087, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1088, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var300))
 		if templ_7745c5c3_Err != nil {
@@ -4987,7 +4988,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var301 string
 		templ_7745c5c3_Var301, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1087, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1088, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var301))
 		if templ_7745c5c3_Err != nil {
@@ -5000,7 +5001,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var302 string
 		templ_7745c5c3_Var302, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1089, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1090, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var302))
 		if templ_7745c5c3_Err != nil {
@@ -5013,7 +5014,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var303 string
 		templ_7745c5c3_Var303, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1089, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1090, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var303))
 		if templ_7745c5c3_Err != nil {
@@ -5026,7 +5027,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var304 string
 		templ_7745c5c3_Var304, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1095, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1096, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var304))
 		if templ_7745c5c3_Err != nil {
@@ -5039,7 +5040,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var305 string
 		templ_7745c5c3_Var305, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1100, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1101, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var305))
 		if templ_7745c5c3_Err != nil {
@@ -5069,7 +5070,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var307 templ.SafeURL
 		templ_7745c5c3_Var307, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1108, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1109, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var307))
 		if templ_7745c5c3_Err != nil {
@@ -5082,7 +5083,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var308 string
 		templ_7745c5c3_Var308, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1108, Col: 95}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1109, Col: 95}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var308))
 		if templ_7745c5c3_Err != nil {
@@ -5095,7 +5096,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var309 string
 		templ_7745c5c3_Var309, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1109, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1110, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var309))
 		if templ_7745c5c3_Err != nil {
@@ -5108,7 +5109,7 @@ func VignetteCard3_Minimal(
 		var templ_7745c5c3_Var310 string
 		templ_7745c5c3_Var310, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1111, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1112, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var310))
 		if templ_7745c5c3_Err != nil {
@@ -5126,7 +5127,7 @@ func VignetteCard3_Minimal(
 			var templ_7745c5c3_Var311 string
 			templ_7745c5c3_Var311, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1113, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1114, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var311))
 			if templ_7745c5c3_Err != nil {
@@ -5189,7 +5190,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var313 string
 		templ_7745c5c3_Var313, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1137, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1138, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var313))
 		if templ_7745c5c3_Err != nil {
@@ -5202,7 +5203,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var314 string
 		templ_7745c5c3_Var314, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1137, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1138, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var314))
 		if templ_7745c5c3_Err != nil {
@@ -5215,7 +5216,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var315 string
 		templ_7745c5c3_Var315, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1138, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1139, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var315))
 		if templ_7745c5c3_Err != nil {
@@ -5228,7 +5229,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var316 string
 		templ_7745c5c3_Var316, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1138, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1139, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var316))
 		if templ_7745c5c3_Err != nil {
@@ -5241,7 +5242,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var317 string
 		templ_7745c5c3_Var317, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(playbackCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1143, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1144, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var317))
 		if templ_7745c5c3_Err != nil {
@@ -5254,7 +5255,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var318 string
 		templ_7745c5c3_Var318, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1147, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1148, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var318))
 		if templ_7745c5c3_Err != nil {
@@ -5267,7 +5268,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var319 string
 		templ_7745c5c3_Var319, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1151, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1152, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var319))
 		if templ_7745c5c3_Err != nil {
@@ -5297,7 +5298,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var321 templ.SafeURL
 		templ_7745c5c3_Var321, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1158, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1159, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var321))
 		if templ_7745c5c3_Err != nil {
@@ -5310,7 +5311,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var322 string
 		templ_7745c5c3_Var322, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1158, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1159, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var322))
 		if templ_7745c5c3_Err != nil {
@@ -5323,7 +5324,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var323 string
 		templ_7745c5c3_Var323, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1159, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1160, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var323))
 		if templ_7745c5c3_Err != nil {
@@ -5336,7 +5337,7 @@ func VignetteCard3_Cyberpunk(
 		var templ_7745c5c3_Var324 string
 		templ_7745c5c3_Var324, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1161, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1162, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var324))
 		if templ_7745c5c3_Err != nil {
@@ -5354,7 +5355,7 @@ func VignetteCard3_Cyberpunk(
 			var templ_7745c5c3_Var325 string
 			templ_7745c5c3_Var325, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1163, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1164, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var325))
 			if templ_7745c5c3_Err != nil {
@@ -5373,7 +5374,7 @@ func VignetteCard3_Cyberpunk(
 			var templ_7745c5c3_Var326 string
 			templ_7745c5c3_Var326, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f BPM", bpm))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1166, Col: 86}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1167, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var326))
 			if templ_7745c5c3_Err != nil {
@@ -5436,7 +5437,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var328 string
 		templ_7745c5c3_Var328, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1190, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1191, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var328))
 		if templ_7745c5c3_Err != nil {
@@ -5449,7 +5450,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var329 string
 		templ_7745c5c3_Var329, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1190, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1191, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var329))
 		if templ_7745c5c3_Err != nil {
@@ -5462,7 +5463,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var330 string
 		templ_7745c5c3_Var330, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-image: url(%s)", artworkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1192, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1193, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var330))
 		if templ_7745c5c3_Err != nil {
@@ -5475,7 +5476,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var331 string
 		templ_7745c5c3_Var331, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1195, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1196, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var331))
 		if templ_7745c5c3_Err != nil {
@@ -5488,7 +5489,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var332 string
 		templ_7745c5c3_Var332, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1201, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1202, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var332))
 		if templ_7745c5c3_Err != nil {
@@ -5501,7 +5502,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var333 string
 		templ_7745c5c3_Var333, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(repostsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1205, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1206, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var333))
 		if templ_7745c5c3_Err != nil {
@@ -5531,7 +5532,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var335 templ.SafeURL
 		templ_7745c5c3_Var335, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1212, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1213, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var335))
 		if templ_7745c5c3_Err != nil {
@@ -5544,7 +5545,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var336 string
 		templ_7745c5c3_Var336, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1212, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1213, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var336))
 		if templ_7745c5c3_Err != nil {
@@ -5557,7 +5558,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var337 string
 		templ_7745c5c3_Var337, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1213, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1214, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var337))
 		if templ_7745c5c3_Err != nil {
@@ -5570,7 +5571,7 @@ func VignetteCard3_Vinyl(
 		var templ_7745c5c3_Var338 string
 		templ_7745c5c3_Var338, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1215, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1216, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var338))
 		if templ_7745c5c3_Err != nil {
@@ -5588,7 +5589,7 @@ func VignetteCard3_Vinyl(
 			var templ_7745c5c3_Var339 string
 			templ_7745c5c3_Var339, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1217, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1218, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var339))
 			if templ_7745c5c3_Err != nil {
@@ -5651,7 +5652,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var341 string
 		templ_7745c5c3_Var341, templ_7745c5c3_Err = templ.JoinStringErrs(trackID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1241, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1242, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var341))
 		if templ_7745c5c3_Err != nil {
@@ -5664,7 +5665,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var342 string
 		templ_7745c5c3_Var342, templ_7745c5c3_Err = templ.JoinStringErrs(streamURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1241, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1242, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var342))
 		if templ_7745c5c3_Err != nil {
@@ -5677,7 +5678,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var343 string
 		templ_7745c5c3_Var343, templ_7745c5c3_Err = templ.JoinStringErrs(artworkURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1246, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1247, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var343))
 		if templ_7745c5c3_Err != nil {
@@ -5690,7 +5691,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var344 string
 		templ_7745c5c3_Var344, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1246, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1247, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var344))
 		if templ_7745c5c3_Err != nil {
@@ -5703,7 +5704,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var345 string
 		templ_7745c5c3_Var345, templ_7745c5c3_Err = templ.JoinStringErrs(formatCompact(favoritingsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1252, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1253, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var345))
 		if templ_7745c5c3_Err != nil {
@@ -5733,7 +5734,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var347 templ.SafeURL
 		templ_7745c5c3_Var347, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(permalinkURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1259, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1260, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var347))
 		if templ_7745c5c3_Err != nil {
@@ -5746,7 +5747,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var348 string
 		templ_7745c5c3_Var348, templ_7745c5c3_Err = templ.JoinStringErrs(trackTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1259, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1260, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var348))
 		if templ_7745c5c3_Err != nil {
@@ -5759,7 +5760,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var349 string
 		templ_7745c5c3_Var349, templ_7745c5c3_Err = templ.JoinStringErrs(artistName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1260, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1261, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var349))
 		if templ_7745c5c3_Err != nil {
@@ -5772,7 +5773,7 @@ func VignetteCard3_Polaroid(
 		var templ_7745c5c3_Var350 string
 		templ_7745c5c3_Var350, templ_7745c5c3_Err = templ.JoinStringErrs(formatDuration(trackDuration))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1261, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1262, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var350))
 		if templ_7745c5c3_Err != nil {
@@ -5790,7 +5791,7 @@ func VignetteCard3_Polaroid(
 			var templ_7745c5c3_Var351 string
 			templ_7745c5c3_Var351, templ_7745c5c3_Err = templ.JoinStringErrs(genre)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1263, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/components/track_card_gradient_protos.templ`, Line: 1264, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var351))
 			if templ_7745c5c3_Err != nil {

@@ -28,9 +28,21 @@ func (h *Handlers) StreamAPI(isTestMode bool) echo.HandlerFunc {
 			}
 		}
 		searchQuery := c.QueryParam("q")
+		offset := 0
+		if of := c.QueryParam("offset"); of != "" {
+			if parsed, err := strconv.Atoi(of); err == nil {
+				offset = parsed
+			}
+		}
+		limit := 20
+		if li := c.QueryParam("limit"); li != "" {
+			if parsed, err := strconv.Atoi(li); err == nil {
+				limit = parsed
+			}
+		}
 
 		if isTestMode {
-			html := h.mockData.GetStreamTracks(durationMin, searchQuery)
+			html := h.mockData.GetStreamTracks(durationMin, searchQuery, offset, limit)
 			return c.HTML(http.StatusOK, html)
 		}
 
@@ -48,9 +60,21 @@ func (h *Handlers) FavoritesAPI(isTestMode bool) echo.HandlerFunc {
 			}
 		}
 		searchQuery := c.QueryParam("q")
+		offset := 0
+		if of := c.QueryParam("offset"); of != "" {
+			if parsed, err := strconv.Atoi(of); err == nil {
+				offset = parsed
+			}
+		}
+		limit := 20
+		if li := c.QueryParam("limit"); li != "" {
+			if parsed, err := strconv.Atoi(li); err == nil {
+				limit = parsed
+			}
+		}
 
 		if isTestMode {
-			html := h.mockData.GetFavoritesTracks(durationMin, searchQuery)
+			html := h.mockData.GetFavoritesTracks(durationMin, searchQuery, offset, limit)
 			return c.HTML(http.StatusOK, html)
 		}
 

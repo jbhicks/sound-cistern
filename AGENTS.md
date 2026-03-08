@@ -6,11 +6,12 @@ Auto-generated from all feature plans. Last updated: 2025-10-21
 **DO NOT start or stop the dev server.** The user manages the dev server manually. If you need to check if the server is running, use `curl` to check the health endpoint. Never use `pkill`, `kill`, or similar commands to stop the server.
 
 ## Active Technologies
-- Go 1.23 + PocketBase v0.22.0, SQLite (embedded), Templ v0.3.960, Soundcloud API
+- Go 1.23 + PocketBase v0.22.0, SQLite (embedded), React 18 + Vite + Tailwind CSS, Soundcloud API
 
 ## Project Structure
 ```
-views/           # Templ templates (*.templ)
+views/           # Templ templates (*.templ) — legacy, kept for reference
+v2/              # React 18 frontend (Vite + Tailwind + Zustand)
 pb_data/         # PocketBase data (SQLite DB)
 pb_migrations/   # Database migrations (Go files)
 public/          # Static assets (CSS, JS, images)
@@ -26,6 +27,8 @@ make build       # Build binary: ./sound-cistern
 make dev         # Development server with --dev flag
 make serve       # Production server
 make clean       # Clean build artifacts
+make v2-build    # Build React v2 frontend
+make v2-dev      # React dev server (port 5173, proxies to :8090)
 ```
 
 ## Testing
@@ -46,15 +49,16 @@ make test-server-start # Start test server in TEST_MODE
 
 ## Code Style
 Go 1.23: Follow standard conventions
-- Use Templ for type-safe templates
+- Use React + JSX for frontend components
 - PocketBase patterns for database operations
-- HTMX for dynamic frontend interactions
+- Use Zustand for state management, Framer Motion for animations
 
 ## Recent Changes
 - Migrated from Buffalo framework to PocketBase v0.22.0
 - Migrated from Plush templates to Templ v0.3.960
 - Migrated from PostgreSQL to SQLite (embedded)
 - Updated from Go 1.21 to Go 1.23
+- Migrated frontend from HTMX/Templ/Pico.css to React 18/Vite/Tailwind (v2 UI)
 
 ## Development Philosophy
 - Write code like a river - clean, flowing, always moving
@@ -82,8 +86,8 @@ The following skills are available for development assistance (use `/skill <name
 1. **pocketbase-templ** - PocketBase development with Templ templates
 2. **go-saas-template** - Building SaaS applications with Go and PocketBase
 3. **soundcloud-oauth** - Soundcloud OAuth 2.0/2.1 integration
-4. **pocketbase-htmx** - HTMX integration with PocketBase
-5. **sound-cistern-ux** - UI/UX design system using Pico.css and Primer design principles
+4. **pocketbase-htmx** - ⚠️ LEGACY: HTMX integration (deprecated, kept for reference only)
+5. **sound-cistern-ux** - ⚠️ LEGACY: UI/UX design system using Pico.css (deprecated, v2 uses Tailwind)
 6. **soundcloud-api** - Complete Soundcloud API reference with endpoint documentation
 7. **soundcloud-api-favorites** - Soundcloud Favorites/Likes API endpoints
 8. **soundcloud-api-stream** - Soundcloud Stream/Activities API endpoints

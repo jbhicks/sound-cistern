@@ -1,112 +1,86 @@
 # Sound Cistern MVP+ - Ralph Tasks
 
-## Current Task: pwa_offline_mode
-**Status**: 🔄 IN PROGRESS
-**Priority**: P1 (TOP)
-**Started**: 2026-02-20
+## 🎉 ALL STORIES COMPLETE
 
-### Completion Promise
-Pro users can access their Soundcloud stream offline via PWA, export their data, and create playlists
-
-### Success Criteria (4 Features) - In Progress
-
-- [ ] **Story 1: PWA Installability**
-  - Service Worker registration
-  - manifest.json for installability  
-  - Offline indicator UI
-  - Verification: `pwa_install_test`
-
-- [ ] **Story 2: Offline Track Access**
-  - Cache stream tracks for offline playback
-  - Cache artwork/images
-  - Background sync when back online
-  - Verification: `offline_playback_test`
-
-- [ ] **Story 3: Data Export**
-  - Export favorites as JSON
-  - Export favorites as CSV
-  - Export playlists as JSON
-  - Download buttons in UI
-  - Verification: `data_export_test`
-
-- [ ] **Story 4: Playlist System**
-  - Create new playlist
-  - Name/rename playlists
-  - Add tracks from stream/favorites
-  - Reorder tracks in playlist
-  - Delete playlists
-  - Share playlist as link
-  - Verification: `playlist_test`
+**Session**: 2026-03-07
+**Status**: ✅ DONE
 
 ---
 
-## Completed Tasks (MVP)
+## Completed This Session
 
-### Phase 1: OAuth & Stream (Session 002)
-- [x] OAuth Authentication (Soundcloud 2.1 + PKCE)
-- [x] Login Splash Page
-- [x] OAuth Callback Handling
-- [x] Stream Display
-- [x] Session Management
+### ✅ P0: Promote v2 React UI to Primary Route
+- Root `/` redirects to `/v2/` (302)
+- `BrowserRouter basename` updated to `"/"`
+- `Makefile` has `v2-build` and `v2-dev` targets
+- `AGENTS.md` updated — React/Vite/Tailwind stack, HTMX removed
+- `sound-cistern-dev` skill updated with v2 dev workflow
+- `pocketbase-htmx` and `sound-cistern-ux` skills marked ⚠️ DEPRECATED
 
-### Phase 2: Core Features (Previous Sessions)
-- [x] Favorites System
-- [x] Search Integration  
-- [x] Dark Mode Theme
-- [x] Mobile Responsive Design
-- [x] Soundcloud Stream Integration
+### ✅ P1: Track Card Richness
+- Duration badge on artwork (bottom-left)
+- Play count + like count stats row
+- Genre pill + BPM badge (conditional)
+- Download indicator icon (conditional)
+- List view enriched with plays/likes
+- `downloadable` field added to Go API response
 
-### Phase 3: UX Design System (Session UX_001)
-- [x] Design Tokens (spacing, colors, typography)
-- [x] Global Layout & Navigation
-- [x] Authentication Pages UX
-- [x] Stream Page UX
-- [x] Favorites Page UX
-- [x] Blog Pages UX
-- [x] Interactive Components & HTMX
-- [x] Accessibility Audit (WCAG 2.1 AA)
+### ✅ P2: PWA / Offline Mode
+- `v2/public/manifest.json` — installable PWA
+- `v2/public/sw.js` — service worker (cache-first static, network-first API)
+- `v2/src/components/OfflineIndicator.jsx` — animated offline banner
+- SW registered in `main.jsx`
+- Manifest linked in `index.html` with Apple PWA meta tags
+- Icon placeholders in `v2/public/icons/` (PNGs need to be added)
+
+### ✅ P3: Data Export
+- `ExportFavoritesJSON` — real implementation, downloads JSON
+- `ExportFavoritesCSV` — real implementation, downloads CSV
+- `ExportPlaylistsJSON` — real implementation, nested JSON
+- Export dropdown in Favorites page (JSON + CSV)
+- Export button in Playlists page
+
+### ✅ P4: Playlist System (Complete)
+- All playlist handlers fully implemented (ListPlaylists, CreatePlaylist, GetPlaylist, AddTrackToPlaylist, RemoveTrackFromPlaylist, DeletePlaylist, RenamePlaylist, SharePlaylist, GetSharedPlaylist)
+- Playlists page: rename (inline edit), share (modal + copy), detail view with tracks, remove from playlist
+- TrackCard back face: "Add to Playlist" button with popover listing playlists
+- Zustand store: `playlists`, `loadPlaylists` — loaded on app init
+
+### ✅ P5: Related Tracks Explorer
+- Go handler `relatedTracksHandler` with 1-hour in-memory cache
+- Calls SoundCloud v2 API (`/tracks/{id}/related`), falls back to v1
+- Player bar: Sparkles button toggles slide-up related tracks panel
+- Panel shows 10 related tracks, click to play
+
+### ✅ P6: Listening Analytics Dashboard
+- Zustand `playHistory` (localStorage, max 500 entries)
+- `recordPlay()` called on every new track play
+- `/analytics` page: overview cards, top tracks, top artists, genre bar chart, recently played
+- Analytics added to nav (BarChart2 icon)
+- Stream page: recently-played horizontal strip (last 5 unique tracks)
+
+### ✅ P7: RSS Feed
+- `GetUserRSSFeed` — authenticated, generates RSS 2.0 XML from favorites
+- `GetSharedRSSFeed` — public, uses PocketBase user ID as share token
+- Favorites page: RSS button → modal with public URL + copy
+
+### ✅ P8: Download Link Exposure
+- `download_url` field added to Go API response + DB migration
+- TrackCard download indicator is now a clickable link
+- Player bar: Download button when `currentTrack.downloadable` is true
 
 ---
 
-## Backlog (Future Phases)
+## Previously Completed (MVP)
 
-### Priority 4: Listening Analytics
-- Track play history (local storage)
-- Most played tracks (top 10)
-- Most played artists
-- Genre distribution
-- Listening time stats
-
-### Priority 5: RSS Feed (Share Only)
-- Generate RSS feed URL for user
-- Include track metadata
-- Link to Soundcloud for playback
-- Share button
+### Phase 1–3: OAuth, Stream, Favorites, Search, UX Design System
+### Phase 4: React v2 UI (Layout, Stream, Favorites, Playlists, Player, TrackCard, FilterPanel)
 
 ---
 
-## Implementation Notes
+## Next Steps (Future Phases)
 
-### Dependencies
-- OAuth must be working (✅ Done)
-- Stream display must be working (✅ Done)
-- Favorites system must be working (✅ Done)
-
-### Technical Approach
-1. PWA first - critical for pro users
-2. Service Worker with Cache API
-3. IndexedDB for track metadata offline
-4. Background Sync API for when back online
-
-### Constraints
-- Fewer features, but polished
-- Performance & Reliability first
-- Share via links only (no full social)
-
----
-
-## Ralph Loop State
-- **Budget**: $20.00 total
-- **Iterations**: 30 max
-- **Current Focus**: PWA/Offline Mode
-- **Next**: Data Export → Playlist → Analytics → RSS
+- Add real PWA icons (192px + 512px PNGs from the Zap/accent-purple logo)
+- Timed comments viewer (deferred)
+- Background sync for favorites when back online (SW placeholder exists)
+- PocketBase sync for play history (currently localStorage only)

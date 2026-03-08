@@ -9,6 +9,8 @@ metadata:
   stack: pocketbase-templ-htmx
 ---
 
+> ⚠️ **DEPRECATED**: This skill describes HTMX integration patterns that are no longer used in Sound Cistern. The v2 frontend uses React 18 + Vite + Tailwind. This skill is kept for historical reference only. Do not use these patterns for new features.
+
 # PocketBase + HTMX Integration Skill
 
 ## Overview

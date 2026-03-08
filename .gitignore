@@ -43,4 +43,8 @@ pb_data_test_template/
 # Ralph progress files
 .ralph/progress/
 pb_data/data.db-*
-pb_data/logs.db-*
+pb_data/logs.db-*v2/node_modules/
+public/app/
+public/v2/
+sound-cistern-test
+v2/test-results/

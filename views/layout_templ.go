@@ -64,6 +64,7 @@ type Track struct {
 	BPM              float64   `json:"bpm"`
 	ReleaseYear      int       `json:"release_year"`
 	Downloadable     bool      `json:"downloadable"`
+	DownloadURL      string    `json:"download_url"`
 }
 
 func Layout(data PageData) templ.Component {
@@ -95,7 +96,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 69, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 70, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -118,13 +119,13 @@ func Layout(data PageData) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 74, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 75, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#0f3460\"><meta name=\"mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"><link rel=\"stylesheet\" href=\"/css/pico.min.css\"><link rel=\"stylesheet\" href=\"/css/custom.css\"><link rel=\"stylesheet\" href=\"/css/stream.css\"><style>\n\t\t\t\t/* Vapor Wave Nav */\n\t\t\t\t.vapor-nav-header {\n\t\t\t\t\tbackground: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);\n\t\t\t\t\tborder-bottom: 2px solid #ff6b9d;\n\t\t\t\t\tbox-shadow: 0 4px 20px rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: space-between;\n\t\t\t\t\tflex-wrap: wrap;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tmin-height: 56px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav ul {\n\t\t\t\t\tmargin: 0;\n\t\t\t\t\tpadding: 0;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav li {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand {\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand a {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\ttext-shadow: 2px 2px 0 #ff6b9d, -1px -1px 0 #00d4ff;\n\t\t\t\t\tfont-size: 1.25rem;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tgap: 0.25rem;\n\t\t\t\t\tflex: 1;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a {\n\t\t\t\t\tcolor: rgba(255, 255, 255, 0.8) !important;\n\t\t\t\t\tpadding: 0.5rem 1rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t\tposition: relative;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a:hover, .vapor-nav-links a[aria-current=\"page\"] {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\tbackground: rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a[aria-current=\"page\"]::after {\n\t\t\t\t\tcontent: '';\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tbottom: 0;\n\t\t\t\t\tleft: 50%;\n\t\t\t\t\ttransform: translateX(-50%);\n\t\t\t\t\twidth: 20px;\n\t\t\t\t\theight: 2px;\n\t\t\t\t\tbackground: linear-gradient(90deg, #ff6b9d, #00d4ff);\n\t\t\t\t\tborder-radius: 2px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator) {\n\t\t\t\t\tcolor: #00d4ff !important;\n\t\t\t\t\tpadding: 0.5rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator):hover {\n\t\t\t\t\tbackground: rgba(0, 212, 255, 0.2);\n\t\t\t\t\tbox-shadow: 0 0 15px rgba(0, 212, 255, 0.3);\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-avatar {\n\t\t\t\t\tbackground: linear-gradient(135deg, #ff6b9d, #e94560);\n\t\t\t\t\tcolor: #fff;\n\t\t\t\t\twidth: 36px;\n\t\t\t\t\theight: 36px;\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\tfont-size: 0.75rem;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary {\n\t\t\t\t\tlist-style: none;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tcursor: pointer;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary::-webkit-details-marker {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t}\n\t\t\t</style><script src=\"/js/theme.js\" defer></script><script src=\"/js/htmx.min.js\"></script><script src=\"/js/butterchurn.min.js\"></script><script src=\"/js/butterchurnPresets.min.js\"></script></head><body>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#0f3460\"><meta name=\"mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"><link rel=\"stylesheet\" href=\"/css/pico.min.css\"><link rel=\"stylesheet\" href=\"/css/custom.css\"><link rel=\"stylesheet\" href=\"/css/stream.css\"><style>\n\t\t\t\t/* Vapor Wave Nav */\n\t\t\t\t.vapor-nav-header {\n\t\t\t\t\tbackground: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);\n\t\t\t\t\tborder-bottom: 2px solid #ff6b9d;\n\t\t\t\t\tbox-shadow: 0 4px 20px rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: space-between;\n\t\t\t\t\tflex-wrap: wrap;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tmin-height: 56px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav ul {\n\t\t\t\t\tmargin: 0;\n\t\t\t\t\tpadding: 0;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav li {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand {\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-brand a {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\ttext-shadow: 2px 2px 0 #ff6b9d, -1px -1px 0 #00d4ff;\n\t\t\t\t\tfont-size: 1.25rem;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tgap: 0.25rem;\n\t\t\t\t\tflex: 1;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a {\n\t\t\t\t\tcolor: rgba(255, 255, 255, 0.8) !important;\n\t\t\t\t\tpadding: 0.5rem 1rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t\tposition: relative;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a:hover, .vapor-nav-links a[aria-current=\"page\"] {\n\t\t\t\t\tcolor: #fff !important;\n\t\t\t\t\tbackground: rgba(255, 107, 157, 0.2);\n\t\t\t\t}\n\t\t\t\t.vapor-nav-links a[aria-current=\"page\"]::after {\n\t\t\t\t\tcontent: '';\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tbottom: 0;\n\t\t\t\t\tleft: 50%;\n\t\t\t\t\ttransform: translateX(-50%);\n\t\t\t\t\twidth: 20px;\n\t\t\t\t\theight: 2px;\n\t\t\t\t\tbackground: linear-gradient(90deg, #ff6b9d, #00d4ff);\n\t\t\t\t\tborder-radius: 2px;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator) {\n\t\t\t\t\tcolor: #00d4ff !important;\n\t\t\t\t\tpadding: 0.5rem;\n\t\t\t\t\tborder-radius: 8px;\n\t\t\t\t\ttransition: all 0.3s ease;\n\t\t\t\t}\n\t\t\t\t.vapor-nav-actions a:not(.contrast):not(.test-mode-indicator):hover {\n\t\t\t\t\tbackground: rgba(0, 212, 255, 0.2);\n\t\t\t\t\tbox-shadow: 0 0 15px rgba(0, 212, 255, 0.3);\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-avatar {\n\t\t\t\t\tbackground: linear-gradient(135deg, #ff6b9d, #e94560);\n\t\t\t\t\tcolor: #fff;\n\t\t\t\t\twidth: 36px;\n\t\t\t\t\theight: 36px;\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\tfont-size: 0.75rem;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary {\n\t\t\t\t\tlist-style: none;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tcursor: pointer;\n\t\t\t\t}\n\t\t\t\t.vapor-nav .user-dropdown summary::-webkit-details-marker {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t}\n\t\t\t</style><script src=\"/js/theme.js\" defer></script><script src=\"/js/htmx.min.js\"></script><script src=\"/js/htmx-enhancements.js?v=3\" defer></script><script src=\"/js/butterchurn.min.js\"></script><script src=\"/js/butterchurnPresets.min.js\"></script></head><body>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -136,7 +137,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/stream"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 196, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 198, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +150,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/favorites"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 197, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 199, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -162,7 +163,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/playlists"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 198, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 200, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -175,7 +176,7 @@ func Layout(data PageData) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(ariaCurrent(data.CurrentPath, "/analytics"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 199, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 201, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -203,7 +204,7 @@ func Layout(data PageData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(userInitials(data.FirstName(), data.LastName(), data.Username()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 214, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 216, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {

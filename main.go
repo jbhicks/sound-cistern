@@ -9,10 +9,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -39,13 +41,25 @@ var isTestMode bool = os.Getenv("TEST_MODE") == "true"
 // Collection cache - populated at startup to avoid repeated DB lookups
 var collectionCache = make(map[string]*models.Collection)
 
+// relatedTracksCache is a simple in-memory cache for related tracks results.
+type cachedRelated struct {
+	tracks    []interface{}
+	fetchedAt time.Time
+}
+
+var (
+	relatedCacheMu    sync.Mutex
+	relatedCacheStore = make(map[string]cachedRelated)
+)
+
+const relatedCacheTTL = 1 * time.Hour
+
 // initCollectionCache populates the collection cache at startup
 func initCollectionCache(app *pocketbase.PocketBase) error {
 	collectionNames := []string{
 		"users",
 		"soundcloud_users",
 		"soundcloud_tracks",
-		"user_settings",
 		"favorites",
 		"posts",
 		"playlists",
@@ -179,6 +193,183 @@ func upgradeArtworkURL(url string) string {
 	url = strings.Replace(url, "-t250x250", "-t500x500", -1)
 	url = strings.Replace(url, "-large.", "-t500x500.", 1)
 	return url
+}
+
+// relatedTracksHandler returns a handler that fetches related tracks for a given SoundCloud track ID.
+// Results are cached in memory for relatedCacheTTL to reduce API calls.
+func relatedTracksHandler(app *pocketbase.PocketBase) echo.HandlerFunc {
+	type jsonTrack struct {
+		TrackID          string  `json:"track_id"`
+		TrackTitle       string  `json:"track_title"`
+		ArtistName       string  `json:"artist_name"`
+		Genre            string  `json:"genre"`
+		TrackDuration    int64   `json:"track_duration"`
+		ArtworkURL       string  `json:"artwork_url"`
+		PermalinkURL     string  `json:"permalink_url"`
+		PlaybackCount    int64   `json:"playback_count"`
+		FavoritingsCount int64   `json:"favoritings_count"`
+		RepostsCount     int64   `json:"reposts_count"`
+		BPM              float64 `json:"bpm"`
+		Downloadable     bool    `json:"downloadable"`
+		DownloadURL      string  `json:"download_url"`
+	}
+
+	return func(c echo.Context) error {
+		trackID := c.PathParam("id")
+		if trackID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "track ID required"})
+		}
+
+		// Check in-memory cache first
+		relatedCacheMu.Lock()
+		if entry, ok := relatedCacheStore[trackID]; ok && time.Since(entry.fetchedAt) < relatedCacheTTL {
+			relatedCacheMu.Unlock()
+			return c.JSON(http.StatusOK, entry.tracks)
+		}
+		relatedCacheMu.Unlock()
+
+		// Get the authenticated user's access token
+		authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		if authRecord == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Authentication required"})
+		}
+
+		soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+		}
+
+		records, err := app.Dao().FindRecordsByFilter(
+			soundcloudUsersCollection.Id,
+			"user_id = {:user_id}",
+			"-created",
+			1,
+			0,
+			map[string]any{"user_id": authRecord.Id},
+		)
+		if err != nil || len(records) == 0 {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "No SoundCloud account connected"})
+		}
+
+		accessToken := records[0].GetString("access_token")
+		if accessToken == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "No SoundCloud access token"})
+		}
+
+		// Fetch related tracks from SoundCloud API v2
+		apiURL := fmt.Sprintf("https://api-v2.soundcloud.com/tracks/%s/related?limit=10", trackID)
+		client := &http.Client{Timeout: 15 * time.Second}
+		req, err := http.NewRequest("GET", apiURL, nil)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to build request"})
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": "SoundCloud API unreachable"})
+		}
+
+		// If v2 fails, fall back to v1 — close v2 body explicitly before reassigning
+		if resp.StatusCode != 200 {
+			log.Printf("[Related] v2 API returned %d for track %s, falling back to v1", resp.StatusCode, trackID)
+			resp.Body.Close()
+
+			apiURL = fmt.Sprintf("https://api.soundcloud.com/tracks/%s/related?limit=10", trackID)
+			req, err = http.NewRequest("GET", apiURL, nil)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to build fallback request"})
+			}
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			resp, err = client.Do(req)
+			if err != nil {
+				return c.JSON(http.StatusBadGateway, map[string]string{"error": "SoundCloud API unreachable"})
+			}
+
+			if resp.StatusCode != 200 {
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				log.Printf("[Related] v1 fallback also failed: status=%d body=%s", resp.StatusCode, string(body))
+				return c.JSON(http.StatusBadGateway, map[string]string{"error": fmt.Sprintf("SoundCloud API error: %d", resp.StatusCode)})
+			}
+		}
+		defer resp.Body.Close()
+
+		var raw interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse SoundCloud response"})
+		}
+
+		// SoundCloud v2 returns { collection: [...] }, v1 returns an array directly
+		var collection []interface{}
+		switch v := raw.(type) {
+		case map[string]interface{}:
+			if col, ok := v["collection"].([]interface{}); ok {
+				collection = col
+			}
+		case []interface{}:
+			collection = v
+		}
+
+		out := make([]interface{}, 0, len(collection))
+		for _, item := range collection {
+			track, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			id := ""
+			if idF, ok := track["id"].(float64); ok {
+				id = fmt.Sprintf("%.0f", idF)
+			}
+			if id == "" {
+				continue
+			}
+
+			title, _ := track["title"].(string)
+			genre, _ := track["genre"].(string)
+			artworkURL, _ := track["artwork_url"].(string)
+			artworkURL = upgradeArtworkURL(artworkURL)
+			permalinkURL, _ := track["permalink_url"].(string)
+			durationMs, _ := track["duration"].(float64)
+			playbackCount, _ := track["playback_count"].(float64)
+			favoritingsCount, _ := track["favoritings_count"].(float64)
+			repostsCount, _ := track["reposts_count"].(float64)
+			bpm, _ := track["bpm"].(float64)
+			downloadable, _ := track["downloadable"].(bool)
+			downloadURL, _ := track["download_url"].(string)
+
+			artistName := ""
+			if user, ok := track["user"].(map[string]interface{}); ok {
+				artistName, _ = user["username"].(string)
+			}
+
+			out = append(out, jsonTrack{
+				TrackID:          id,
+				TrackTitle:       title,
+				ArtistName:       artistName,
+				Genre:            genre,
+				TrackDuration:    int64(durationMs),
+				ArtworkURL:       artworkURL,
+				PermalinkURL:     permalinkURL,
+				PlaybackCount:    int64(playbackCount),
+				FavoritingsCount: int64(favoritingsCount),
+				RepostsCount:     int64(repostsCount),
+				BPM:              bpm,
+				Downloadable:     downloadable,
+				DownloadURL:      downloadURL,
+			})
+		}
+
+		// Store in cache
+		relatedCacheMu.Lock()
+		relatedCacheStore[trackID] = cachedRelated{tracks: out, fetchedAt: time.Now()}
+		relatedCacheMu.Unlock()
+
+		log.Printf("[Related] Fetched %d related tracks for track %s", len(out), trackID)
+		return c.JSON(http.StatusOK, out)
+	}
 }
 
 // generateRandomString generates a random string for state parameter
@@ -517,174 +708,102 @@ func mockSoundcloudTokenResponse(c echo.Context) error {
 }
 
 func main() {
-	// getStreamFromTranscodings extracts the best stream URL from SoundCloud transcodings
-	getStreamFromTranscodings := func(client *http.Client, accessToken string, transcodings []interface{}, trackID string) string {
-		log.Printf("[Stream] Found %d transcodings for track %s", len(transcodings), trackID)
-
-		var bestTranscodingURL string
-		var bestPreset string
-
-		for _, t := range transcodings {
-			tc, ok := t.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			preset, _ := tc["preset"].(string)
-			url, _ := tc["url"].(string)
-
-			log.Printf("[Stream] Transcoding: preset=%s, url=%s", preset, url)
-
-			if url == "" || preset == "" {
-				continue
-			}
-
-			if bestTranscodingURL == "" {
-				bestTranscodingURL = url
-				bestPreset = preset
-			} else if strings.HasPrefix(preset, "mp3") && !strings.HasPrefix(bestPreset, "mp3") {
-				bestTranscodingURL = url
-				bestPreset = preset
-			} else if strings.HasPrefix(preset, "mp3") && strings.HasPrefix(bestPreset, "mp3") {
-				currentBitrate := 0
-				bestBitrate := 0
-				fmt.Sscanf(preset, "mp3_%d", &currentBitrate)
-				fmt.Sscanf(bestPreset, "mp3_%d", &bestBitrate)
-				if currentBitrate > bestBitrate {
-					bestTranscodingURL = url
-					bestPreset = preset
-				}
-			}
-		}
-
-		if bestTranscodingURL == "" {
-			return ""
-		}
-
-		streamReq, _ := http.NewRequest("GET", bestTranscodingURL, nil)
-		streamReq.Header.Set("Authorization", "Bearer "+accessToken)
-
-		log.Printf("[Stream] Requesting stream URL from: %s", bestTranscodingURL)
-		streamResp, err := client.Do(streamReq)
-		if err != nil {
-			log.Printf("[Stream] Stream URL request failed: %v", err)
-			return ""
-		}
-		if streamResp.StatusCode != 200 {
-			log.Printf("[Stream] Stream URL request returned: %d", streamResp.StatusCode)
-			return ""
-		}
-		defer streamResp.Body.Close()
-
-		var streamData map[string]interface{}
-		if json.NewDecoder(streamResp.Body).Decode(&streamData) != nil {
-			return ""
-		}
-
-		if url, ok := streamData["url"].(string); ok && url != "" {
-			log.Printf("[Stream] Got stream URL: %s", url)
-			return url
-		}
-
-		log.Printf("[Stream] No URL in stream response: %+v", streamData)
-		return ""
-	}
-
-	// getHighQualityStreamURL fetches the best quality stream URL from SoundCloud
-	getHighQualityStreamURL := func(accessToken, trackID string) string {
+	// getStreamURL fetches a stream URL from SoundCloud using the /tracks/{id}/streams
+	// endpoint, which reliably returns all available formats.
+	// quality can be: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" or "auto" (best available)
+	getStreamURL := func(accessToken, trackID, quality string) string {
 		// In test mode, return mock stream URL
 		if isTestMode {
 			return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 		}
 
-		client := &http.Client{Timeout: 30 * time.Second}
-
-		log.Printf("[Stream] Fetching transcodings for track %s", trackID)
-
-		req, _ := http.NewRequest("GET", "https://api.soundcloud.com/tracks/"+trackID, nil)
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("[Stream] Error fetching track: %v", err)
-			return ""
-		}
-		defer resp.Body.Close()
-
-		log.Printf("[Stream] Track endpoint status: %d", resp.StatusCode)
-
-		if resp.StatusCode == 401 || resp.StatusCode == 403 {
-			log.Printf("[Stream] Token may be expired or invalid - got %d", resp.StatusCode)
-			// Can't refresh here - need to return empty and let caller handle refresh
-			return ""
-		}
-
-		if resp.StatusCode != 200 {
-			log.Printf("[Stream] Track fetch returned status %d", resp.StatusCode)
-			return ""
-		}
-
-		var trackData map[string]interface{}
-		if json.NewDecoder(resp.Body).Decode(&trackData) != nil {
-			return ""
-		}
-
-		media, hasMedia := trackData["media"].(map[string]interface{})
-		streamURL, hasStreamURL := trackData["stream_url"].(string)
-
-		if !hasMedia && !hasStreamURL {
-			log.Printf("[Stream] No 'media' or 'stream_url' field in track response for track %s", trackID)
-			return ""
-		}
-
-		if hasMedia {
-			transcodings, ok := media["transcodings"].([]interface{})
-			if ok && len(transcodings) > 0 {
-				return getStreamFromTranscodings(client, accessToken, transcodings, trackID)
-			}
-			log.Printf("[Stream] No transcodings in media field for track %s", trackID)
-		}
-
-		if hasStreamURL && streamURL != "" {
-			streamEndpoint := "https://api.soundcloud.com/tracks/soundcloud:tracks:" + trackID + "/stream"
-			log.Printf("[Stream] Using stream endpoint for track %s: %s", trackID, streamEndpoint)
-			streamReq, _ := http.NewRequest("GET", streamEndpoint, nil)
-			streamReq.Header.Set("Authorization", "Bearer "+accessToken)
-
-			clientNoRedirect := &http.Client{
+		// resolveOne follows a SoundCloud stream entry URL to the final CDN URL.
+		// SoundCloud returns either a 302 redirect or JSON {"url":"..."}.
+		resolveOne := func(entryURL string) string {
+			client := &http.Client{
 				Timeout: 30 * time.Second,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					return http.ErrUseLastResponse
 				},
 			}
-			streamResp, err := clientNoRedirect.Do(streamReq)
+			req, _ := http.NewRequest("GET", entryURL, nil)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("[Stream] Stream URL request failed: %v", err)
 				return ""
 			}
-			defer streamResp.Body.Close()
-
-			if streamResp.StatusCode == 302 {
-				location := streamResp.Header.Get("Location")
-				if location != "" {
-					log.Printf("[Stream] Got redirect URL: %s", location)
-					return location
-				}
+			defer resp.Body.Close()
+			if resp.StatusCode == 302 {
+				return resp.Header.Get("Location")
 			}
-
-			if streamResp.StatusCode == 200 {
-				var streamData map[string]interface{}
-				if json.NewDecoder(streamResp.Body).Decode(&streamData) == nil {
-					if url, ok := streamData["url"].(string); ok && url != "" {
-						log.Printf("[Stream] Got stream URL from JSON: %s", url)
-						return url
+			if resp.StatusCode == 200 {
+				var data map[string]interface{}
+				if json.NewDecoder(resp.Body).Decode(&data) == nil {
+					if u, ok := data["url"].(string); ok {
+						return u
 					}
 				}
 			}
-
-			log.Printf("[Stream] Stream URL request returned: %d", streamResp.StatusCode)
+			return ""
 		}
 
+		client := &http.Client{Timeout: 30 * time.Second}
+		streamsURL := fmt.Sprintf("https://api.soundcloud.com/tracks/%s/streams", trackID)
+		req, _ := http.NewRequest("GET", streamsURL, nil)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("[Stream] Error fetching streams for track %s: %v", trackID, err)
+			return ""
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			log.Printf("[Stream] Token expired/invalid for track %s: %d", trackID, resp.StatusCode)
+			return ""
+		}
+		if resp.StatusCode != 200 {
+			log.Printf("[Stream] Streams endpoint returned %d for track %s", resp.StatusCode, trackID)
+			return ""
+		}
+
+		var streams map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&streams); err != nil {
+			log.Printf("[Stream] Failed to decode streams response: %v", err)
+			return ""
+		}
+
+		keys := make([]string, 0, len(streams))
+		for k := range streams {
+			keys = append(keys, k)
+		}
+		log.Printf("[Stream] Available streams for %s: %v", trackID, keys)
+
+		// Quality preference order for auto: hls_aac_160 > http_mp3_128 > hls_mp3_128
+		preference := []string{"hls_aac_160_url", "http_mp3_128_url", "hls_mp3_128_url"}
+
+		if quality != "" && quality != "auto" {
+			key := quality + "_url"
+			if entryURL, ok := streams[key]; ok && entryURL != "" {
+				if resolved := resolveOne(entryURL); resolved != "" {
+					log.Printf("[Stream] Using requested quality %s for track %s", quality, trackID)
+					return resolved
+				}
+			}
+			log.Printf("[Stream] Requested quality %s unavailable for track %s, falling back", quality, trackID)
+		}
+
+		for _, key := range preference {
+			if entryURL, ok := streams[key]; ok && entryURL != "" {
+				if resolved := resolveOne(entryURL); resolved != "" {
+					log.Printf("[Stream] Using %s for track %s", key, trackID)
+					return resolved
+				}
+			}
+		}
+
+		log.Printf("[Stream] No usable stream URL found for track %s", trackID)
 		return ""
 	}
 
@@ -776,8 +895,11 @@ func main() {
 				TokenLength: 32,
 				TokenLookup: "form:csrf_token",
 				Skipper: func(c echo.Context) bool {
-					// Skip CSRF for PocketBase admin routes, auth refresh, and API endpoints
-					return strings.HasPrefix(c.Path(), "/_") || strings.HasPrefix(c.Path(), "/api/admins/") || strings.HasPrefix(c.Path(), "/api/auth/") || strings.HasPrefix(c.Path(), "/api/sync")
+					// Skip CSRF for all /api/ routes (JSON APIs use cookie auth, not form tokens)
+					// and for PocketBase admin routes
+					return strings.HasPrefix(c.Path(), "/_") ||
+						strings.HasPrefix(c.Path(), "/api/") ||
+						strings.HasPrefix(c.Path(), "/auth/")
 				},
 			}))
 		}
@@ -789,14 +911,52 @@ func main() {
 			HTML5:  false,
 		}))
 
+		// React App — served at root /
+		// In dev mode: proxy to Vite dev server (HMR). In prod: serve built assets from public/app/.
+		if app.IsDev() {
+			viteTarget, _ := url.Parse("http://localhost:5173")
+			viteProxy := httputil.NewSingleHostReverseProxy(viteTarget)
+			viteProxy.ModifyResponse = nil
+			viteHandler := echo.WrapHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				viteProxy.ServeHTTP(w, r)
+			}))
+			// Proxy all Vite-specific paths (assets, HMR, etc.) to the dev server.
+			// Named Go/legacy routes registered below take priority over this catch-all.
+			e.Router.GET("/@*", viteHandler)
+			e.Router.GET("/assets/*", viteHandler)
+			e.Router.GET("/src/*", viteHandler)
+			e.Router.GET("/node_modules/*", viteHandler)
+		}
+
 		// Health check endpoint
 		e.Router.GET("/health", func(c echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
 		})
 
-		// Home page - redirect to stream (default tab)
+		// /v2 and /v2/* — permanent redirect to root for backward compat
+		e.Router.GET("/v2", func(c echo.Context) error {
+			return c.Redirect(http.StatusMovedPermanently, "/")
+		})
+		e.Router.GET("/v2/*", func(c echo.Context) error {
+			// Strip /v2 prefix and redirect, e.g. /v2/stream → /stream
+			rest := strings.TrimPrefix(c.Request().URL.Path, "/v2")
+			if rest == "" {
+				rest = "/"
+			}
+			return c.Redirect(http.StatusMovedPermanently, rest)
+		})
+
+		// Home page — serve the React app (or redirect to /stream once loaded)
 		e.Router.GET("/", func(c echo.Context) error {
-			return c.Redirect(http.StatusTemporaryRedirect, "/stream")
+			if app.IsDev() {
+				// In dev mode, proxy to Vite
+				viteTarget, _ := url.Parse("http://localhost:5173")
+				viteProxy := httputil.NewSingleHostReverseProxy(viteTarget)
+				viteProxy.ServeHTTP(c.Response(), c.Request())
+				return nil
+			}
+			c.Response().Header().Set("Content-Type", "text/html")
+			return c.File("public/app/index.html")
 		}, apis.ActivityLogger(app))
 
 		// Proto page - design experiments
@@ -959,32 +1119,41 @@ func main() {
 			return views.VisualizerProto(data).Render(c.Request().Context(), c.Response().Writer)
 		}, apis.ActivityLogger(app))
 
-		// Helper function to fetch fresh tracks from SoundCloud API
-		fetchSoundCloudTracks := func(accessToken string, limit int) ([]views.Track, error) {
+		// Helper function to fetch fresh tracks from SoundCloud API with offset support.
+		// fetchSoundCloudTracks fetches one page of activities from the given URL.
+		// Pass the initial URL or a next_href cursor URL for subsequent pages.
+		// Returns (tracks, nextHref, rawItemCount, error).
+		// nextHref is empty when the feed is exhausted.
+		fetchSoundCloudTracks := func(accessToken string, url string) ([]views.Track, string, int, error) {
 			client := &http.Client{Timeout: 30 * time.Second}
-			req, err := http.NewRequest("GET", fmt.Sprintf("https://api.soundcloud.com/me/activities?limit=%d", limit), nil)
+			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
-				return nil, err
+				return nil, "", 0, err
 			}
 			req.Header.Set("Authorization", "Bearer "+accessToken)
 
 			resp, err := client.Do(req)
 			if err != nil {
-				return nil, err
+				return nil, "", 0, err
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != 200 {
-				return nil, fmt.Errorf("SoundCloud API error: %d", resp.StatusCode)
+				return nil, "", 0, fmt.Errorf("SoundCloud API error: %d", resp.StatusCode)
 			}
 
 			var activities map[string]interface{}
 			if err := json.NewDecoder(resp.Body).Decode(&activities); err != nil {
-				return nil, err
+				return nil, "", 0, err
 			}
 
+			nextHref, _ := activities["next_href"].(string)
+
 			var tracks []views.Track
+			rawCount := 0
+			seenTrackIDs := make(map[string]bool)
 			if collection, ok := activities["collection"].([]interface{}); ok {
+				rawCount = len(collection)
 				for _, item := range collection {
 					if activity, ok := item.(map[string]interface{}); ok {
 						origin, hasOrigin := activity["origin"].(map[string]interface{})
@@ -1000,6 +1169,10 @@ func main() {
 						if id, ok := origin["id"].(float64); ok {
 							trackID = fmt.Sprintf("%.0f", id)
 						}
+						if trackID == "" || seenTrackIDs[trackID] {
+							continue
+						}
+						seenTrackIDs[trackID] = true
 						title, _ := origin["title"].(string)
 						artistName, _ := origin["user"].(map[string]interface{})["username"].(string)
 						genre, _ := origin["genre"].(string)
@@ -1011,6 +1184,8 @@ func main() {
 						playbackCount, _ := origin["playback_count"].(float64)
 						favoritingsCount, _ := origin["favoritings_count"].(float64)
 						repostsCount, _ := origin["reposts_count"].(float64)
+						downloadable, _ := origin["downloadable"].(bool)
+						downloadURL, _ := origin["download_url"].(string)
 
 						tracks = append(tracks, views.Track{
 							TrackID:          trackID,
@@ -1024,104 +1199,31 @@ func main() {
 							PlaybackCount:    int64(playbackCount),
 							FavoritingsCount: int64(favoritingsCount),
 							RepostsCount:     int64(repostsCount),
+							Downloadable:     downloadable,
+							DownloadURL:      downloadURL,
 						})
 					}
 				}
 			}
-			return tracks, nil
+			return tracks, nextHref, rawCount, nil
 		}
 
-		// Stream page
-		e.Router.GET("/stream", func(c echo.Context) error {
-			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-
-			data := views.StreamData{
-				PageData: views.PageData{
-					Title:       "Stream",
-					Description: "Chronological feed of your Soundcloud tracks",
-					CurrentPath: "/stream",
-					TestMode:    isTestMode,
-				},
-				Tracks:      []views.Track{},
-				ActiveTab:   "stream",
-				ViewMode:    "grid",
-				Filters:     map[string]interface{}{},
-				IsLoggedIn:  "false",
-				MinDuration: int64(0),
-				MaxDuration: int64(0),
+		// /stream, /favorites, /playlists, /analytics — React app routes
+		// In dev: proxy to Vite. In prod: serve public/app/index.html (React Router handles routing).
+		reactAppHandler := func(c echo.Context) error {
+			if app.IsDev() {
+				viteTarget, _ := url.Parse("http://localhost:5173")
+				viteProxy := httputil.NewSingleHostReverseProxy(viteTarget)
+				viteProxy.ServeHTTP(c.Response(), c.Request())
+				return nil
 			}
-
-			var maxDur int64 = 0
-
-			if authRecord != nil {
-				data.IsLoggedIn = "true"
-				data.User = authRecord
-
-				settingsCollection, err := getCollection(app, "user_settings")
-				if err == nil {
-					settings, err := app.Dao().FindFirstRecordByFilter(
-						settingsCollection.Id,
-						"user_id = {:user_id}",
-						map[string]any{"user_id": authRecord.Id},
-					)
-					if err == nil {
-						data.ActiveTab = settings.GetString("active_tab")
-						if data.ActiveTab == "" {
-							data.ActiveTab = "stream"
-						}
-						data.ViewMode = settings.GetString("view_mode")
-						if data.ViewMode == "" {
-							data.ViewMode = "grid"
-						}
-						data.Filters = settings.Get("filters").(map[string]interface{})
-						if data.Filters == nil {
-							data.Filters = map[string]interface{}{}
-						}
-					}
-				}
-
-				// Pre-load tracks server-side for initial render
-				if isTestMode {
-					// Set max duration for test mode based on longest mock track (9 min)
-					data.MaxDuration = 9
-				} else {
-					// Fetch fresh from SoundCloud API
-					soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
-					if err == nil {
-						soundcloudUser, err := app.Dao().FindFirstRecordByFilter(
-							soundcloudUsersCollection.Id,
-							"user_id = {:user_id}",
-							map[string]any{"user_id": authRecord.Id},
-						)
-						if err == nil {
-							accessToken := soundcloudUser.GetString("access_token")
-							// Try to get fresh tracks from SoundCloud API
-							tracks, err := fetchSoundCloudTracks(accessToken, 20)
-							if err == nil && len(tracks) > 0 {
-								log.Printf("[Stream] Fetched %d fresh tracks from SoundCloud API", len(tracks))
-								data.Tracks = tracks
-								for _, t := range tracks {
-									durMin := t.TrackDuration / 60000
-									if durMin > maxDur {
-										maxDur = durMin
-									}
-								}
-								data.MaxDuration = maxDur
-							} else {
-								// Auth failed - redirect to re-auth
-								log.Printf("[Stream] SoundCloud auth failed: %v - redirecting to re-auth", err)
-								return c.Redirect(http.StatusTemporaryRedirect, "/auth/soundcloud")
-							}
-						} else {
-							// No SoundCloud account linked - redirect to auth
-							return c.Redirect(http.StatusTemporaryRedirect, "/auth/soundcloud")
-						}
-					}
-				}
-			}
-
-			return views.Stream(data).Render(c.Request().Context(), c.Response().Writer)
-		}, soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
+			c.Response().Header().Set("Content-Type", "text/html")
+			return c.File("public/app/index.html")
+		}
+		e.Router.GET("/stream", reactAppHandler)
+		e.Router.GET("/favorites", reactAppHandler)
+		e.Router.GET("/playlists", reactAppHandler)
+		e.Router.GET("/analytics", reactAppHandler)
 
 		// Login splash page
 		e.Router.GET("/login", func(c echo.Context) error {
@@ -1761,6 +1863,11 @@ func main() {
 														trackRecord.Set("stream_url", streamURL)
 													}
 
+													// Download URL (may be empty if track is not downloadable)
+													if downloadURL, ok := origin["download_url"].(string); ok && downloadURL != "" {
+														trackRecord.Set("download_url", downloadURL)
+													}
+
 													// Created at (from activity, not origin)
 													if createdAt, ok := activity["created_at"].(string); ok {
 														trackRecord.Set("post_time", createdAt)
@@ -1920,11 +2027,17 @@ func main() {
 				log.Printf("Warning: Failed to save updated SoundCloud tokens: %v", err)
 			}
 
-			// Generate new JWT
+			// Generate new JWT — use same 30-day default as initial login
+			refreshTokenDuration := 30 * 24 * time.Hour
+			if dur := os.Getenv("AUTH_TOKEN_DURATION_HOURS"); dur != "" {
+				if hours, err := strconv.Atoi(dur); err == nil && hours > 0 {
+					refreshTokenDuration = time.Duration(hours) * time.Hour
+				}
+			}
 			newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 				"id":   authRecord.Id,
 				"type": "authRecord",
-				"exp":  time.Now().Add(24 * time.Hour).Unix(),
+				"exp":  time.Now().Add(refreshTokenDuration).Unix(),
 			})
 			tokenString, err = newToken.SignedString([]byte(app.Settings().RecordAuthToken.Secret))
 			if err != nil {
@@ -1943,7 +2056,7 @@ func main() {
 				HttpOnly: true,
 				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
-				MaxAge:   86400,
+				MaxAge:   int(refreshTokenDuration.Seconds()),
 			})
 
 			return c.JSON(http.StatusOK, map[string]string{
@@ -1953,7 +2066,7 @@ func main() {
 
 		// Stream endpoint - fetch user's Soundcloud tracks with filtering, sorting, and pagination
 		streamHandler := func(c echo.Context) error {
-			// In test mode, return mock HTML tracks
+			// In test mode, return mock HTML tracks with fetch-until-filled logic
 			if isTestMode {
 				durationMinStr := c.QueryParam("duration_min")
 				durationMin := 0
@@ -1962,6 +2075,7 @@ func main() {
 				}
 
 				searchQuery := strings.ToLower(c.QueryParam("q"))
+				contentType := c.QueryParam("content_type")
 
 				page := 1
 				if p := c.QueryParam("page"); p != "" {
@@ -1969,10 +2083,15 @@ func main() {
 						page = parsed
 					}
 				}
-				pageSize := 20
-				if l := c.QueryParam("limit"); l != "" {
-					if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
-						pageSize = parsed
+				// Default to loading 100 tracks at a time
+				pageSize := 100
+
+				// Support offset-based pagination from load more button
+				offset := 0
+				if o := c.QueryParam("offset"); o != "" {
+					if parsed, err := strconv.Atoi(o); err == nil && parsed > 0 {
+						offset = parsed
+						page = (offset / pageSize) + 1
 					}
 				}
 
@@ -1985,104 +2104,220 @@ func main() {
 					id, title, artist, genre string
 					duration                 int64
 					plays, likes, reposts    int64
+					isRepost                 bool
 				}{
-					{"1", "Midnight Drive", "Synthwave Boy", "Synthwave", 245000, 15000, 2500, 500},
-					{"2", "Neon Lights", "Cyber Punk", "Electronic", 180000, 32000, 4800, 1200},
-					{"3", "Bass Drop", "DJ Thunder", "House", 240000, 89000, 12000, 2500},
-					{"4", "Ocean Waves", "Chill Master", "Ambient", 360000, 5000, 890, 120},
-					{"5", "Rapid Fire", "Drum & Bass", "Drum & Bass", 185000, 45000, 6700, 890},
-					{"6", "Sunset Vibes", "LoFi Queen", "Lo-Fi", 195000, 12000, 3400, 450},
-					{"7", "Heavy Metal", "Rock Stars", "Metal", 280000, 67000, 8900, 1200},
-					{"8", "Jazz Morning", "Smooth Jazz", "Jazz", 320000, 8900, 1200, 200},
-					{"9", "Techno Bunker", "Berlin DJ", "Techno", 420000, 23000, 3400, 780},
-					{"10", "Pop Hit", "Mainstream", "Pop", 195000, 250000, 45000, 12000},
-					{"11", "Acoustic Session", "Guitar Hero", "Acoustic", 210000, 15000, 3200, 400},
-					{"12", "Dubstep Wobble", "Bass Cannon", "Dubstep", 200000, 78000, 12000, 2300},
-					{"13", "Classical Mood", "Orchestra", "Classical", 480000, 3400, 560, 89},
-					{"14", "Hip Hop Beat", "Rapper", "Hip-Hop", 220000, 180000, 34000, 8900},
-					{"15", "Trance State", "Uplift", "Trance", 410000, 56000, 8900, 1500},
-					{"16", "Deep House", "Poolside", "House", 380000, 23000, 4500, 670},
-					{"17", "Funkytown", "Disco Dan", "Funk", 265000, 45000, 7800, 1200},
-					{"18", "Emo Nights", "Punk Heart", "Punk", 175000, 89000, 15000, 3400},
-					{"19", "Indie Dream", "Alt Rock", "Indie", 230000, 12000, 2100, 340},
-					{"20", "EDM Festival", "Headliner", "EDM", 295000, 340000, 56000, 15000},
-					{"21", "Short Snippet", "Quick Beat", "Electronic", 45000, 500, 89, 12},
-					{"22", "Long Journey", "Progressive", "Progressive", 540000, 8900, 1200, 180},
-					{"23", "Reggae Vibes", "Island", "Reggae", 205000, 23000, 4500, 780},
-					{"24", "Country Road", "Nashville", "Country", 198000, 15000, 2100, 340},
-					{"25", "R&B Soul", "Smooth Vocal", "R&B", 248000, 67000, 12000, 2100},
+					{"1", "Midnight Drive", "Synthwave Boy", "Synthwave", 245000, 15000, 2500, 500, false},
+					{"2", "Neon Lights", "Cyber Punk", "Electronic", 180000, 32000, 4800, 1200, false},
+					{"3", "Bass Drop", "DJ Thunder", "House", 240000, 89000, 12000, 2500, false},
+					{"4", "Ocean Waves", "Chill Master", "Ambient", 360000, 5000, 890, 120, false},
+					{"5", "Rapid Fire", "Drum & Bass", "Drum & Bass", 185000, 45000, 6700, 890, false},
+					{"6", "Sunset Vibes", "LoFi Queen", "Lo-Fi", 195000, 12000, 3400, 450, false},
+					{"7", "Heavy Metal", "Rock Stars", "Metal", 280000, 67000, 8900, 1200, false},
+					{"8", "Jazz Morning", "Smooth Jazz", "Jazz", 320000, 8900, 1200, 200, false},
+					{"9", "Techno Bunker", "Berlin DJ", "Techno", 420000, 23000, 3400, 780, false},
+					{"10", "Pop Hit", "Mainstream", "Pop", 195000, 250000, 45000, 12000, false},
+					{"11", "Acoustic Session", "Guitar Hero", "Acoustic", 210000, 15000, 3200, 400, false},
+					{"12", "Dubstep Wobble", "Bass Cannon", "Dubstep", 200000, 78000, 12000, 2300, false},
+					{"13", "Classical Mood", "Orchestra", "Classical", 480000, 3400, 560, 89, false},
+					{"14", "Hip Hop Beat", "Rapper", "Hip-Hop", 220000, 180000, 34000, 8900, false},
+					{"15", "Trance State", "Uplift", "Trance", 410000, 56000, 8900, 1500, false},
+					{"16", "Deep House", "Poolside", "House", 380000, 23000, 4500, 670, false},
+					{"17", "Funkytown", "Disco Dan", "Funk", 265000, 45000, 7800, 1200, false},
+					{"18", "Emo Nights", "Punk Heart", "Punk", 175000, 89000, 15000, 3400, false},
+					{"19", "Indie Dream", "Alt Rock", "Indie", 230000, 12000, 2100, 340, false},
+					{"20", "EDM Festival", "Headliner", "EDM", 295000, 340000, 56000, 15000, false},
+					{"21", "Short Snippet", "Quick Beat", "Electronic", 45000, 500, 89, 12, false},
+					{"22", "Long Journey", "Progressive", "Progressive", 540000, 8900, 1200, 180, false},
+					{"23", "Reggae Vibes", "Island", "Reggae", 205000, 23000, 4500, 780, false},
+					{"24", "Country Road", "Nashville", "Country", 198000, 15000, 2100, 340, false},
+					{"25", "R&B Soul", "Smooth Vocal", "R&B", 248000, 67000, 12000, 2100, false},
 					// Page 2 tracks
-					{"26", "Night Owl", "Lunar Sound", "Ambient", 310000, 6700, 890, 120},
-					{"27", "Electric Dreams", "Voltage", "Electronic", 225000, 45000, 6700, 890},
-					{"28", "Summer Breeze", "Beach Club", "House", 198000, 34000, 5600, 780},
-					{"29", "City Lights", "Urban Beat", "Hip-Hop", 215000, 56000, 8900, 1200},
-					{"30", "Galaxy Quest", "Space DJ", "Synthwave", 275000, 23000, 3400, 450},
-					{"31", "Coffee Break", "Cafe Sounds", "Lo-Fi", 165000, 8900, 1500, 200},
-					{"32", "Workout Mix", "Fitness Pro", "EDM", 240000, 120000, 18000, 3400},
-					{"33", "Road Trip", "Highway Kings", "Rock", 285000, 45000, 6700, 890},
-					{"34", "Chillout Zone", "Relaxation", "Ambient", 420000, 5600, 780, 89},
-					{"35", "Dance Floor", "Club Master", "House", 195000, 89000, 12000, 2100},
-					{"36", "Acoustic Covers", "Street Performer", "Acoustic", 178000, 23000, 3400, 450},
-					{"37", "Podcast Intro", "Host One", "Podcast", 30000, 1200, 200, 45},
-					{"38", "Rainy Day", "Moody Blues", "Jazz", 340000, 7800, 1100, 150},
-					{"39", "Gym Motivation", "Trainer Beat", "Hip-Hop", 185000, 67000, 9800, 1800},
-					{"40", "Sunday Morning", "Weekend Vibes", "Soul", 255000, 34000, 5600, 670},
-					{"41", "Night Shift", "Late Night", "Techno", 380000, 19000, 2800, 340},
-					{"42", "Wedding Song", "Celebration", "Funk", 245000, 45000, 7800, 1200},
-					{"43", "Study Session", "Focus Mode", "Lo-Fi", 300000, 15000, 2300, 340},
-					{"44", "Beach Party", "Summer Hits", "Pop", 210000, 120000, 20000, 4500},
-					{"45", "Mountain High", "Nature Sound", "Ambient", 420000, 4500, 670, 89},
+					{"26", "Night Owl", "Lunar Sound", "Ambient", 310000, 6700, 890, 120, false},
+					{"27", "Electric Dreams", "Voltage", "Electronic", 225000, 45000, 6700, 890, false},
+					{"28", "Summer Breeze", "Beach Club", "House", 198000, 34000, 5600, 780, false},
+					{"29", "City Lights", "Urban Beat", "Hip-Hop", 215000, 56000, 8900, 1200, false},
+					{"30", "Galaxy Quest", "Space DJ", "Synthwave", 275000, 23000, 3400, 450, false},
+					{"31", "Coffee Break", "Cafe Sounds", "Lo-Fi", 165000, 8900, 1500, 200, false},
+					{"32", "Workout Mix", "Fitness Pro", "EDM", 240000, 120000, 18000, 3400, false},
+					{"33", "Road Trip", "Highway Kings", "Rock", 285000, 45000, 6700, 890, false},
+					{"34", "Chillout Zone", "Relaxation", "Ambient", 420000, 5600, 780, 89, false},
+					{"35", "Dance Floor", "Club Master", "House", 195000, 89000, 12000, 2100, false},
+					{"36", "Acoustic Covers", "Street Performer", "Acoustic", 178000, 23000, 3400, 450, false},
+					{"37", "Podcast Intro", "Host One", "Podcast", 30000, 1200, 200, 45, false},
+					{"38", "Rainy Day", "Moody Blues", "Jazz", 340000, 7800, 1100, 150, false},
+					{"39", "Gym Motivation", "Trainer Beat", "Hip-Hop", 185000, 67000, 9800, 1800, false},
+					{"40", "Sunday Morning", "Weekend Vibes", "Soul", 255000, 34000, 5600, 670, false},
+					{"41", "Night Shift", "Late Night", "Techno", 380000, 19000, 2800, 340, false},
+					{"42", "Wedding Song", "Celebration", "Funk", 245000, 45000, 7800, 1200, false},
+					{"43", "Study Session", "Focus Mode", "Lo-Fi", 300000, 15000, 2300, 340, false},
+					{"44", "Beach Party", "Summer Hits", "Pop", 210000, 120000, 20000, 4500, false},
+					{"45", "Mountain High", "Nature Sound", "Ambient", 420000, 4500, 670, 89, false},
 					// Page 3 tracks
-					{"46", "Driving Rain", "Storm Chaser", "Rock", 265000, 34000, 5100, 670},
-					{"47", "Velvet Sky", "Dream Pop", "Indie", 225000, 18000, 2800, 390},
-					{"48", "Bass Commander", "Dub Master", "Dubstep", 215000, 78000, 11000, 2300},
-					{"49", "Morning Coffee", "Slow Brew", "Jazz", 290000, 8900, 1300, 180},
-					{"50", "Festival Anthem", "Crowd Pleaser", "EDM", 265000, 250000, 38000, 8900},
-					{"51", "Quiet Storm", "Smooth Groove", "R&B", 275000, 45000, 7800, 1100},
-					{"52", "Energy Boost", "Power Hour", "House", 195000, 67000, 9500, 1400},
-					{"53", "Late Night Drive", "Midnight Run", "Synthwave", 280000, 23000, 3600, 480},
-					{"54", "Sunrise Yoga", "Morning Zen", "Ambient", 360000, 5600, 890, 120},
-					{"55", "Party Start", "Warmup DJ", "House", 210000, 45000, 6800, 950},
-					{"56", "Acoustic Soul", "Guitar Man", "Acoustic", 235000, 23000, 3600, 460},
-					{"57", "Bass Face", "Sub Zero", "Dubstep", 200000, 89000, 13000, 2800},
-					{"58", "Lounge Mix", "Chill Out", "Downtempo", 310000, 12000, 1900, 230},
-					{"59", "Runway Ready", "Fashion Week", "Electronic", 185000, 34000, 5100, 680},
-					{"60", "Throwback", "Old School", "Hip-Hop", 245000, 78000, 12000, 2100},
-					{"61", "Meditation", "Inner Peace", "Ambient", 480000, 3400, 560, 78},
-					{"62", "Jump Up", "Rave Nation", "Drum & Bass", 195000, 56000, 8100, 1200},
-					{"63", "Smooth Operator", "Jazz Cafe", "Jazz", 265000, 15000, 2400, 310},
-					{"64", "Club Banger", "DJ Essential", "House", 195000, 180000, 26000, 4500},
-					{"65", "Acoustic Sessions", "Campfire", "Folk", 225000, 12000, 1800, 240},
+					{"46", "Driving Rain", "Storm Chaser", "Rock", 265000, 34000, 5100, 670, false},
+					{"47", "Velvet Sky", "Dream Pop", "Indie", 225000, 18000, 2800, 390, false},
+					{"48", "Bass Commander", "Dub Master", "Dubstep", 215000, 78000, 11000, 2300, false},
+					{"49", "Morning Coffee", "Slow Brew", "Jazz", 290000, 8900, 1300, 180, false},
+					{"50", "Festival Anthem", "Crowd Pleaser", "EDM", 265000, 250000, 38000, 8900, false},
+					{"51", "Quiet Storm", "Smooth Groove", "R&B", 275000, 45000, 7800, 1100, false},
+					{"52", "Energy Boost", "Power Hour", "House", 195000, 67000, 9500, 1400, false},
+					{"53", "Late Night Drive", "Midnight Run", "Synthwave", 280000, 23000, 3600, 480, false},
+					{"54", "Sunrise Yoga", "Morning Zen", "Ambient", 360000, 5600, 890, 120, false},
+					{"55", "Party Start", "Warmup DJ", "House", 210000, 45000, 6800, 950, false},
+					{"56", "Acoustic Soul", "Guitar Man", "Acoustic", 235000, 23000, 3600, 460, false},
+					{"57", "Bass Face", "Sub Zero", "Dubstep", 200000, 89000, 13000, 2800, false},
+					{"58", "Lounge Mix", "Chill Out", "Downtempo", 310000, 12000, 1900, 230, false},
+					{"59", "Runway Ready", "Fashion Week", "Electronic", 185000, 34000, 5100, 680, false},
+					{"60", "Throwback", "Old School", "Hip-Hop", 245000, 78000, 12000, 2100, false},
+					{"61", "Meditation", "Inner Peace", "Ambient", 480000, 3400, 560, 78, false},
+					{"62", "Jump Up", "Rave Nation", "Drum & Bass", 195000, 56000, 8100, 1200, false},
+					{"63", "Smooth Operator", "Jazz Cafe", "Jazz", 265000, 15000, 2400, 310, false},
+					{"64", "Club Banger", "DJ Essential", "House", 195000, 180000, 26000, 4500, false},
+					{"65", "Acoustic Sessions", "Campfire", "Folk", 225000, 12000, 1800, 240, false},
 					// Page 4 tracks (for testing infinite scroll)
-					{"66", "After Hours", "Night Owl", "Jazz", 295000, 8900, 1400, 190},
-					{"67", "Bass Drop Deluxe", "Subwave", "Dubstep", 210000, 67000, 9500, 1400},
-					{"68", "Morning Routine", "Daily Mix", "Pop", 185000, 23000, 3600, 480},
-					{"69", "Focus Flow", "Productivity", "Lo-Fi", 255000, 18000, 2800, 380},
-					{"70", "Workout Energy", "Gym Rat", "EDM", 175000, 78000, 11000, 1600},
+					{"66", "After Hours", "Night Owl", "Jazz", 295000, 8900, 1400, 190, false},
+					{"67", "Bass Drop Deluxe", "Subwave", "Dubstep", 210000, 67000, 9500, 1400, false},
+					{"68", "Morning Routine", "Daily Mix", "Pop", 185000, 23000, 3600, 480, false},
+					{"69", "Focus Flow", "Productivity", "Lo-Fi", 255000, 18000, 2800, 380, false},
+					{"70", "Workout Energy", "Gym Rat", "EDM", 175000, 78000, 11000, 1600, false},
 				}
 
-				totalTracks := len(mockTracks)
-				startIdx := (page - 1) * pageSize
-				endIdx := startIdx + pageSize
-				if startIdx >= totalTracks {
-					htmlBuilder.WriteString("<!-- no more tracks -->")
-				} else {
-					if endIdx > totalTracks {
-						endIdx = totalTracks
+				// Apply filters and keep fetching until we have enough tracks or exhaust the source
+				isFiltering := durationMin > 0 || searchQuery != "" || contentType != ""
+				tracksToSkip := (page - 1) * pageSize
+				var filteredTracks []int              // store indices of matching tracks
+				seenTrackIDs := make(map[string]bool) // deduplicate by track ID
+
+				// Iterate through all tracks, collecting matches until we have enough
+				for i, t := range mockTracks {
+					// Skip duplicate tracks (same track ID)
+					if seenTrackIDs[t.id] {
+						continue
 					}
-					for i := startIdx; i < endIdx; i++ {
-						t := mockTracks[i]
-						durationMinutes := t.duration / 60000
-						if durationMin > 0 && durationMinutes < int64(durationMin) {
+
+					// Content type filter
+					if contentType == "posts" && t.isRepost {
+						continue
+					}
+					if contentType == "reposts" && !t.isRepost {
+						continue
+					}
+
+					// Duration filter
+					durationMinutes := t.duration / 60000
+					if durationMin > 0 && durationMinutes < int64(durationMin) {
+						continue
+					}
+
+					// Search filter
+					if searchQuery != "" {
+						titleMatch := strings.Contains(strings.ToLower(t.title), searchQuery)
+						artistMatch := strings.Contains(strings.ToLower(t.artist), searchQuery)
+						genreMatch := strings.Contains(strings.ToLower(t.genre), searchQuery)
+						if !titleMatch && !artistMatch && !genreMatch {
 							continue
 						}
-						if searchQuery != "" {
-							titleMatch := strings.Contains(strings.ToLower(t.title), searchQuery)
-							artistMatch := strings.Contains(strings.ToLower(t.artist), searchQuery)
-							if !titleMatch && !artistMatch {
-								continue
-							}
-						}
+					}
+
+					// Track passes all filters - add to results and mark as seen
+					seenTrackIDs[t.id] = true
+					filteredTracks = append(filteredTracks, i)
+
+					// If not filtering, just take one page worth
+					if !isFiltering && len(filteredTracks) >= tracksToSkip+pageSize {
+						break
+					}
+				}
+
+				// Slice the filtered tracks for pagination
+				// Use offset directly if provided (from load more), otherwise calculate from page
+				startIdx := 0
+				if offset > 0 && offset < len(filteredTracks) {
+					startIdx = offset
+				} else if tracksToSkip > 0 && tracksToSkip < len(filteredTracks) {
+					startIdx = tracksToSkip
+				}
+
+				// If startIdx is beyond what we have, return empty (no more tracks)
+				if startIdx >= len(filteredTracks) {
+					if !isHTMX {
+						htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
+					}
+					htmlBuilder.WriteString("<!-- no more tracks -->")
+					if !isHTMX {
+						htmlBuilder.WriteString("</div>")
+					}
+					return c.HTML(http.StatusOK, htmlBuilder.String())
+				}
+
+				// On initial load (page=1, offset=0), return up to limit tracks
+				// On load more, return next pageSize batch
+				batchSize := pageSize
+				if page == 1 && offset == 0 && isFiltering {
+					// Initial filtered load: try to fill up to the limit
+					batchSize = pageSize
+				}
+
+				endIdx := startIdx + batchSize
+				if endIdx > len(filteredTracks) {
+					endIdx = len(filteredTracks)
+				}
+
+				// JSON mode for React frontend
+				wantsJSON := strings.Contains(c.Request().Header.Get("Accept"), "application/json") ||
+					c.QueryParam("format") == "json"
+
+				if wantsJSON {
+					type jsonTrack struct {
+						TrackID          string  `json:"track_id"`
+						TrackTitle       string  `json:"track_title"`
+						ArtistName       string  `json:"artist_name"`
+						Genre            string  `json:"genre"`
+						TrackDuration    int64   `json:"track_duration"`
+						ArtworkURL       string  `json:"artwork_url"`
+						PermalinkURL     string  `json:"permalink_url"`
+						PlaybackCount    int64   `json:"playback_count"`
+						FavoritingsCount int64   `json:"favoritings_count"`
+						RepostsCount     int64   `json:"reposts_count"`
+						BPM              float64 `json:"bpm"`
+						Downloadable     bool    `json:"downloadable"`
+						DownloadURL      string  `json:"download_url"`
+					}
+					out := make([]jsonTrack, 0, endIdx-startIdx)
+					for i := startIdx; i < endIdx; i++ {
+						t := mockTracks[filteredTracks[i]]
+						artworkURL := "https://picsum.photos/seed/" + t.id + "/500/500"
+						out = append(out, jsonTrack{
+							TrackID:          t.id,
+							TrackTitle:       t.title,
+							ArtistName:       t.artist,
+							Genre:            t.genre,
+							TrackDuration:    t.duration,
+							ArtworkURL:       artworkURL,
+							PermalinkURL:     "https://soundcloud.com/test/" + t.id,
+							PlaybackCount:    t.plays,
+							FavoritingsCount: t.likes,
+							RepostsCount:     t.reposts,
+							BPM:              0,
+							Downloadable:     false,
+							DownloadURL:      "",
+						})
+					}
+					hasMore := endIdx < len(filteredTracks)
+					return c.JSON(http.StatusOK, map[string]interface{}{
+						"tracks":   out,
+						"total":    len(filteredTracks),
+						"page":     page,
+						"limit":    pageSize,
+						"has_more": hasMore,
+					})
+				}
+
+				// Render the tracks (HTML mode)
+				if startIdx >= len(filteredTracks) {
+					htmlBuilder.WriteString("<!-- no more tracks -->")
+				} else {
+					for i := startIdx; i < endIdx; i++ {
+						t := mockTracks[filteredTracks[i]]
 						artworkURL := "https://picsum.photos/seed/" + t.id + "/500/500"
 						components.StreamFlipCard(
 							t.id,
@@ -2097,6 +2332,10 @@ func main() {
 						).Render(c.Request().Context(), &htmlBuilder)
 					}
 				}
+
+				log.Printf("[Stream Test] page=%d, limit=%d, filtered=%d, showing %d-%d",
+					page, pageSize, len(filteredTracks), startIdx+1, endIdx)
+
 				if !isHTMX {
 					htmlBuilder.WriteString("</div>")
 				}
@@ -2105,6 +2344,10 @@ func main() {
 
 			// This endpoint requires authentication via apis.RequireRecordAuth()
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+
+			// Detect JSON mode: Accept header or ?format=json
+			wantsJSON := strings.Contains(c.Request().Header.Get("Accept"), "application/json") ||
+				c.QueryParam("format") == "json"
 
 			// Parse query parameters
 			log.Printf("[Stream] Request from user %s: q=%s, genre=%s, sort=%s, favorites=%s, page=%s, limit=%s",
@@ -2129,13 +2372,28 @@ func main() {
 				}
 			}
 
+			// Client-side offset for "load more" pagination (React frontend uses this)
+			clientOffset := 0
+			if o := c.QueryParam("offset"); o != "" {
+				if parsed, err := strconv.Atoi(o); err == nil && parsed > 0 {
+					clientOffset = parsed
+					// Derive page from offset if not explicitly provided
+					if c.QueryParam("page") == "" {
+						page = (clientOffset / limit) + 1
+					}
+				}
+			}
+
 			// Duration filter (in minutes, convert to milliseconds for DB)
 			durationMin := c.QueryParam("duration_min")
 			durationMax := c.QueryParam("duration_max")
 			searchQuery := c.QueryParam("q")
 
-			// Check if we should fetch fresh from SoundCloud API
-			freshFromAPI := c.QueryParam("refresh") == "true" || limit > 20
+			// Check if we should fetch fresh from SoundCloud API.
+			// Also trigger when any filter is active, since the DB may not be populated
+			// and we need to fetch enough raw activities to satisfy the filtered limit.
+			freshFromAPI := c.QueryParam("refresh") == "true" || limit > 20 || clientOffset > 0 ||
+				durationMin != "" || durationMax != "" || searchQuery != ""
 
 			// First find the soundcloud_users record linked to this auth user
 			soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
@@ -2166,21 +2424,90 @@ func main() {
 
 			// Fetch from SoundCloud API if requested or if limit indicates fresh fetch
 			if freshFromAPI && accessToken != "" {
-				// When filtering, fetch more to ensure we have enough after filtering
-				fetchLimit := limit
-				if durationMin != "" || durationMax != "" || searchQuery != "" {
-					fetchLimit = limit * 5 // Fetch 5x more when filtering
-					if fetchLimit > 200 {
-						fetchLimit = 200 // Cap at 200
+				// When filtering is active, we need to fetch with offsets until we have enough filtered tracks
+				isFiltering := durationMin != "" || durationMax != "" || searchQuery != ""
+
+				// Starting offset: prefer explicit clientOffset, fall back to page-based
+				startOffset := clientOffset
+				if startOffset == 0 {
+					startOffset = (page - 1) * limit
+				}
+				var allTracks []views.Track
+				batchSize := 50
+
+				log.Printf("[Stream] Fetching tracks from SoundCloud API (page=%d, startOffset=%d, filtering=%v, target=%d)", page, startOffset, isFiltering, limit)
+
+				// Keep fetching via cursor pagination until we have enough tracks or
+				// exhaust the feed. SoundCloud uses next_href cursor URLs — numeric
+				// offsets repeat the same page, so we must follow next_href.
+				// Always fetch from the beginning and slice — cursor-based APIs can't jump ahead.
+				tracksNeeded := startOffset + limit // total filtered tracks needed to cover this window
+				nextURL := fmt.Sprintf("https://api.soundcloud.com/me/activities?limit=%d", batchSize)
+				for nextURL != "" {
+					batch, nh, rawCount, err := fetchSoundCloudTracks(accessToken, nextURL)
+					nextURL = nh
+					if err != nil || rawCount == 0 {
+						break
+					}
+					allTracks = append(allTracks, batch...)
+
+					if isFiltering {
+						// Count how many tracks pass the filters so far
+						durationMinMs := 0
+						durationMaxMs := int(^uint(0) >> 1) // MaxInt — no upper cap unless specified
+						if dm, err := strconv.Atoi(durationMin); err == nil && dm > 0 {
+							durationMinMs = dm * 60 * 1000
+						}
+						if dm, err := strconv.Atoi(durationMax); err == nil && dm > 0 {
+							durationMaxMs = dm * 60 * 1000
+						}
+						searchLower := strings.ToLower(searchQuery)
+						filteredCount := 0
+						for _, t := range allTracks {
+							if t.TrackDuration >= int64(durationMinMs) && t.TrackDuration <= int64(durationMaxMs) {
+								if searchQuery != "" {
+									if !strings.Contains(strings.ToLower(t.TrackTitle), searchLower) &&
+										!strings.Contains(strings.ToLower(t.ArtistName), searchLower) &&
+										!strings.Contains(strings.ToLower(t.Genre), searchLower) {
+										continue
+									}
+								}
+								filteredCount++
+							}
+						}
+						if filteredCount >= tracksNeeded {
+							break
+						}
+					} else {
+						// No filtering: stop once we have enough tracks for this page
+						if len(allTracks) >= tracksNeeded {
+							break
+						}
 					}
 				}
-				log.Printf("[Stream] Fetching fresh tracks from SoundCloud API with limit=%d (filtering active: %v)", fetchLimit, durationMin != "" || durationMax != "" || searchQuery != "")
-				tracks, err := fetchSoundCloudTracks(accessToken, fetchLimit)
-				if err == nil && len(tracks) > 0 {
-					// Apply duration filter in-memory
+
+				// Deduplicate allTracks globally across all cursor pages
+				{
+					seen := make(map[string]bool, len(allTracks))
+					deduped := allTracks[:0]
+					for _, t := range allTracks {
+						if !seen[t.TrackID] {
+							seen[t.TrackID] = true
+							deduped = append(deduped, t)
+						}
+					}
+					allTracks = deduped
+				}
+
+				// pool is the full set of tracks before windowing (used to compute has_more)
+				pool := allTracks
+				tracks := allTracks
+
+				if isFiltering && len(allTracks) > 0 {
+					// Re-apply filters to get clean filtered list
 					var filteredTracks []views.Track
 					durationMinMs := 0
-					durationMaxMs := 94 * 60 * 1000 // default max
+					durationMaxMs := int(^uint(0) >> 1) // MaxInt — no upper cap unless specified
 
 					if dm, err := strconv.Atoi(durationMin); err == nil && dm > 0 {
 						durationMinMs = dm * 60 * 1000
@@ -2190,9 +2517,8 @@ func main() {
 					}
 
 					searchLower := strings.ToLower(searchQuery)
-					for _, t := range tracks {
+					for _, t := range allTracks {
 						if t.TrackDuration >= int64(durationMinMs) && t.TrackDuration <= int64(durationMaxMs) {
-							// Apply search filter
 							if searchQuery != "" {
 								titleMatch := strings.Contains(strings.ToLower(t.TrackTitle), searchLower)
 								artistMatch := strings.Contains(strings.ToLower(t.ArtistName), searchLower)
@@ -2204,16 +2530,85 @@ func main() {
 							filteredTracks = append(filteredTracks, t)
 						}
 					}
+					pool = filteredTracks
 
-					log.Printf("[Stream] Returning %d fresh tracks from API (filtered from %d, limit=%d)", len(filteredTracks), len(tracks), limit)
+					// Slice out the requested window using startOffset
+					if startOffset < len(filteredTracks) {
+						endIdx := startOffset + limit
+						if endIdx > len(filteredTracks) {
+							endIdx = len(filteredTracks)
+						}
+						tracks = filteredTracks[startOffset:endIdx]
+					} else {
+						tracks = []views.Track{}
+					}
+				} else if startOffset > 0 && startOffset < len(allTracks) {
+					tracks = allTracks[startOffset:]
+				}
 
-					// Render tracks to HTML (up to limit)
+				// has_more: true if the pool has items beyond this window, OR if the
+				// API feed has more pages we haven't fetched yet
+				poolHasMore := len(pool) > startOffset+limit
+				hasMoreFromAPI := nextURL != ""
+
+				if len(tracks) > 0 {
+					// Cap to limit
+					if len(tracks) > limit {
+						tracks = tracks[:limit]
+					}
+					log.Printf("[Stream] Returning %d fresh tracks from API (fetched %d total, limit=%d)", len(tracks), len(allTracks), limit)
+
+					// JSON mode for React frontend
+					if wantsJSON {
+						type jsonTrack struct {
+							TrackID          string  `json:"track_id"`
+							TrackTitle       string  `json:"track_title"`
+							ArtistName       string  `json:"artist_name"`
+							Genre            string  `json:"genre"`
+							TrackDuration    int64   `json:"track_duration"`
+							ArtworkURL       string  `json:"artwork_url"`
+							PermalinkURL     string  `json:"permalink_url"`
+							PlaybackCount    int64   `json:"playback_count"`
+							FavoritingsCount int64   `json:"favoritings_count"`
+							RepostsCount     int64   `json:"reposts_count"`
+							BPM              float64 `json:"bpm"`
+							Downloadable     bool    `json:"downloadable"`
+							DownloadURL      string  `json:"download_url"`
+						}
+						out := make([]jsonTrack, 0, len(tracks))
+						for _, t := range tracks {
+							out = append(out, jsonTrack{
+								TrackID:          t.TrackID,
+								TrackTitle:       t.TrackTitle,
+								ArtistName:       t.ArtistName,
+								Genre:            t.Genre,
+								TrackDuration:    t.TrackDuration,
+								ArtworkURL:       upgradeArtworkURL(t.ArtworkURL),
+								PermalinkURL:     t.PermalinkURL,
+								PlaybackCount:    t.PlaybackCount,
+								FavoritingsCount: t.FavoritingsCount,
+								RepostsCount:     t.RepostsCount,
+								BPM:              t.BPM,
+								Downloadable:     t.Downloadable,
+								DownloadURL:      t.DownloadURL,
+							})
+						}
+						return c.JSON(http.StatusOK, map[string]interface{}{
+							"tracks":   out,
+							"total":    len(out),
+							"page":     page,
+							"limit":    limit,
+							"has_more": poolHasMore || hasMoreFromAPI,
+						})
+					}
+
+					// HTML mode for HTMX / legacy
 					var htmlBuilder strings.Builder
 					isHTMX := c.Request().Header.Get("HX-Request") == "true"
 					if !isHTMX {
 						htmlBuilder.WriteString("<div class=\"stream-flip-grid\">")
 					}
-					for i, track := range filteredTracks {
+					for i, track := range tracks {
 						if i >= limit {
 							break
 						}
@@ -2366,114 +2761,6 @@ func main() {
 			})
 		}, apis.RequireRecordAuth())
 
-		// User settings API - GET to load, POST to save
-		e.Router.GET("/api/settings", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-
-			settingsCollection, err := getCollection(app, "user_settings")
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Settings collection not found",
-				})
-			}
-
-			settings, err := app.Dao().FindFirstRecordByFilter(
-				settingsCollection.Id,
-				"user_id = {:user_id}",
-				map[string]any{"user_id": authRecord.Id},
-			)
-			if err != nil {
-				return c.JSON(http.StatusOK, map[string]interface{}{
-					"active_tab": "stream",
-					"filters":    map[string]interface{}{},
-					"view_mode":  "grid",
-				})
-			}
-
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"active_tab": settings.GetString("active_tab"),
-				"filters":    settings.Get("filters"),
-				"view_mode":  settings.GetString("view_mode"),
-			})
-		}, apis.RequireRecordAuth())
-
-		e.Router.POST("/api/settings", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-
-			var req struct {
-				ActiveTab string                 `json:"active_tab"`
-				Filters   map[string]interface{} `json:"filters"`
-				ViewMode  string                 `json:"view_mode"`
-			}
-			if err := c.Bind(&req); err != nil {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Invalid request body",
-				})
-			}
-
-			settingsCollection, err := getCollection(app, "user_settings")
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Settings collection not found",
-				})
-			}
-
-			settings, err := app.Dao().FindFirstRecordByFilter(
-				settingsCollection.Id,
-				"user_id = {:user_id}",
-				map[string]any{"user_id": authRecord.Id},
-			)
-
-			if err != nil {
-				settings = models.NewRecord(settingsCollection)
-				settings.Set("user_id", authRecord.Id)
-			}
-
-			if req.ActiveTab != "" {
-				settings.Set("active_tab", req.ActiveTab)
-			}
-			if req.Filters != nil {
-				settings.Set("filters", req.Filters)
-			}
-			if req.ViewMode != "" {
-				settings.Set("view_mode", req.ViewMode)
-			}
-
-			if err := app.Dao().SaveRecord(settings); err != nil {
-				log.Printf("Failed to save user settings: %v", err)
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to save settings",
-				})
-			}
-
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"active_tab": settings.GetString("active_tab"),
-				"filters":    settings.Get("filters"),
-				"view_mode":  settings.GetString("view_mode"),
-			})
-		}, apis.RequireRecordAuth())
-
-		e.Router.GET("/favorites", func(c echo.Context) error {
-			data := views.FavoritesPageData{
-				PageData: views.PageData{
-					Title:       "Favorites",
-					Description: "Your favorited tracks",
-					CurrentPath: "/favorites",
-					TestMode:    isTestMode,
-				},
-				Favorites:   []views.Track{},
-				MinDuration: 0,
-				MaxDuration: 94,
-			}
-
-			authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-			if authRecord != nil {
-				data.User = authRecord
-			}
-
-			return views.FavoritesPage(data).Render(c.Request().Context(), c.Response().Writer)
-		}, apis.ActivityLogger(app))
-
 		// Favorites toggle endpoint
 		e.Router.POST("/api/favorites/toggle", func(c echo.Context) error {
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -2499,6 +2786,13 @@ func main() {
 				map[string]any{"track_id": req.TrackID},
 			)
 			if err != nil {
+				if isTestMode {
+					// Mock track not in DB — simulate toggle success
+					return c.JSON(http.StatusOK, map[string]interface{}{
+						"track_id":     req.TrackID,
+						"is_favorited": true,
+					})
+				}
 				return c.JSON(http.StatusNotFound, map[string]string{"error": "Track not found"})
 			}
 
@@ -2590,6 +2884,21 @@ func main() {
 		e.Router.GET("/api/favorites", func(c echo.Context) error {
 			// Test mode - return mock favorites
 			if isTestMode {
+				wantsJSON := strings.Contains(c.Request().Header.Get("Accept"), "application/json") ||
+					c.QueryParam("format") == "json"
+
+				if wantsJSON {
+					mockFavs := []map[string]interface{}{
+						{"track_id": "101", "track_title": "Favorite Track One", "artist_name": "Artist X", "genre": "Electronic", "track_duration": int64(180000), "artwork_url": "https://picsum.photos/seed/101/500/500", "permalink_url": "https://soundcloud.com/test/101", "playback_count": int64(5000), "favoritings_count": int64(250), "reposts_count": int64(50), "bpm": float64(0), "downloadable": false, "download_url": ""},
+						{"track_id": "102", "track_title": "Another Favorite", "artist_name": "Artist Y", "genre": "House", "track_duration": int64(240000), "artwork_url": "https://picsum.photos/seed/102/500/500", "permalink_url": "https://soundcloud.com/test/102", "playback_count": int64(8000), "favoritings_count": int64(480), "reposts_count": int64(120), "bpm": float64(128), "downloadable": true, "download_url": "https://soundcloud.com/test/102/download"},
+						{"track_id": "103", "track_title": "Loved Track", "artist_name": "Artist Z", "genre": "Techno", "track_duration": int64(360000), "artwork_url": "https://picsum.photos/seed/103/500/500", "permalink_url": "https://soundcloud.com/test/103", "playback_count": int64(12000), "favoritings_count": int64(120), "reposts_count": int64(25), "bpm": float64(140), "downloadable": false, "download_url": ""},
+					}
+					return c.JSON(http.StatusOK, map[string]interface{}{
+						"tracks": mockFavs,
+						"total":  len(mockFavs),
+					})
+				}
+
 				durationMinStr := c.QueryParam("duration_min")
 				durationMin := 0
 				if d, err := strconv.Atoi(durationMinStr); err == nil {
@@ -2649,7 +2958,7 @@ func main() {
 				favoritesCollection.Id,
 				"user_id = {:user_id}",
 				"-created",
-				100,
+				5000,
 				0,
 				map[string]any{"user_id": authRecord.Id},
 			)
@@ -2668,19 +2977,67 @@ func main() {
 					artworkURL = "https://i1.sndcdn.com/avatars-000000000000000000000000000000-default-t500x500.jpg"
 				}
 				favorites = append(favorites, map[string]interface{}{
-					"track_id":       trackRecord.GetString("soundcloud_id"),
-					"track_title":    trackRecord.GetString("title"),
-					"artist_name":    trackRecord.GetString("artist_name"),
-					"track_duration": trackRecord.GetInt("length"),
-					"artwork_url":    artworkURL,
-					"created_at":     record.Created.Time().Format(time.RFC3339),
-					"permalink_url":  trackRecord.GetString("permalink_url"),
-					"is_favorited":   true,
+					"track_id":          trackRecord.GetString("soundcloud_id"),
+					"track_title":       trackRecord.GetString("title"),
+					"artist_name":       trackRecord.GetString("artist_name"),
+					"track_duration":    trackRecord.GetInt("length"),
+					"artwork_url":       artworkURL,
+					"created_at":        record.Created.Time().Format(time.RFC3339),
+					"permalink_url":     trackRecord.GetString("permalink_url"),
+					"downloadable":      trackRecord.GetBool("downloadable"),
+					"download_url":      trackRecord.GetString("download_url"),
+					"genre":             trackRecord.GetString("genre"),
+					"playback_count":    trackRecord.GetInt("playback_count"),
+					"favoritings_count": trackRecord.GetInt("favoritings_count"),
+					"bpm":               trackRecord.GetFloat("bpm"),
+					"is_favorited":      true,
 				})
 			}
 
-			return c.JSON(http.StatusOK, map[string]interface{}{"favorites": favorites})
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"favorites": favorites,
+				"tracks":    favorites,
+			})
 		})
+
+		// Sync favorites from SoundCloud likes
+		e.Router.POST("/api/favorites/sync", func(c echo.Context) error {
+			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+
+			synced, err := services.SyncFavorites(app, authRecord)
+			if err != nil {
+				log.Printf("[FavSync] Error: %v", err)
+				if err.Error() == "re-authentication required" {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "re-authentication required"})
+				}
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+
+			tracks := make([]map[string]interface{}, 0, len(synced))
+			for _, f := range synced {
+				tracks = append(tracks, map[string]interface{}{
+					"track_id":          f.SoundcloudID,
+					"track_title":       f.Title,
+					"artist_name":       f.ArtistName,
+					"track_duration":    f.Duration,
+					"artwork_url":       f.ArtworkURL,
+					"permalink_url":     f.PermalinkURL,
+					"downloadable":      f.Downloadable,
+					"download_url":      f.DownloadURL,
+					"genre":             f.Genre,
+					"playback_count":    f.PlaybackCount,
+					"favoritings_count": f.FavoritingsCount,
+					"bpm":               f.BPM,
+					"is_favorited":      true,
+				})
+			}
+
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"tracks":    tracks,
+				"total":     len(tracks),
+				"synced_at": time.Now().UTC().Format(time.RFC3339),
+			})
+		}, apis.RequireRecordAuth())
 
 		// Analytics page
 		e.Router.GET("/analytics", handlers.AnalyticsPage(app), soundcloudAuthMiddleware(app), apis.ActivityLogger(app))
@@ -2694,6 +3051,8 @@ func main() {
 		e.Router.POST("/api/playlists/:id/tracks", handlers.AddTrackToPlaylist(app), apis.RequireRecordAuth())
 		e.Router.DELETE("/api/playlists/:id/tracks/:track_id", handlers.RemoveTrackFromPlaylist(app), apis.RequireRecordAuth())
 		e.Router.DELETE("/api/playlists/:id", handlers.DeletePlaylist(app), apis.RequireRecordAuth())
+		e.Router.PATCH("/api/playlists/:id", handlers.RenamePlaylist(app), apis.RequireRecordAuth())
+		e.Router.POST("/api/playlists/:id/share", handlers.SharePlaylist(app), apis.RequireRecordAuth())
 		e.Router.GET("/share/:token", handlers.GetSharedPlaylist(app)) // Public
 
 		// Export routes (require authentication)
@@ -2704,6 +3063,9 @@ func main() {
 		// RSS feed routes
 		e.Router.GET("/feed/rss", handlers.GetUserRSSFeed(app), apis.RequireRecordAuth())
 		e.Router.GET("/feed/rss/:share_token", handlers.GetSharedRSSFeed(app)) // Public
+
+		// Related tracks endpoint - returns similar tracks for the given SoundCloud track ID
+		e.Router.GET("/api/track/:id/related", relatedTracksHandler(app), apis.RequireRecordAuth())
 
 		// Stream proxy endpoint - streams audio from SoundCloud using stored auth
 		e.Router.GET("/api/track/:id/stream", func(c echo.Context) error {
@@ -2870,9 +3232,11 @@ func main() {
 				}
 			}
 
-			streamURL := getHighQualityStreamURL(accessToken, trackID)
+			// quality param: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" (auto = best)
+			quality := c.QueryParam("quality")
+			streamURL := getStreamURL(accessToken, trackID, quality)
 
-			// If no high-quality URL, fall back to stored stream_url
+			// If no URL from /streams, fall back to stored stream_url
 			if streamURL == "" && len(trackRecords) > 0 {
 				streamURL = trackRecords[0].GetString("stream_url")
 			}
@@ -2901,11 +3265,140 @@ func main() {
 
 			c.Response().Header().Set("Content-Type", proxyResp.Header.Get("Content-Type"))
 			c.Response().Header().Set("Accept-Ranges", "bytes")
+			c.Response().Header().Set("Access-Control-Allow-Origin", "*")
+			c.Response().Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
+			c.Response().Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 			c.Response().WriteHeader(http.StatusOK)
 
 			io.Copy(c.Response(), proxyResp.Body)
 			return nil
 		})
+
+		// Play history sync endpoint — accepts a batch of play events from the frontend
+		// and persists them to PocketBase. Keeps the last 500 entries per user.
+		e.Router.POST("/api/play-history", func(c echo.Context) error {
+			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+
+			type playEntry struct {
+				TrackID       string `json:"track_id"`
+				TrackTitle    string `json:"track_title"`
+				ArtistName    string `json:"artist_name"`
+				ArtworkURL    string `json:"artwork_url"`
+				TrackDuration int64  `json:"track_duration"`
+				Genre         string `json:"genre"`
+				PlayedAt      string `json:"played_at"`
+			}
+
+			var entries []playEntry
+			if err := json.NewDecoder(c.Request().Body).Decode(&entries); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid body"})
+			}
+
+			if len(entries) == 0 {
+				return c.JSON(http.StatusOK, map[string]interface{}{"synced": 0})
+			}
+
+			playHistoryCollection, err := getCollection(app, "play_history")
+			if err != nil {
+				// Collection may not exist yet (migration pending) — return gracefully
+				log.Printf("[PlayHistory] Collection not found: %v", err)
+				return c.JSON(http.StatusOK, map[string]interface{}{"synced": 0, "note": "collection not ready"})
+			}
+
+			synced := 0
+			for _, entry := range entries {
+				if entry.TrackID == "" || entry.PlayedAt == "" {
+					continue
+				}
+				rec := models.NewRecord(playHistoryCollection)
+				rec.Set("user_id", authRecord.Id)
+				rec.Set("track_id", entry.TrackID)
+				rec.Set("track_title", entry.TrackTitle)
+				rec.Set("artist_name", entry.ArtistName)
+				rec.Set("artwork_url", entry.ArtworkURL)
+				rec.Set("track_duration", entry.TrackDuration)
+				rec.Set("genre", entry.Genre)
+				rec.Set("played_at", entry.PlayedAt)
+				if err := app.Dao().SaveRecord(rec); err != nil {
+					log.Printf("[PlayHistory] Failed to save entry: %v", err)
+					continue
+				}
+				synced++
+			}
+
+			// Prune to keep only the last 500 entries for this user
+			go func() {
+				records, err := app.Dao().FindRecordsByFilter(
+					playHistoryCollection.Id,
+					"user_id = {:user_id}",
+					"-played_at",
+					600,
+					0,
+					map[string]any{"user_id": authRecord.Id},
+				)
+				if err != nil || len(records) <= 500 {
+					return
+				}
+				for _, old := range records[500:] {
+					app.Dao().DeleteRecord(old)
+				}
+			}()
+
+			log.Printf("[PlayHistory] Synced %d entries for user %s", synced, authRecord.Id)
+			return c.JSON(http.StatusOK, map[string]interface{}{"synced": synced})
+		}, apis.RequireRecordAuth())
+
+		// Play history fetch endpoint — returns the last N plays for the current user
+		e.Router.GET("/api/play-history", func(c echo.Context) error {
+			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+
+			limit := 100
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 500 {
+					limit = parsed
+				}
+			}
+
+			playHistoryCollection, err := getCollection(app, "play_history")
+			if err != nil {
+				return c.JSON(http.StatusOK, map[string]interface{}{"entries": []interface{}{}})
+			}
+
+			records, err := app.Dao().FindRecordsByFilter(
+				playHistoryCollection.Id,
+				"user_id = {:user_id}",
+				"-played_at",
+				limit,
+				0,
+				map[string]any{"user_id": authRecord.Id},
+			)
+			if err != nil {
+				return c.JSON(http.StatusOK, map[string]interface{}{"entries": []interface{}{}})
+			}
+
+			type entry struct {
+				TrackID       string `json:"track_id"`
+				TrackTitle    string `json:"track_title"`
+				ArtistName    string `json:"artist_name"`
+				ArtworkURL    string `json:"artwork_url"`
+				TrackDuration int64  `json:"track_duration"`
+				Genre         string `json:"genre"`
+				PlayedAt      string `json:"played_at"`
+			}
+			out := make([]entry, 0, len(records))
+			for _, r := range records {
+				out = append(out, entry{
+					TrackID:       r.GetString("track_id"),
+					TrackTitle:    r.GetString("track_title"),
+					ArtistName:    r.GetString("artist_name"),
+					ArtworkURL:    r.GetString("artwork_url"),
+					TrackDuration: int64(r.GetInt("track_duration")),
+					Genre:         r.GetString("genre"),
+					PlayedAt:      r.GetString("played_at"),
+				})
+			}
+			return c.JSON(http.StatusOK, map[string]interface{}{"entries": out})
+		}, apis.RequireRecordAuth())
 
 		return nil
 	})

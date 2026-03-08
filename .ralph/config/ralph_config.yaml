@@ -1,36 +1,34 @@
 project:
   name: "sound-cistern"
   description: "Soundcloud stream aggregator with PocketBase for Pro/Music Industry users"
-  tech_stack: ["go", "pocketbase", "templ", "htmx"]
+  tech_stack: ["go", "pocketbase", "react", "vite", "tailwind", "zustand", "framer-motion"]
   base_url: "http://localhost:8090"
 
 ralph_loop:
   max_iterations: 30
   cost_limit: 20.00
-  completion_promise: "Pro users can access their Soundcloud stream offline via PWA, export their data, and create playlists"
-  
+  completion_promise: "v2 React UI is the primary route, docs/skills reflect the real stack, and track cards show rich metadata matching the original proto designs"
+
   tasks:
-    current: "pwa-offline-mode"
+    current: "v2-promotion"
+    queue:
+      - "v2-promotion"
+      - "track-card-richness"
     success_criteria:
-      - name: "PWA Installability"
-        description: "App can be installed as PWA on mobile/desktop"
-        verification: "pwa_install_test"
+      - name: "v2 as Primary Route"
+        description: "Root / serves the React v2 UI, not the old Templ splash"
+        verification: "v2_primary_route_test"
         test_url: "/"
-      - name: "Offline Track Access"
-        description: "Cached tracks playable without internet"
-        verification: "offline_playback_test"
+      - name: "Docs and Skills Updated"
+        description: "AGENTS.md, sound-cistern-dev skill, sound-cistern-ux skill reflect React/Vite/Tailwind stack; pocketbase-htmx marked legacy"
+        verification: "docs_updated_test"
+        test_url: null
+      - name: "Track Card Richness"
+        description: "v2 TrackCard front face shows duration badge, play count, like count, genre pill, BPM badge, download indicator"
+        verification: "track_card_richness_test"
         test_url: "/stream"
-      - name: "Data Export"
-        description: "Users can export favorites/playlists as JSON/CSV"
-        verification: "data_export_test"
-        test_url: "/favorites"
-      - name: "Playlist System"
-        description: "Users can create, manage, and share playlists"
-        verification: "playlist_test"
-        test_url: "/playlists"
 
 verification_scripts:
-  pwa_install_test: "./ralph_verify.sh pwa_install"
-  offline_playback_test: "./ralph_verify.sh offline_playback"
-  data_export_test: "./ralph_verify.sh data_export"
-  playlist_test: "./ralph_verify.sh playlist"
+  v2_primary_route_test: "./.ralph/verify/ralph_verify.sh v2_primary_route"
+  docs_updated_test: "./.ralph/verify/ralph_verify.sh docs_updated"
+  track_card_richness_test: "./.ralph/verify/ralph_verify.sh track_card_richness"
