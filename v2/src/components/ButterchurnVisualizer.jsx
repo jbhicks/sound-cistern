@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Shuffle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Shuffle, ChevronLeft, ChevronRight, Settings, Sliders } from 'lucide-react'
 import { useStore } from '../store'
 import { vizConfig } from '../pages/DebugViz'
 
@@ -71,31 +71,86 @@ function applySharedPreset(idx, ...vizInstances) {
 }
 
 // ── createViz helper ─────────────────────────────────────────────────────────
-function createViz(canvas, audioCtx, analyserNode, dpr = 1, speed = 1.0) {
-  if (!canvas || !audioCtx || !analyserNode) return null
+function createViz(canvas, audioCtx, analyserNode, options = {}) {
+  return createVizWithDimensions(canvas, audioCtx, analyserNode, canvas.width, canvas.height, options)
+}
+
+function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, options = {}) {
+  if (!canvas || !audioCtx || !analyserNode) {
+    console.log('[Butterchurn] Missing required params:', { hasCanvas: !!canvas, hasAudioCtx: !!audioCtx, hasAnalyser: !!analyserNode })
+    return null
+  }
   let bc = window.butterchurn?.default ?? window.butterchurn
   if (!bc || typeof bc.createVisualizer !== 'function') {
     console.warn('[Butterchurn] library not ready'); return null
   }
+  
+  // Check if canvas already has a WebGL context that might be lost/invalid
+  const existingGL = canvas.getContext('webgl2') || canvas.getContext('webgl')
+  if (existingGL && existingGL.isContextLost()) {
+    console.warn('[Butterchurn] Canvas has lost WebGL context, cannot reuse')
+    return null
+  }
+  
+  // Verify we have valid dimensions
+  if (width <= 0 || height <= 0) {
+    console.warn('[Butterchurn] Invalid dimensions:', width, height)
+    return null
+  }
+  
   try {
-    // Use vizConfig for quality settings
-    const viz = bc.createVisualizer(audioCtx, canvas, {
-      width: canvas.width, 
-      height: canvas.height, 
-      pixelRatio: dpr, 
-      textureRatio: vizConfig?.textureRatio ?? 1,
-      meshWidth: vizConfig?.meshWidth ?? 48,
-      meshHeight: vizConfig?.meshHeight ?? 36,
-      speed: speed, // Animation speed multiplier
+    // Use provided options or fall back to vizConfig defaults
+    // Force textureRatio to 1 for macOS stability
+    const textureRatio = 1
+    const meshWidth = Math.min(32, options.meshWidth ?? vizConfig?.meshWidth ?? 32)
+    const meshHeight = meshWidth
+    
+    // For macOS: use a small fixed size that works
+    const useWidth = Math.min(width, 512)
+    const useHeight = Math.min(height, 512)
+    
+    // Set canvas dimensions
+    canvas.width = useWidth
+    canvas.height = useHeight
+    
+    console.log('[Butterchurn] Creating visualizer:', { 
+      requested: `${width}x${height}`, 
+      using: `${useWidth}x${useHeight}`,
+      textureRatio, 
+      meshWidth, 
+      meshHeight,
+      speed: options.speed ?? 1.0
     })
+    
+    // Create visualizer - butterchurn creates its own WebGL context
+    const viz = bc.createVisualizer(audioCtx, canvas, {
+      width: useWidth, 
+      height: useHeight, 
+      pixelRatio: 1, 
+      textureRatio: textureRatio,
+      meshWidth: meshWidth,
+      meshHeight: meshHeight,
+      speed: options.speed ?? 1.0, // Animation speed multiplier
+    })
+    
+    console.log('[Butterchurn] Visualizer created successfully')
     viz.connectAudio(analyserNode)
+    console.log('[Butterchurn] Audio connected')
     loadSharedPresets()
     if (shared.keys.length > 0) {
-      viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0) // 2 second smooth blend
+      const presetKey = shared.keys[shared.idx]
+      viz.loadPreset(shared.presets[presetKey], 2.0)
+      console.log(`[Butterchurn] Preset loaded: ${presetKey}`)
     }
+    
+    // Store actual dimensions for stats
+    viz._actualWidth = useWidth
+    viz._actualHeight = useHeight
+    
     return viz
   } catch (e) {
-    console.error('[Butterchurn] createVisualizer failed:', e); return null
+    console.error('[Butterchurn] createVisualizer failed:', e)
+    return null
   }
 }
 
@@ -107,6 +162,7 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
   const rafRef     = useRef(null)
   const initRef    = useRef(false)
   const pausedRef  = useRef(paused)
+  const [canvasKey, setCanvasKey] = useState(0) // Force new canvas element on failure
 
   // Keep pausedRef current so the RAF loop always reads the latest value.
   // When paused, also cancel the RAF so the GL context isn't competing.
@@ -118,11 +174,31 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !analyserNode || !audioCtx || initRef.current) return
+    
+    // Guard against zero dimensions
+    if (width <= 0 || height <= 0) {
+      console.warn('[Butterchurn] Mini canvas has zero dimensions')
+      return
+    }
+    
+    // Check if butterchurn library is loaded
+    const bc = window.butterchurn?.default ?? window.butterchurn
+    if (!bc || typeof bc.createVisualizer !== 'function') {
+      console.warn('[Butterchurn] Library not loaded yet, deferring...')
+      return
+    }
+    
     const dpr = window.devicePixelRatio || 1
-    canvas.width  = width  * dpr
-    canvas.height = height * dpr
-    const viz = createViz(canvas, audioCtx, analyserNode, dpr, 1.0)
-    if (!viz) return
+    const w = Math.max(1, Math.round(width  * dpr))
+    const h = Math.max(1, Math.round(height * dpr))
+    const viz = createVizWithDimensions(canvas, audioCtx, analyserNode, w, h)
+    if (!viz) {
+      // Failed to create visualizer - likely due to lost WebGL context
+      // Force a new canvas element by updating the key
+      console.log('[Butterchurn] Failed to create mini visualizer, will retry with fresh canvas')
+      setTimeout(() => setCanvasKey(k => k + 1), 100)
+      return
+    }
     vizRef.current  = viz
     initRef.current = true
 
@@ -134,10 +210,21 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
 
     return () => {
       cancelAnimationFrame(rafRef.current)
+      // Try to clean up WebGL context properly
+      try {
+        if (vizRef.current) {
+          // Some versions of butterchurn have a dispose method
+          if (typeof vizRef.current.dispose === 'function') {
+            vizRef.current.dispose()
+          }
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
       vizRef.current  = null
       initRef.current = false
     }
-  }, [analyserNode, audioCtx, width, height]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [analyserNode, audioCtx, width, height, canvasKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to preset changes from fullscreen
   const [, forceRender] = useState(0)
@@ -149,7 +236,10 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
 
   return (
     <canvas
+      key={canvasKey}
       ref={canvasRef}
+      width={width}
+      height={height}
       style={{ width, height, display: 'block' }}
       className="rounded-lg"
     />
@@ -167,6 +257,8 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const initializedRef = useRef(false) // Track if we've initialized in this component instance
   const [presetName, setPresetName] = useState('')
   const [presetCount, setPresetCount] = useState(0)
+  const [canvasKey, setCanvasKey] = useState(0) // Force new canvas on repeated failures
+  const failureCountRef = useRef(0)
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const [stats, setStats] = useState(null) // { fps, frameMs, resW, resH }
@@ -177,8 +269,12 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const [cycleInterval, setCycleInterval] = useState(15000) // 15 seconds default
   const autoCycleRef = useRef(null)
 
-  // ── Animation speed ─────────────────────────────────────────────────────────
-  const [animSpeed, setAnimSpeed] = useState(0.6) // 0.6 = 60% speed (slower)
+  // ── Settings Panel ────────────────────────────────────────────────────────
+  const [showSettings, setShowSettings] = useState(false)
+  const [vizSpeed, setVizSpeed] = useState(1.0) // Animation speed multiplier
+  const [meshQuality, setMeshQuality] = useState(vizConfig?.meshWidth ?? 48) // Mesh resolution
+  const [texQuality, setTexQuality] = useState(1) // Force texture ratio to 1 for stability
+  const [maxRes, setMaxRes] = useState(480) // Lower max resolution for stability
 
   // Subscribe to preset name updates
   useEffect(() => {
@@ -229,13 +325,17 @@ export function ButterchurnFullscreen({ open, onClose }) {
       return
     }
 
+    // Reset failure count when opening
+    failureCountRef.current = 0
+
     // If RAF loop is running, visualizer is already set up - just continue
     if (rafRef.current) {
       return
     }
 
     const canvas = canvasRef.current
-    if (!canvas) return
+    const panel = panelRef.current
+    if (!canvas || !panel) return
 
     // Create mock audio context/analyser if none exists (for testing without playing audio)
     let ctx = audioCtx
@@ -265,79 +365,207 @@ export function ButterchurnFullscreen({ open, onClose }) {
         analyser = mockAudioRef.current.analyser
       }
       
-      // Fill with synthetic data
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-      for (let i = 0; i < dataArray.length; i++) {
-        dataArray[i] = Math.random() * 255
+      // Store in window for debug access
+      window._butterchurnAudio = { ctx, analyser }
+      
+      // Fill with synthetic data that changes over time
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount)
+      const timeData = new Uint8Array(analyser.frequencyBinCount)
+      let dataFrame = 0
+      
+      // Override the getByteFrequencyData to return animated data
+      analyser.getByteFrequencyData = function(array) {
+        dataFrame++
+        for (let i = 0; i < frequencyData.length; i++) {
+          // Create animated frequency data using sine waves
+          const base = 128 + Math.sin(dataFrame * 0.1 + i * 0.1) * 64
+          const noise = Math.random() * 32
+          frequencyData[i] = Math.min(255, Math.max(0, base + noise))
+        }
+        if (array) {
+          array.set(frequencyData)
+        }
+        return frequencyData
       }
-      analyser.getByteFrequencyData = () => dataArray
-      analyser.getByteTimeDomainData = () => dataArray
+      
+      analyser.getByteTimeDomainData = function(array) {
+        for (let i = 0; i < timeData.length; i++) {
+          timeData[i] = 128 + Math.sin(dataFrame * 0.05 + i * 0.05) * 64
+        }
+        if (array) {
+          array.set(timeData)
+        }
+        return timeData
+      }
     }
 
-    const MAX_W = vizConfig?.maxWidth ?? 1920
-    const MAX_H = vizConfig?.maxHeight ?? 1080
-    const dpr = window.devicePixelRatio || 1
-    const panel = panelRef.current
-    const panelW = panel?.clientWidth  || window.innerWidth
-    const panelH = panel?.clientHeight || window.innerHeight
-    const scale  = Math.min(dpr, MAX_W / panelW, MAX_H / panelH)
-    canvas.width  = Math.round(panelW * scale)
-    canvas.height = Math.round(panelH * scale)
-    statsRef.current.resW = canvas.width
-    statsRef.current.resH = canvas.height
+    // Use user settings for max resolution (aspect ratio preserved)
+    const aspectRatio = panel.clientWidth / Math.max(1, panel.clientHeight)
+    const MAX_H = maxRes
+    const MAX_W = Math.round(maxRes * aspectRatio)
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)  // Cap DPR to avoid large textures
 
-    // Only create visualizer if it doesn't exist (don't recreate on StrictMode double-invoke)
-    let viz = vizRef.current
-    if (!viz) {
-      viz = createViz(canvas, ctx, analyser, 1, animSpeed)
-      if (!viz) return
+    // Track all cleanup functions
+    const cleanupFns = []
+
+    // Initialize with proper dimensions using ResizeObserver
+    const tryInitViz = () => {
+      // Already initialized?
+      if (vizRef.current) return true
+      
+      const panelW = panel.clientWidth
+      const panelH = panel.clientHeight
+      
+      // Guard against zero dimensions - wait for layout
+      if (panelW <= 0 || panelH <= 0) {
+        return false
+      }
+      
+      // Check if canvas is actually in the DOM and has layout
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) {
+        console.log('[Butterchurn] Canvas not yet laid out, waiting...')
+        return false
+      }
+      
+      // Use smaller dimensions for macOS stability
+      const rawW = Math.min(512, Math.max(256, Math.round(panelW * dpr)))
+      const rawH = Math.min(512, Math.max(256, Math.round(panelH * dpr)))
+      
+      // Store the raw dimensions for display
+      statsRef.current.resW = rawW
+      statsRef.current.resH = rawH
+      
+      console.log(`[Butterchurn] Creating visualizer at ${rawW}x${rawH}`)
+
+      // Create visualizer with current quality settings (power-of-2 handled internally)
+      const viz = createVizWithDimensions(canvas, ctx, analyser, rawW, rawH, {
+        meshWidth: meshQuality,
+        meshHeight: meshQuality,
+        textureRatio: texQuality
+      })
+      if (!viz) {
+        failureCountRef.current++
+        if (failureCountRef.current > 3) {
+          console.log('[Butterchurn] Too many failures, forcing canvas refresh')
+          setCanvasKey(k => k + 1)
+          failureCountRef.current = 0
+        }
+        return false
+      }
+      failureCountRef.current = 0
       vizRef.current = viz
       
       // Sync to current shared preset
       if (shared.keys.length > 0) {
-        viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0) // 2 second smooth blend
+        viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0)
         setPresetName(shared.keys[shared.idx])
       }
       setPresetCount(shared.keys.length)
-    } else {
-      // Update speed if visualizer already exists and supports setSpeed
-      if (typeof viz.setSpeed === 'function') {
-        viz.setSpeed(animSpeed)
-      }
+      
+      // Start animation loop after a brief delay to let butterchurn initialize
+      setTimeout(() => {
+        if (!vizRef.current) return
+        
+        let lastFrameTime = performance.now()
+        let frameCount = 0
+        
+        console.log('[Butterchurn] Starting render loop')
+        
+        // Debug: Check audio context state
+        const audioDebug = analyserNode || window._butterchurnAudio?.analyser
+        const ctxDebug = audioCtx || window._butterchurnAudio?.ctx
+        if (ctxDebug) {
+          console.log('[Butterchurn] Audio context state:', ctxDebug.state)
+          if (ctxDebug.state === 'suspended') {
+            ctxDebug.resume().then(() => console.log('[Butterchurn] Audio context resumed'))
+          }
+        }
+        
+        const loop = (now) => {
+          rafRef.current = requestAnimationFrame(loop)
+          
+          // Skip rendering if visualizer isn't ready
+          if (!vizRef.current) return
+          
+          frameCount++
+          
+          // Speed control: skip frames based on speed setting
+          const speed = vizSpeed
+          if (speed < 1.0) {
+            const skipInterval = Math.max(1, Math.round(1 / speed))
+            if (frameCount % skipInterval !== 0) return
+          }
+          
+          // Render the visualizer
+          try {
+            vizRef.current.render()
+            
+            // Debug: Log first few frames and check audio data
+            if (frameCount === 1) console.log('[Butterchurn] First frame rendered')
+            if (frameCount <= 5 && audioDebug) {
+              const testData = new Uint8Array(16)
+              audioDebug.getByteFrequencyData(testData)
+              const sum = testData.reduce((a, b) => a + b, 0)
+              console.log(`[Butterchurn] Frame ${frameCount} audio sum:`, sum, 'sample:', testData[0])
+            }
+            if (frameCount % 60 === 0) console.log(`[Butterchurn] Rendered ${frameCount} frames`)
+          } catch (e) {
+            console.warn('[Butterchurn] Render error:', e)
+          }
+
+          // Track frame times for stats
+          const s = statsRef.current
+          s.times.push(now)
+          // Keep a rolling 60-frame window
+          if (s.times.length > 60) s.times.shift()
+          // Flush to React state ~4×/sec so the display stays readable
+          if (now - s.lastFlush > 250 && s.times.length >= 2) {
+            s.lastFlush = now
+            const span = s.times[s.times.length - 1] - s.times[0]
+            const fps  = Math.round((s.times.length - 1) / (span / 1000))
+            const frameMs = span / (s.times.length - 1)
+            const stats = { fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH }
+            setStats(stats)
+            // Export for debug page
+            window._vizStats = stats
+          }
+        }
+        loop(performance.now())
+      }, 100)
+      
+      return true
     }
 
-    // Re-measure after enter animation settles (in case panel was 0×0 at mount)
-    const resizeTimer = setTimeout(() => {
-      const panel = panelRef.current
-      const pw = panel ? panel.clientWidth  : window.innerWidth
-      const ph = panel ? panel.clientHeight : window.innerHeight
-      if (pw > 0 && ph > 0) {
-        const s = Math.min(dpr, MAX_W / pw, MAX_H / ph)
-        const w = Math.round(pw * s)
-        const h = Math.round(ph * s)
-        if (canvas.width !== w || canvas.height !== h) {
-          canvas.width  = w
-          canvas.height = h
-          try { viz.setRendererSize(w, h) } catch {}
-        }
-      }
-    }, 250)
-
+    // Set up resize handler
     const onResize = () => {
-      const panel = panelRef.current
       const pw = panel?.clientWidth  ?? window.innerWidth
       const ph = panel?.clientHeight ?? window.innerHeight
-      const s  = Math.min(dpr, MAX_W / pw, MAX_H / ph)
-      const w  = Math.round(pw * s)
-      const h  = Math.round(ph * s)
-      canvas.width  = w
-      canvas.height = h
+      if (pw <= 0 || ph <= 0) return
+      
+      // Don't resize if visualizer isn't ready
+      if (!vizRef.current) return
+      
+      // Calculate desired size (simple, no power-of-2)
+      const s = Math.min(dpr, MAX_W / pw, MAX_H / ph)
+      const w = Math.max(16, Math.min(1024, Math.round(pw * s)))
+      const h = Math.max(16, Math.min(1024, Math.round(ph * s)))
+      
       statsRef.current.resW = w
       statsRef.current.resH = h
-      try { vizRef.current?.setRendererSize(w, h) } catch {}
+      
+      // Use butterchurn's setRendererSize
+      try { 
+        vizRef.current.setRendererSize(w, h) 
+        console.log(`[Butterchurn] Resized to ${w}x${h}`)
+      } catch (e) {
+        console.warn('[Butterchurn] Resize failed:', e)
+      }
     }
     window.addEventListener('resize', onResize)
+    cleanupFns.push(() => window.removeEventListener('resize', onResize))
 
+    // Set up keyboard handler
     const onKey = (e) => {
       if (e.key === 'Escape')             onClose?.()
       if (e.key === 'ArrowRight')         next()
@@ -345,56 +573,58 @@ export function ButterchurnFullscreen({ open, onClose }) {
       if (e.key === 'r' || e.key === 'R') random()
     }
     window.addEventListener('keydown', onKey)
+    cleanupFns.push(() => window.removeEventListener('keydown', onKey))
 
-    // Frame skipping for speed control when setSpeed is not available (e.g., minified builds)
-    let lastRenderTime = performance.now()
-    let accumulatedFrameTime = 0
-    const usesSetSpeed = typeof viz.setSpeed === 'function'
-    
-    const loop = (now) => {
-      rafRef.current = requestAnimationFrame(loop)
+    // Try immediate initialization first
+    if (!tryInitViz()) {
+      // If that fails, use ResizeObserver to wait for dimensions
+      console.log('[Butterchurn] Using ResizeObserver to wait for dimensions...')
       
-      if (usesSetSpeed) {
-        // Native speed control via butterchurn
-        vizRef.current?.render()
-      } else {
-        // Fallback: frame skipping based on speed
-        const delta = now - lastRenderTime
-        lastRenderTime = now
-        accumulatedFrameTime += delta
-        
-        // At 100% speed, render every frame (~16ms)
-        // At 50% speed, render every 32ms
-        // At 10% speed, render every 160ms
-        const targetInterval = 16.667 / animSpeed
-        
-        if (accumulatedFrameTime >= targetInterval) {
-          accumulatedFrameTime = Math.max(0, accumulatedFrameTime - targetInterval)
-          vizRef.current?.render()
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect
+          if (width > 0 && height > 0 && tryInitViz()) {
+            ro.disconnect()
+            break
+          }
         }
-      }
+      })
+      ro.observe(panel)
+      cleanupFns.push(() => ro.disconnect())
+      
+      // Also try after animation settles
+      const fallbackTimer = setTimeout(() => {
+        if (!vizRef.current) {
+          console.log('[Butterchurn] Fallback initialization attempt...')
+          tryInitViz()
+        }
+      }, 350)
+      cleanupFns.push(() => clearTimeout(fallbackTimer))
     }
-    loop(performance.now())
 
     return () => {
-      clearTimeout(resizeTimer)
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('keydown', onKey)
+      cleanupFns.forEach(fn => fn())
     }
-  }, [open, analyserNode, audioCtx, next, prev, random, onClose, animSpeed])
-  
-  // Update animation speed when slider changes
-  useEffect(() => {
-    if (vizRef.current && typeof vizRef.current.setSpeed === 'function') {
-      vizRef.current.setSpeed(animSpeed)
-    }
-  }, [animSpeed])
+  }, [open, analyserNode, audioCtx, next, prev, random, onClose, canvasKey])
   
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      cancelAnimationFrame(rafRef.current)
+      
+      // Try to clean up WebGL context properly
+      try {
+        if (vizRef.current) {
+          if (typeof vizRef.current.dispose === 'function') {
+            vizRef.current.dispose()
+          }
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      
       vizRef.current = null
       initializedRef.current = false
       
@@ -452,9 +682,9 @@ export function ButterchurnFullscreen({ open, onClose }) {
           exit={{ opacity: 0, scaleY: 0.97 }}
           style={{ transformOrigin: 'bottom center' }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed top-14 left-0 right-0 bottom-16 z-[45] bg-black overflow-hidden"
+          className="fixed top-14 left-0 right-0 bottom-[76px] z-[45] bg-black overflow-hidden"
         >
-          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+          <canvas key={canvasKey} ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
           {currentTrack && (
             <motion.div
@@ -503,7 +733,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           </motion.button>
 
           {presetCount > 0 && (
-            <div className="absolute top-16 right-6 flex flex-col items-end gap-2">
+            <div className="absolute top-16 right-6 flex flex-col items-end gap-1">
               <p className="text-white/30 text-[10px]">{presetCount} presets</p>
               <button
                 onClick={() => setAutoCycle(!autoCycle)}
@@ -514,24 +744,169 @@ export function ButterchurnFullscreen({ open, onClose }) {
               >
                 {autoCycle ? 'Auto' : 'Manual'}
               </button>
-              {/* Speed control */}
-              <div className="flex flex-col items-end gap-1 mt-1">
-                <span className="text-white/40 text-[10px]">Speed: {(animSpeed * 100).toFixed(0)}%</span>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="2.0"
-                  step="0.1"
-                  value={animSpeed}
-                  onChange={(e) => setAnimSpeed(parseFloat(e.target.value))}
-                  className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
-                  title="Animation speed"
-                />
-              </div>
             </div>
           )}
 
-          {/* Stats are now displayed in debug menu */}
+          {/* Settings Toggle Button */}
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            onClick={() => setShowSettings(!showSettings)}
+            className="absolute top-6 right-20 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors backdrop-blur-sm"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </motion.button>
+
+          {/* Settings Panel */}
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+                className="absolute top-20 right-6 w-64 bg-black/80 backdrop-blur-md rounded-xl border border-white/10 p-4 shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+                    <Sliders className="w-4 h-4" />
+                    Visualizer Settings
+                  </h3>
+                  <button 
+                    onClick={() => setShowSettings(false)}
+                    className="text-white/50 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Animation Speed */}
+                <div className="mb-4">
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Speed: {vizSpeed.toFixed(2)}x
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="2.0"
+                    step="0.1"
+                    value={vizSpeed}
+                    onChange={(e) => setVizSpeed(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                    <span>Slow</span>
+                    <span>Normal</span>
+                    <span>Fast</span>
+                  </div>
+                </div>
+
+                {/* Auto-cycle Interval */}
+                <div className="mb-4">
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Auto-cycle: {Math.round(cycleInterval / 1000)}s
+                  </label>
+                  <input
+                    type="range"
+                    min="5000"
+                    max="60000"
+                    step="5000"
+                    value={cycleInterval}
+                    onChange={(e) => setCycleInterval(parseInt(e.target.value))}
+                    className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                    <span>5s</span>
+                    <span>30s</span>
+                    <span>60s</span>
+                  </div>
+                </div>
+
+                {/* Mesh Quality */}
+                <div className="mb-4">
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Mesh Quality: {meshQuality}x{meshQuality}
+                  </label>
+                  <input
+                    type="range"
+                    min="24"
+                    max="96"
+                    step="8"
+                    value={meshQuality}
+                    onChange={(e) => setMeshQuality(parseInt(e.target.value))}
+                    className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                    <span>Low</span>
+                    <span>Med</span>
+                    <span>High</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1">Requires restart</p>
+                </div>
+
+                {/* Texture Quality - DISABLED for stability */}
+                <div className="mb-4 opacity-50">
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Texture Quality: {texQuality.toFixed(1)}x (Locked)
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="1"
+                    step="1"
+                    value={1}
+                    disabled
+                    className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  />
+                  <p className="text-[10px] text-white/30 mt-1">Locked for macOS compatibility</p>
+                </div>
+
+                {/* Max Resolution */}
+                <div className="mb-2">
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Max Resolution: {maxRes}p
+                  </label>
+                  <input
+                    type="range"
+                    min="480"
+                    max="1080"
+                    step="120"
+                    value={maxRes}
+                    onChange={(e) => setMaxRes(parseInt(e.target.value))}
+                    className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                    <span>480p</span>
+                    <span>720p</span>
+                    <span>1080p</span>
+                  </div>
+                </div>
+
+                {/* Current Stats */}
+                {stats && (
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <p className="text-[10px] text-white/40 mb-1">Performance</p>
+                    <div className="text-[10px] text-white/60 font-mono">
+                      <div className="flex justify-between">
+                        <span>FPS:</span>
+                        <span>{stats.fps}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Frame:</span>
+                        <span>{stats.frameMs}ms</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Res:</span>
+                        <span>{stats.resW}×{stats.resH}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
