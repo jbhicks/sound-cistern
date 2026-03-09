@@ -123,48 +123,47 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     // Use provided options or fall back to vizConfig defaults
     // Force textureRatio to 1 for macOS stability
     const textureRatio = 1
-    const meshWidth = Math.min(48, options.meshWidth ?? vizConfig?.meshWidth ?? 48)
+    const meshWidth = Math.min(32, options.meshWidth ?? vizConfig?.meshWidth ?? 32)
     const meshHeight = meshWidth
     
-    // Cap dimensions to prevent WebGL context issues on macOS
-    const maxDim = 1024
-    const cappedWidth = Math.min(width, maxDim)
-    const cappedHeight = Math.min(height, maxDim)
-    
-    // Round to nearest power of 2 for better WebGL compatibility on macOS
-    const pow2Width = Math.pow(2, Math.ceil(Math.log2(Math.max(16, cappedWidth))))
-    const pow2Height = Math.pow(2, Math.ceil(Math.log2(Math.max(16, cappedHeight))))
+    // For macOS stability, start with smaller dimensions and let it resize
+    // Large initial dimensions seem to cause context creation failures
+    const initialWidth = 256
+    const initialHeight = 256
     
     // CRITICAL: Set canvas dimensions BEFORE butterchurn creates its WebGL context
     // butterchurn reads canvas.width/height internally during initialization
-    canvas.width = pow2Width
-    canvas.height = pow2Height
+    canvas.width = initialWidth
+    canvas.height = initialHeight
     
-    // Double-check dimensions were set
-    if (canvas.width !== pow2Width || canvas.height !== pow2Height) {
-      console.error('[Butterchurn] Failed to set canvas dimensions!')
-      return null
-    }
-    
-    console.log('[Butterchurn] Creating visualizer:', { 
+    console.log('[Butterchurn] Creating visualizer (initial small size):', { 
       requested: `${width}x${height}`, 
-      capped: `${cappedWidth}x${cappedHeight}`,
-      pow2: `${pow2Width}x${pow2Height}`,
+      initial: `${initialWidth}x${initialHeight}`,
       textureRatio, 
       meshWidth, 
       meshHeight 
     })
     
     // Create visualizer - butterchurn creates its own WebGL context
-    // Use the pow2 dimensions in options since that's what the canvas is
+    // Start with small dimensions for stability
     const viz = bc.createVisualizer(audioCtx, canvas, {
-      width: pow2Width, 
-      height: pow2Height, 
+      width: initialWidth, 
+      height: initialHeight, 
       pixelRatio: 1, 
       textureRatio: textureRatio,
       meshWidth: meshWidth,
       meshHeight: meshHeight,
     })
+    
+    // Immediately resize to desired dimensions if different
+    if (viz && (width !== initialWidth || height !== initialHeight)) {
+      try {
+        viz.setRendererSize(width, height)
+        console.log(`[Butterchurn] Resized to ${width}x${height}`)
+      } catch (e) {
+        console.warn('[Butterchurn] Initial resize failed:', e)
+      }
+    }
     
     console.log('[Butterchurn] Visualizer created successfully')
     viz.connectAudio(analyserNode)
@@ -480,28 +479,11 @@ export function ButterchurnFullscreen({ open, onClose }) {
         let lastFrameTime = performance.now()
         let frameCount = 0
         
-        // Ensure canvas has valid dimensions before starting (use power-of-2 for macOS)
-        if (canvas.width <= 0 || canvas.height <= 0) {
-          console.log('[Butterchurn] Fixing canvas dimensions before render loop')
-          const w = Math.max(16, statsRef.current.resW || 640)
-          const h = Math.max(16, statsRef.current.resH || 360)
-          canvas.width = Math.pow(2, Math.ceil(Math.log2(w)))
-          canvas.height = Math.pow(2, Math.ceil(Math.log2(h)))
-        }
-        
         const loop = (now) => {
           rafRef.current = requestAnimationFrame(loop)
           
           // Skip rendering if visualizer isn't ready
           if (!vizRef.current) return
-          
-          // Ensure canvas always has valid power-of-2 dimensions
-          if (canvas.width <= 0 || canvas.height <= 0) {
-            const w = Math.max(16, statsRef.current.resW || 640)
-            const h = Math.max(16, statsRef.current.resH || 360)
-            canvas.width = Math.pow(2, Math.ceil(Math.log2(w)))
-            canvas.height = Math.pow(2, Math.ceil(Math.log2(h)))
-          }
           
           frameCount++
           
@@ -552,32 +534,21 @@ export function ButterchurnFullscreen({ open, onClose }) {
       const ph = panel?.clientHeight ?? window.innerHeight
       if (pw <= 0 || ph <= 0) return
       
-      // Account for texture ratio
-      const textureRatio = vizConfig?.textureRatio ?? 1
-      let gl = canvas.getContext('webgl') || canvas.getContext('webgl2')
-      const maxTextureSize = gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 4096
-      const safeMaxW = Math.floor(maxTextureSize / textureRatio)
-      const safeMaxH = Math.floor(maxTextureSize / textureRatio)
-      
-      const s  = Math.min(dpr, MAX_W / pw, MAX_H / ph, safeMaxW / pw, safeMaxH / ph)
-      const rawW = Math.max(16, Math.round(pw * s))
-      const rawH = Math.max(16, Math.round(ph * s))
-      
-      // Use power-of-2 dimensions for macOS WebGL compatibility
-      const w = Math.pow(2, Math.ceil(Math.log2(rawW)))
-      const h = Math.pow(2, Math.ceil(Math.log2(rawH)))
-      
       // Don't resize if visualizer isn't ready
       if (!vizRef.current) return
       
-      statsRef.current.resW = rawW
-      statsRef.current.resH = rawH
+      // Calculate desired size (simple, no power-of-2)
+      const s = Math.min(dpr, MAX_W / pw, MAX_H / ph)
+      const w = Math.max(16, Math.min(1024, Math.round(pw * s)))
+      const h = Math.max(16, Math.min(1024, Math.round(ph * s)))
       
-      // Use butterchurn's setRendererSize instead of modifying canvas dimensions
-      // This avoids destroying and recreating the WebGL context
+      statsRef.current.resW = w
+      statsRef.current.resH = h
+      
+      // Use butterchurn's setRendererSize
       try { 
         vizRef.current.setRendererSize(w, h) 
-        console.log(`[Butterchurn] Resized to ${w}x${h} (from ${rawW}x${rawH})`)
+        console.log(`[Butterchurn] Resized to ${w}x${h}`)
       } catch (e) {
         console.warn('[Butterchurn] Resize failed:', e)
       }
