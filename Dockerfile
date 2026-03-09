@@ -1,7 +1,7 @@
 # Production Dockerfile for Sound Cistern (PocketBase + Templ)
 # Single static binary with embedded SQLite database
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
