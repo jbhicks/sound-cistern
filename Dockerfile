@@ -53,7 +53,7 @@ EXPOSE 8090
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD curl -f http://localhost:8090/api/health || exit 1
+  CMD curl -f http://localhost:8090/health || exit 1
 
 # Start PocketBase
 CMD ["/app/sound-cistern", "serve", "--http=0.0.0.0:8090"]
