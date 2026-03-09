@@ -85,38 +85,17 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     console.warn('[Butterchurn] library not ready'); return null
   }
   
-  // Check canvas dimensions and layout
-  const rect = canvas.getBoundingClientRect()
-  console.log('[Butterchurn] Canvas state:', {
-    widthAttr: canvas.width,
-    heightAttr: canvas.height,
-    cssWidth: rect.width,
-    cssHeight: rect.height,
-    desiredWidth: width,
-    desiredHeight: height,
-    inDOM: document.contains(canvas)
-  })
+  // Check if canvas already has a WebGL context that might be lost/invalid
+  const existingGL = canvas.getContext('webgl2') || canvas.getContext('webgl')
+  if (existingGL && existingGL.isContextLost()) {
+    console.warn('[Butterchurn] Canvas has lost WebGL context, cannot reuse')
+    return null
+  }
   
   // Verify we have valid dimensions
   if (width <= 0 || height <= 0) {
     console.warn('[Butterchurn] Invalid dimensions:', width, height)
     return null
-  }
-  
-  // Check if canvas already has a WebGL context that might be lost/invalid
-  // If so, try to release it first
-  const existingGL = canvas.getContext('webgl2') || canvas.getContext('webgl')
-  if (existingGL) {
-    // Check if context is lost - if so, we can't use this canvas
-    if (existingGL.isContextLost()) {
-      console.warn('[Butterchurn] Canvas has lost WebGL context, releasing and retrying')
-      // Try to get rid of the lost context by creating a new one and losing it
-      try {
-        existingGL.texImage2D(existingGL.TEXTURE_2D, 0, existingGL.RGBA, 1, 1, 0, existingGL.RGBA, existingGL.UNSIGNED_BYTE, null)
-      } catch (e) {
-        // Expected to fail
-      }
-    }
   }
   
   try {
@@ -126,44 +105,31 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     const meshWidth = Math.min(32, options.meshWidth ?? vizConfig?.meshWidth ?? 32)
     const meshHeight = meshWidth
     
-    // For macOS stability, start with smaller dimensions and let it resize
-    // Large initial dimensions seem to cause context creation failures
-    const initialWidth = 256
-    const initialHeight = 256
+    // For macOS: use a small fixed size that works
+    const useWidth = Math.min(width, 512)
+    const useHeight = Math.min(height, 512)
     
-    // CRITICAL: Set canvas dimensions BEFORE butterchurn creates its WebGL context
-    // butterchurn reads canvas.width/height internally during initialization
-    canvas.width = initialWidth
-    canvas.height = initialHeight
+    // Set canvas dimensions
+    canvas.width = useWidth
+    canvas.height = useHeight
     
-    console.log('[Butterchurn] Creating visualizer (initial small size):', { 
+    console.log('[Butterchurn] Creating visualizer:', { 
       requested: `${width}x${height}`, 
-      initial: `${initialWidth}x${initialHeight}`,
+      using: `${useWidth}x${useHeight}`,
       textureRatio, 
       meshWidth, 
       meshHeight 
     })
     
     // Create visualizer - butterchurn creates its own WebGL context
-    // Start with small dimensions for stability
     const viz = bc.createVisualizer(audioCtx, canvas, {
-      width: initialWidth, 
-      height: initialHeight, 
+      width: useWidth, 
+      height: useHeight, 
       pixelRatio: 1, 
       textureRatio: textureRatio,
       meshWidth: meshWidth,
       meshHeight: meshHeight,
     })
-    
-    // Immediately resize to desired dimensions if different
-    if (viz && (width !== initialWidth || height !== initialHeight)) {
-      try {
-        viz.setRendererSize(width, height)
-        console.log(`[Butterchurn] Resized to ${width}x${height}`)
-      } catch (e) {
-        console.warn('[Butterchurn] Initial resize failed:', e)
-      }
-    }
     
     console.log('[Butterchurn] Visualizer created successfully')
     viz.connectAudio(analyserNode)
@@ -171,6 +137,11 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     if (shared.keys.length > 0) {
       viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0)
     }
+    
+    // Store actual dimensions for stats
+    viz._actualWidth = useWidth
+    viz._actualHeight = useHeight
+    
     return viz
   } catch (e) {
     console.error('[Butterchurn] createVisualizer failed:', e)
@@ -427,25 +398,15 @@ export function ButterchurnFullscreen({ open, onClose }) {
         return false
       }
       
-      // Get WebGL max texture size BEFORE creating visualizer
-      // butterchurn internally multiplies dimensions by textureRatio
-      const textureRatio = vizConfig?.textureRatio ?? 1
-      let gl = canvas.getContext('webgl') || canvas.getContext('webgl2')
-      const maxTextureSize = gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 4096
-      
-      // Calculate safe dimensions accounting for texture ratio
-      const safeMaxW = Math.floor(maxTextureSize / textureRatio)
-      const safeMaxH = Math.floor(maxTextureSize / textureRatio)
-      
-      const scale  = Math.min(dpr, MAX_W / panelW, MAX_H / panelH, safeMaxW / panelW, safeMaxH / panelH)
-      const rawW = Math.max(16, Math.round(panelW * scale))
-      const rawH = Math.max(16, Math.round(panelH * scale))
+      // Use smaller dimensions for macOS stability
+      const rawW = Math.min(512, Math.max(256, Math.round(panelW * dpr)))
+      const rawH = Math.min(512, Math.max(256, Math.round(panelH * dpr)))
       
       // Store the raw dimensions for display
       statsRef.current.resW = rawW
       statsRef.current.resH = rawH
       
-      console.log(`[Butterchurn] Creating visualizer at ${rawW}x${rawH} (maxTextureSize: ${maxTextureSize}, textureRatio: ${textureRatio})`)
+      console.log(`[Butterchurn] Creating visualizer at ${rawW}x${rawH}`)
 
       // Create visualizer with current quality settings (power-of-2 handled internally)
       const viz = createVizWithDimensions(canvas, ctx, analyser, rawW, rawH, {
@@ -675,7 +636,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed top-14 left-0 right-0 bottom-[76px] z-[45] bg-black overflow-hidden"
         >
-          <canvas key={canvasKey} ref={canvasRef} style={{ width: '256px', height: '256px', display: 'block', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+          <canvas key={canvasKey} ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
           {currentTrack && (
             <motion.div
