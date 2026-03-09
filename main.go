@@ -1896,6 +1896,36 @@ func main() {
 			return c.Redirect(http.StatusTemporaryRedirect, "https://soundcistern.jbhicks.dev/")
 		}, apis.ActivityLogger(app))
 
+		// OAuth callback alias for compatibility
+		e.Router.GET("/auth/callback", func(c echo.Context) error {
+			code := c.QueryParam("code")
+			state := c.QueryParam("state")
+			errorParam := c.QueryParam("error")
+
+			// Build query string
+			query := make(url.Values)
+			if code != "" {
+				query.Set("code", code)
+			}
+			if state != "" {
+				query.Set("state", state)
+			}
+			if errorParam != "" {
+				query.Set("error", errorParam)
+				errorDesc := c.QueryParam("error_description")
+				if errorDesc != "" {
+					query.Set("error_description", errorDesc)
+				}
+			}
+
+			// Redirect to the actual callback handler
+			redirectURL := "/auth/soundcloud/callback"
+			if len(query) > 0 {
+				redirectURL = redirectURL + "?" + query.Encode()
+			}
+			return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+		}, apis.ActivityLogger(app))
+
 		// API routes (protected)
 		e.Router.GET("/api/user", func(c echo.Context) error {
 			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
