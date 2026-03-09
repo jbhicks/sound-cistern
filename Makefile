@@ -67,9 +67,10 @@ dev:
 	@echo "⚛️  React (HMR): http://127.0.0.1:5173"
 	@echo "🌐 Public URL:  https://soundcistern.jbhicks.dev (tunnel → :5173)"
 	@echo "🔥 HMR active on both local and public URL"
+	@echo "🧪 TEST_MODE enabled - OAuth mocked, no real auth required"
 	@mkdir -p tmp
 	@cd v2 && npm run dev &
-	@air -c .air.toml
+	@TEST_MODE=true air -c .air.toml
 
 # Background dev server (non-blocking for agents)
 dev-bg: build
