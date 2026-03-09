@@ -71,7 +71,7 @@ function applySharedPreset(idx, ...vizInstances) {
 }
 
 // ── createViz helper ─────────────────────────────────────────────────────────
-function createViz(canvas, audioCtx, analyserNode, dpr = 1) {
+function createViz(canvas, audioCtx, analyserNode, dpr = 1, speed = 1.0) {
   if (!canvas || !audioCtx || !analyserNode) return null
   let bc = window.butterchurn?.default ?? window.butterchurn
   if (!bc || typeof bc.createVisualizer !== 'function') {
@@ -86,6 +86,7 @@ function createViz(canvas, audioCtx, analyserNode, dpr = 1) {
       textureRatio: vizConfig?.textureRatio ?? 1,
       meshWidth: vizConfig?.meshWidth ?? 48,
       meshHeight: vizConfig?.meshHeight ?? 36,
+      speed: speed, // Animation speed multiplier
     })
     viz.connectAudio(analyserNode)
     loadSharedPresets()
@@ -120,7 +121,7 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
     const dpr = window.devicePixelRatio || 1
     canvas.width  = width  * dpr
     canvas.height = height * dpr
-    const viz = createViz(canvas, audioCtx, analyserNode)
+    const viz = createViz(canvas, audioCtx, analyserNode, dpr, 1.0)
     if (!viz) return
     vizRef.current  = viz
     initRef.current = true
@@ -175,6 +176,9 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const [autoCycle, setAutoCycle] = useState(true) // Auto-cycle through presets
   const [cycleInterval, setCycleInterval] = useState(15000) // 15 seconds default
   const autoCycleRef = useRef(null)
+
+  // ── Animation speed ─────────────────────────────────────────────────────────
+  const [animSpeed, setAnimSpeed] = useState(0.6) // 0.6 = 60% speed (slower)
 
   // Subscribe to preset name updates
   useEffect(() => {
@@ -285,7 +289,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
     // Only create visualizer if it doesn't exist (don't recreate on StrictMode double-invoke)
     let viz = vizRef.current
     if (!viz) {
-      viz = createViz(canvas, ctx, analyser, 1)
+      viz = createViz(canvas, ctx, analyser, 1, animSpeed)
       if (!viz) return
       vizRef.current = viz
       
@@ -295,10 +299,12 @@ export function ButterchurnFullscreen({ open, onClose }) {
         setPresetName(shared.keys[shared.idx])
       }
       setPresetCount(shared.keys.length)
+    } else {
+      // Update speed if visualizer already exists and supports setSpeed
+      if (typeof viz.setSpeed === 'function') {
+        viz.setSpeed(animSpeed)
+      }
     }
-    
-    // Frame skipping for heavy presets - render every 2nd frame to maintain smooth UI
-    let frameCount = 0
 
     // Re-measure after enter animation settles (in case panel was 0×0 at mount)
     const resizeTimer = setTimeout(() => {
@@ -340,35 +346,32 @@ export function ButterchurnFullscreen({ open, onClose }) {
     }
     window.addEventListener('keydown', onKey)
 
-    let lastFrameTime = performance.now()
+    // Frame skipping for speed control when setSpeed is not available (e.g., minified builds)
+    let lastRenderTime = performance.now()
+    let accumulatedFrameTime = 0
+    const usesSetSpeed = typeof viz.setSpeed === 'function'
     
     const loop = (now) => {
       rafRef.current = requestAnimationFrame(loop)
       
-      // Measure actual time between frames
-      const delta = now - lastFrameTime
-      lastFrameTime = now
-      
-      // Render the visualizer
-      const renderStart = performance.now()
-      vizRef.current?.render()
-      const renderDuration = performance.now() - renderStart
-
-      // Track frame times for stats
-      const s = statsRef.current
-      s.times.push(now)
-      // Keep a rolling 60-frame window
-      if (s.times.length > 60) s.times.shift()
-      // Flush to React state ~4×/sec so the display stays readable
-      if (now - s.lastFlush > 250 && s.times.length >= 2) {
-        s.lastFlush = now
-        const span = s.times[s.times.length - 1] - s.times[0]
-        const fps  = Math.round((s.times.length - 1) / (span / 1000))
-        const frameMs = span / (s.times.length - 1)
-        const stats = { fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH }
-        setStats(stats)
-        // Export for debug page
-        window._vizStats = stats
+      if (usesSetSpeed) {
+        // Native speed control via butterchurn
+        vizRef.current?.render()
+      } else {
+        // Fallback: frame skipping based on speed
+        const delta = now - lastRenderTime
+        lastRenderTime = now
+        accumulatedFrameTime += delta
+        
+        // At 100% speed, render every frame (~16ms)
+        // At 50% speed, render every 32ms
+        // At 10% speed, render every 160ms
+        const targetInterval = 16.667 / animSpeed
+        
+        if (accumulatedFrameTime >= targetInterval) {
+          accumulatedFrameTime = Math.max(0, accumulatedFrameTime - targetInterval)
+          vizRef.current?.render()
+        }
       }
     }
     loop(performance.now())
@@ -380,7 +383,14 @@ export function ButterchurnFullscreen({ open, onClose }) {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('keydown', onKey)
     }
-  }, [open, analyserNode, audioCtx, next, prev, random, onClose])
+  }, [open, analyserNode, audioCtx, next, prev, random, onClose, animSpeed])
+  
+  // Update animation speed when slider changes
+  useEffect(() => {
+    if (vizRef.current && typeof vizRef.current.setSpeed === 'function') {
+      vizRef.current.setSpeed(animSpeed)
+    }
+  }, [animSpeed])
   
   // Cleanup on unmount
   useEffect(() => {
@@ -442,7 +452,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           exit={{ opacity: 0, scaleY: 0.97 }}
           style={{ transformOrigin: 'bottom center' }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed top-14 left-0 right-0 bottom-[76px] z-[45] bg-black overflow-hidden"
+          className="fixed top-14 left-0 right-0 bottom-16 z-[45] bg-black overflow-hidden"
         >
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
@@ -493,7 +503,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           </motion.button>
 
           {presetCount > 0 && (
-            <div className="absolute top-16 right-6 flex flex-col items-end gap-1">
+            <div className="absolute top-16 right-6 flex flex-col items-end gap-2">
               <p className="text-white/30 text-[10px]">{presetCount} presets</p>
               <button
                 onClick={() => setAutoCycle(!autoCycle)}
@@ -504,6 +514,20 @@ export function ButterchurnFullscreen({ open, onClose }) {
               >
                 {autoCycle ? 'Auto' : 'Manual'}
               </button>
+              {/* Speed control */}
+              <div className="flex flex-col items-end gap-1 mt-1">
+                <span className="text-white/40 text-[10px]">Speed: {(animSpeed * 100).toFixed(0)}%</span>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="2.0"
+                  step="0.1"
+                  value={animSpeed}
+                  onChange={(e) => setAnimSpeed(parseFloat(e.target.value))}
+                  className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
+                  title="Animation speed"
+                />
+              </div>
             </div>
           )}
 

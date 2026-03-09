@@ -1,0 +1,3 @@
+[submodule "lib/butterchurn"]
+	path = lib/butterchurn
+	url = https://github.com/jbhicks/butterchurn.git
