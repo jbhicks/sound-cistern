@@ -1891,9 +1891,22 @@ func main() {
 				}
 			}
 
-			// Redirect to soundcistern subdomain
+			// Redirect to the current domain
+			redirectDomain := c.Request().Host
+			if redirectDomain == "" {
+				redirectDomain = os.Getenv("APP_DOMAIN")
+			}
+			if redirectDomain == "" {
+				redirectDomain = "soundcistern.com"
+			}
+			scheme := "https"
+			if c.Request().TLS == nil {
+				scheme = "http"
+			}
+			redirectURL := scheme + "://" + redirectDomain + "/stream"
 			log.Printf("OAuth flow completed successfully for Soundcloud user: %s", userInfo.Username)
-			return c.Redirect(http.StatusTemporaryRedirect, "https://soundcistern.jbhicks.dev/")
+			log.Printf("Redirecting to: %s", redirectURL)
+			return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 		}, apis.ActivityLogger(app))
 
 		// OAuth callback alias for compatibility
