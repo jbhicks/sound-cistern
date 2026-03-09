@@ -10,8 +10,9 @@ export default defineConfig(({ command }) => ({
   },
   server: {
     port: 5173,
+    host: '0.0.0.0',
     // Allow the Cloudflare tunnel host
-    allowedHosts: ['soundcistern.jbhicks.dev'],
+    allowedHosts: ['soundcistern.jbhicks.dev', '.local', '192.168.1.49'],
     hmr: {
       // When accessed via the Cloudflare tunnel, HMR WebSocket must also
       // go through the tunnel (port 443, wss). Vite will use the page's
