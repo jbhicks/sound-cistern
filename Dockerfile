@@ -33,8 +33,8 @@ RUN go mod verify
 # Copy source code
 COPY . .
 
-# Copy built v2 frontend into public/app
-COPY --from=node-builder /app/v2/dist ./public/app
+    # Copy built v2 frontend into public/app (vite outputs to ../public/app from v2/)
+    COPY --from=node-builder /app/public/app ./public/app
 
 # Generate templ files and build
 RUN templ generate
