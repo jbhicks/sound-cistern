@@ -104,32 +104,51 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
   }
   
   // Check if canvas already has a WebGL context that might be lost/invalid
+  // If so, try to release it first
   const existingGL = canvas.getContext('webgl2') || canvas.getContext('webgl')
   if (existingGL) {
     // Check if context is lost - if so, we can't use this canvas
     if (existingGL.isContextLost()) {
-      console.warn('[Butterchurn] Canvas has lost WebGL context, cannot reuse')
-      return null
+      console.warn('[Butterchurn] Canvas has lost WebGL context, releasing and retrying')
+      // Try to get rid of the lost context by creating a new one and losing it
+      try {
+        existingGL.texImage2D(existingGL.TEXTURE_2D, 0, existingGL.RGBA, 1, 1, 0, existingGL.RGBA, existingGL.UNSIGNED_BYTE, null)
+      } catch (e) {
+        // Expected to fail
+      }
     }
   }
   
   try {
     // Use provided options or fall back to vizConfig defaults
-    const textureRatio = options.textureRatio ?? vizConfig?.textureRatio ?? 1
-    const meshWidth = options.meshWidth ?? vizConfig?.meshWidth ?? 48
-    const meshHeight = options.meshHeight ?? meshWidth
+    // Force textureRatio to 1 for macOS stability
+    const textureRatio = 1
+    const meshWidth = Math.min(48, options.meshWidth ?? vizConfig?.meshWidth ?? 48)
+    const meshHeight = meshWidth
+    
+    // Cap dimensions to prevent WebGL context issues on macOS
+    const maxDim = 1024
+    const cappedWidth = Math.min(width, maxDim)
+    const cappedHeight = Math.min(height, maxDim)
     
     // Round to nearest power of 2 for better WebGL compatibility on macOS
-    const pow2Width = Math.pow(2, Math.ceil(Math.log2(Math.max(16, width))))
-    const pow2Height = Math.pow(2, Math.ceil(Math.log2(Math.max(16, height))))
+    const pow2Width = Math.pow(2, Math.ceil(Math.log2(Math.max(16, cappedWidth))))
+    const pow2Height = Math.pow(2, Math.ceil(Math.log2(Math.max(16, cappedHeight))))
     
-    // Ensure canvas dimensions are set BEFORE butterchurn creates its WebGL context
-    // This is critical - butterchurn reads canvas.width/height internally
+    // CRITICAL: Set canvas dimensions BEFORE butterchurn creates its WebGL context
+    // butterchurn reads canvas.width/height internally during initialization
     canvas.width = pow2Width
     canvas.height = pow2Height
     
+    // Double-check dimensions were set
+    if (canvas.width !== pow2Width || canvas.height !== pow2Height) {
+      console.error('[Butterchurn] Failed to set canvas dimensions!')
+      return null
+    }
+    
     console.log('[Butterchurn] Creating visualizer:', { 
       requested: `${width}x${height}`, 
+      capped: `${cappedWidth}x${cappedHeight}`,
       pow2: `${pow2Width}x${pow2Height}`,
       textureRatio, 
       meshWidth, 
@@ -137,10 +156,10 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     })
     
     // Create visualizer - butterchurn creates its own WebGL context
-    // Use the original dimensions in options, not the pow2 ones
+    // Use the pow2 dimensions in options since that's what the canvas is
     const viz = bc.createVisualizer(audioCtx, canvas, {
-      width: width, 
-      height: height, 
+      width: pow2Width, 
+      height: pow2Height, 
       pixelRatio: 1, 
       textureRatio: textureRatio,
       meshWidth: meshWidth,
@@ -279,8 +298,8 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const [showSettings, setShowSettings] = useState(false)
   const [vizSpeed, setVizSpeed] = useState(1.0) // Animation speed multiplier
   const [meshQuality, setMeshQuality] = useState(vizConfig?.meshWidth ?? 48) // Mesh resolution
-  const [texQuality, setTexQuality] = useState(vizConfig?.textureRatio ?? 1) // Texture quality
-  const [maxRes, setMaxRes] = useState(720) // Max resolution height
+  const [texQuality, setTexQuality] = useState(1) // Force texture ratio to 1 for stability
+  const [maxRes, setMaxRes] = useState(480) // Lower max resolution for stability
 
   // Subscribe to preset name updates
   useEffect(() => {
@@ -847,26 +866,21 @@ export function ButterchurnFullscreen({ open, onClose }) {
                   <p className="text-[10px] text-white/30 mt-1">Requires restart</p>
                 </div>
 
-                {/* Texture Quality */}
-                <div className="mb-4">
+                {/* Texture Quality - DISABLED for stability */}
+                <div className="mb-4 opacity-50">
                   <label className="text-white/60 text-xs mb-1 block">
-                    Texture Quality: {texQuality.toFixed(1)}x
+                    Texture Quality: {texQuality.toFixed(1)}x (Locked)
                   </label>
                   <input
                     type="range"
-                    min="0.5"
-                    max="2.0"
-                    step="0.5"
-                    value={texQuality}
-                    onChange={(e) => setTexQuality(parseFloat(e.target.value))}
+                    min="1"
+                    max="1"
+                    step="1"
+                    value={1}
+                    disabled
                     className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
                   />
-                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
-                    <span>Low</span>
-                    <span>Med</span>
-                    <span>High</span>
-                  </div>
-                  <p className="text-[10px] text-white/30 mt-1">Requires restart</p>
+                  <p className="text-[10px] text-white/30 mt-1">Locked for macOS compatibility</p>
                 </div>
 
                 {/* Max Resolution */}
