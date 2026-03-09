@@ -363,6 +363,9 @@ export function ButterchurnFullscreen({ open, onClose }) {
         analyser = mockAudioRef.current.analyser
       }
       
+      // Store in window for debug access
+      window._butterchurnAudio = { ctx, analyser }
+      
       // Fill with synthetic data that changes over time
       const frequencyData = new Uint8Array(analyser.frequencyBinCount)
       const timeData = new Uint8Array(analyser.frequencyBinCount)
@@ -467,6 +470,16 @@ export function ButterchurnFullscreen({ open, onClose }) {
         
         console.log('[Butterchurn] Starting render loop')
         
+        // Debug: Check audio context state
+        const audioDebug = analyserNode || window._butterchurnAudio?.analyser
+        const ctxDebug = audioCtx || window._butterchurnAudio?.ctx
+        if (ctxDebug) {
+          console.log('[Butterchurn] Audio context state:', ctxDebug.state)
+          if (ctxDebug.state === 'suspended') {
+            ctxDebug.resume().then(() => console.log('[Butterchurn] Audio context resumed'))
+          }
+        }
+        
         const loop = (now) => {
           rafRef.current = requestAnimationFrame(loop)
           
@@ -476,7 +489,6 @@ export function ButterchurnFullscreen({ open, onClose }) {
           frameCount++
           
           // Speed control: skip frames based on speed setting
-          // Speed 0.5 = render every 2nd frame, 0.25 = every 4th frame
           const speed = vizSpeed
           if (speed < 1.0) {
             const skipInterval = Math.max(1, Math.round(1 / speed))
@@ -486,7 +498,15 @@ export function ButterchurnFullscreen({ open, onClose }) {
           // Render the visualizer
           try {
             vizRef.current.render()
+            
+            // Debug: Log first few frames and check audio data
             if (frameCount === 1) console.log('[Butterchurn] First frame rendered')
+            if (frameCount <= 5 && audioDebug) {
+              const testData = new Uint8Array(16)
+              audioDebug.getByteFrequencyData(testData)
+              const sum = testData.reduce((a, b) => a + b, 0)
+              console.log(`[Butterchurn] Frame ${frameCount} audio sum:`, sum, 'sample:', testData[0])
+            }
             if (frameCount % 60 === 0) console.log(`[Butterchurn] Rendered ${frameCount} frames`)
           } catch (e) {
             console.warn('[Butterchurn] Render error:', e)
