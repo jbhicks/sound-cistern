@@ -1,7 +1,18 @@
-# Production Dockerfile for Sound Cistern (PocketBase + Templ)
+# Production Dockerfile for Sound Cistern (PocketBase + Templ + React v2)
 # Single static binary with embedded SQLite database
 
-FROM golang:1.24-alpine AS builder
+# Stage 1: Build React v2 frontend
+FROM node:20-alpine AS node-builder
+
+WORKDIR /app/v2
+COPY v2/package*.json ./
+RUN npm ci
+
+COPY v2/ ./
+RUN npm run build
+
+# Stage 2: Build Go backend
+FROM golang:1.24-alpine AS go-builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -22,11 +33,14 @@ RUN go mod verify
 # Copy source code
 COPY . .
 
+# Copy built v2 frontend into public/app
+COPY --from=node-builder /app/v2/dist ./public/app
+
 # Generate templ files and build
 RUN templ generate
 RUN CGO_ENABLED=0 go build -o /app/sound-cistern
 
-# Production runtime image
+# Stage 3: Production runtime image
 FROM alpine:latest
 
 # Install runtime dependencies (curl for health checks)
@@ -37,9 +51,9 @@ RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -s /bin/sh -D appus
 WORKDIR /app
 RUN mkdir -p /app/pb_data /app/pb_public && chown -R appuser:appgroup /app
 
-# Copy binary from builder stage
-COPY --from=builder /app/sound-cistern /app/sound-cistern
-COPY --from=builder /app/public /app/public
+# Copy binary from go-builder stage
+COPY --from=go-builder /app/sound-cistern /app/sound-cistern
+COPY --from=go-builder /app/public /app/public
 RUN chmod +x /app/sound-cistern
 
 # Switch to non-root user
