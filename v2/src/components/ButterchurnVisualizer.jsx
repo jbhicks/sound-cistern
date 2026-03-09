@@ -363,13 +363,35 @@ export function ButterchurnFullscreen({ open, onClose }) {
         analyser = mockAudioRef.current.analyser
       }
       
-      // Fill with synthetic data
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-      for (let i = 0; i < dataArray.length; i++) {
-        dataArray[i] = Math.random() * 255
+      // Fill with synthetic data that changes over time
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount)
+      const timeData = new Uint8Array(analyser.frequencyBinCount)
+      let dataFrame = 0
+      
+      // Override the getByteFrequencyData to return animated data
+      analyser.getByteFrequencyData = function(array) {
+        dataFrame++
+        for (let i = 0; i < frequencyData.length; i++) {
+          // Create animated frequency data using sine waves
+          const base = 128 + Math.sin(dataFrame * 0.1 + i * 0.1) * 64
+          const noise = Math.random() * 32
+          frequencyData[i] = Math.min(255, Math.max(0, base + noise))
+        }
+        if (array) {
+          array.set(frequencyData)
+        }
+        return frequencyData
       }
-      analyser.getByteFrequencyData = () => dataArray
-      analyser.getByteTimeDomainData = () => dataArray
+      
+      analyser.getByteTimeDomainData = function(array) {
+        for (let i = 0; i < timeData.length; i++) {
+          timeData[i] = 128 + Math.sin(dataFrame * 0.05 + i * 0.05) * 64
+        }
+        if (array) {
+          array.set(timeData)
+        }
+        return timeData
+      }
     }
 
     // Use user settings for max resolution (aspect ratio preserved)
