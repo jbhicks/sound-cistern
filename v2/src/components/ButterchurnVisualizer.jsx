@@ -52,10 +52,19 @@ function loadSharedPresets() {
 
 function applySharedPreset(idx, ...vizInstances) {
   const keys = shared.keys
-  if (!keys.length) return ''
+  if (!keys.length) {
+    console.log('[Butterchurn] Cannot apply preset - no keys loaded')
+    return ''
+  }
   const key = keys[idx]
+  console.log(`[Butterchurn] Applying preset: ${key} (idx=${idx})`)
   for (const viz of vizInstances) {
-    if (viz) viz.loadPreset(shared.presets[key], 2.0)
+    if (viz) {
+      viz.loadPreset(shared.presets[key], 2.0)
+      console.log(`[Butterchurn] Preset loaded into visualizer`)
+    } else {
+      console.log('[Butterchurn] Visualizer instance is null!')
+    }
   }
   notifyPresetChange(key)
   return key
@@ -162,6 +171,11 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const [stats, setStats] = useState(null) // { fps, frameMs, resW, resH }
   const statsRef = useRef({ times: [], lastFlush: 0, resW: 0, resH: 0 })
 
+  // ── Auto-cycle ────────────────────────────────────────────────────────────
+  const [autoCycle, setAutoCycle] = useState(true) // Auto-cycle through presets
+  const [cycleInterval, setCycleInterval] = useState(15000) // 15 seconds default
+  const autoCycleRef = useRef(null)
+
   // Subscribe to preset name updates
   useEffect(() => {
     const cb = (name) => setPresetName(name)
@@ -170,20 +184,32 @@ export function ButterchurnFullscreen({ open, onClose }) {
   }, [])
 
   const next   = useCallback(() => {
-    if (!shared.keys.length) return
+    if (!shared.keys.length) {
+      console.log('[Butterchurn] No presets loaded yet')
+      return
+    }
     shared.idx = (shared.idx + 1) % shared.keys.length
+    console.log(`[Butterchurn] Next preset: ${shared.keys[shared.idx]}`)
     applySharedPreset(shared.idx, vizRef.current)
   }, [])
 
   const prev   = useCallback(() => {
-    if (!shared.keys.length) return
+    if (!shared.keys.length) {
+      console.log('[Butterchurn] No presets loaded yet')
+      return
+    }
     shared.idx = (shared.idx - 1 + shared.keys.length) % shared.keys.length
+    console.log(`[Butterchurn] Previous preset: ${shared.keys[shared.idx]}`)
     applySharedPreset(shared.idx, vizRef.current)
   }, [])
 
   const random = useCallback(() => {
-    if (!shared.keys.length) return
+    if (!shared.keys.length) {
+      console.log('[Butterchurn] No presets loaded yet')
+      return
+    }
     shared.idx = Math.floor(Math.random() * shared.keys.length)
+    console.log(`[Butterchurn] Random preset: ${shared.keys[shared.idx]}`)
     applySharedPreset(shared.idx, vizRef.current)
   }, [])
 
@@ -379,6 +405,32 @@ export function ButterchurnFullscreen({ open, onClose }) {
     if (isPlaying && audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {})
   }, [isPlaying, audioCtx])
 
+  // Auto-cycle through presets
+  useEffect(() => {
+    if (!open || !autoCycle) {
+      if (autoCycleRef.current) {
+        clearInterval(autoCycleRef.current)
+        autoCycleRef.current = null
+      }
+      return
+    }
+
+    // Start auto-cycling
+    autoCycleRef.current = setInterval(() => {
+      if (shared.keys.length > 0) {
+        shared.idx = Math.floor(Math.random() * shared.keys.length)
+        applySharedPreset(shared.idx, vizRef.current)
+      }
+    }, cycleInterval)
+
+    return () => {
+      if (autoCycleRef.current) {
+        clearInterval(autoCycleRef.current)
+        autoCycleRef.current = null
+      }
+    }
+  }, [open, autoCycle, cycleInterval])
+
   return (
     <AnimatePresence>
       {open && (
@@ -441,7 +493,18 @@ export function ButterchurnFullscreen({ open, onClose }) {
           </motion.button>
 
           {presetCount > 0 && (
-            <p className="absolute top-16 right-6 text-white/30 text-[10px]">{presetCount} presets</p>
+            <div className="absolute top-16 right-6 flex flex-col items-end gap-1">
+              <p className="text-white/30 text-[10px]">{presetCount} presets</p>
+              <button
+                onClick={() => setAutoCycle(!autoCycle)}
+                className={`text-[10px] px-2 py-1 rounded transition-colors ${
+                  autoCycle ? 'bg-accent/50 text-white' : 'bg-white/10 text-white/50'
+                }`}
+                title={autoCycle ? 'Auto-cycle ON' : 'Auto-cycle OFF'}
+              >
+                {autoCycle ? 'Auto' : 'Manual'}
+              </button>
+            </div>
           )}
 
           {/* Stats are now displayed in debug menu */}
