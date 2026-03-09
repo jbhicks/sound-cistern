@@ -133,9 +133,12 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     
     console.log('[Butterchurn] Visualizer created successfully')
     viz.connectAudio(analyserNode)
+    console.log('[Butterchurn] Audio connected')
     loadSharedPresets()
     if (shared.keys.length > 0) {
-      viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0)
+      const presetKey = shared.keys[shared.idx]
+      viz.loadPreset(shared.presets[presetKey], 2.0)
+      console.log(`[Butterchurn] Preset loaded: ${presetKey}`)
     }
     
     // Store actual dimensions for stats
@@ -440,6 +443,8 @@ export function ButterchurnFullscreen({ open, onClose }) {
         let lastFrameTime = performance.now()
         let frameCount = 0
         
+        console.log('[Butterchurn] Starting render loop')
+        
         const loop = (now) => {
           rafRef.current = requestAnimationFrame(loop)
           
@@ -456,12 +461,11 @@ export function ButterchurnFullscreen({ open, onClose }) {
             if (frameCount % skipInterval !== 0) return
           }
           
-          // Measure actual time between frames
-          lastFrameTime = now
-          
           // Render the visualizer
           try {
             vizRef.current.render()
+            if (frameCount === 1) console.log('[Butterchurn] First frame rendered')
+            if (frameCount % 60 === 0) console.log(`[Butterchurn] Rendered ${frameCount} frames`)
           } catch (e) {
             console.warn('[Butterchurn] Render error:', e)
           }
