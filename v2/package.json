@@ -13,6 +13,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.13.21",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.3",
     "lucide-react": "^0.323.0",

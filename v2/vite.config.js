@@ -12,7 +12,7 @@ export default defineConfig(({ command }) => ({
     port: 5173,
     host: '0.0.0.0',
     // Allow the Cloudflare tunnel host
-    allowedHosts: ['soundcistern.jbhicks.dev', '.local', '192.168.1.49'],
+    allowedHosts: ['soundcistern.com', '.local', '192.168.1.49'],
     hmr: {
       // Use the same host as the page for HMR WebSocket
       // This makes it work whether accessed via localhost or IP

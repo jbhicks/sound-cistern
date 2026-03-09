@@ -688,7 +688,7 @@ func formatRSSDuration(ms int) string {
 
 // buildRSSFeed generates RSS 2.0 XML for the given tracks and channel metadata.
 func buildRSSFeed(username, selfURL string, tracks []exportFavoriteTrack) string {
-	baseURL := "https://soundcistern.jbhicks.dev"
+	baseURL := "https://soundcistern.com"
 
 	var items strings.Builder
 	for _, t := range tracks {
@@ -779,7 +779,7 @@ func GetUserRSSFeed(app *pocketbase.PocketBase) echo.HandlerFunc {
 		}
 
 		// Public feed URL uses the user's PocketBase ID as the share token
-		selfURL := "https://soundcistern.jbhicks.dev/feed/rss/" + authRecord.Id
+		selfURL := "https://soundcistern.com/feed/rss/" + authRecord.Id
 
 		xml := buildRSSFeed(username, selfURL, tracks)
 		c.Response().Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
@@ -820,7 +820,7 @@ func GetSharedRSSFeed(app *pocketbase.PocketBase) echo.HandlerFunc {
 			}
 		}
 
-		selfURL := "https://soundcistern.jbhicks.dev/feed/rss/" + token
+		selfURL := "https://soundcistern.com/feed/rss/" + token
 
 		xml := buildRSSFeed(username, selfURL, tracks)
 		c.Response().Header().Set("Content-Type", "application/rss+xml; charset=utf-8")

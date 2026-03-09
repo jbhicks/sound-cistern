@@ -19,7 +19,7 @@ import (
 
 var (
 	testUserID = "7jhe1fvqy9j5n53" // Longshot - the authenticated user
-	serverURL  = "https://soundcistern.jbhicks.dev"
+	serverURL  = "https://soundcistern.com"
 )
 
 func getAuthCookie(t *testing.T) *http.Cookie {

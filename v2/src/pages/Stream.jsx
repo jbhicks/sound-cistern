@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, RefreshCw, Grid, List, X, Music, SlidersHorizontal, Clock } from 'lucide-react'
 import clsx from 'clsx'
@@ -66,6 +67,40 @@ function writeTracksCache(tracks) {
   } catch {}
 }
 
+// Calculate columns based on container width (must match Tailwind grid classes)
+function getColumnCount(width) {
+  if (width >= 1536) return 7 // 2xl:grid-cols-7
+  if (width >= 1280) return 6 // xl:grid-cols-6
+  if (width >= 1024) return 5 // lg:grid-cols-5
+  if (width >= 768) return 4  // md:grid-cols-4
+  if (width >= 640) return 3  // sm:grid-cols-3
+  return 2                    // grid-cols-2
+}
+
+// Virtualized grid row component
+function VirtualGridRow({ tracks, columns, gap, viewMode, topArtistNames, newTrackIdsRef }) {
+  return (
+    <div 
+      className="grid"
+      style={{
+        gridTemplateColumns: `repeat(${columns}, 1fr)`,
+        gap: `${gap}px`,
+      }}
+    >
+      {tracks.map((track, i) => (
+        <TrackCard
+          key={track.track_id}
+          track={track}
+          index={i}
+          viewMode={viewMode}
+          isNew={newTrackIdsRef.current.has(track.track_id)}
+          isTopArtist={topArtistNames.has(track.artist_name)}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function Stream() {
   const cachedTracks = useState(() => readTracksCache())[0]
   const [tracks, setTracks] = useState(() => cachedTracks)
@@ -88,6 +123,26 @@ export default function Stream() {
   })
   const { favorites, playHistory, playTrack } = useStore()
   const recentlyPlayed = [...new Map(playHistory.map(e => [e.track_id, e])).values()].slice(0, 5)
+
+  // Refs for virtualization
+  const scrollContainerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Track container width for column calculation
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    const updateWidth = () => {
+      setContainerWidth(container.clientWidth)
+    }
+    
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(container)
+    
+    return () => ro.disconnect()
+  }, [viewMode])
 
   // Top 10 most-played artists by play count — same logic as Analytics page
   const topArtistNames = useMemo(() => {
@@ -263,6 +318,43 @@ export default function Stream() {
   const chips = filterChips(filters)
   const activeCount = countActiveFilters(filters)
 
+  // Virtualization setup
+  const columns = viewMode === 'grid' ? getColumnCount(containerWidth) : 1
+  const gap = 12 // gap-3 = 12px
+  
+  // Calculate row data for grid view
+  const rowData = useMemo(() => {
+    if (viewMode === 'list') {
+      // In list view, each track is its own "row"
+      return displayed.map(track => [track])
+    }
+    // In grid view, group tracks into rows
+    const rows = []
+    for (let i = 0; i < displayed.length; i += columns) {
+      rows.push(displayed.slice(i, i + columns))
+    }
+    return rows
+  }, [displayed, columns, viewMode])
+
+  // Estimate row height for virtualizer
+  const estimateRowHeight = useCallback(() => {
+    if (viewMode === 'list') return 64 // Approximate height of list item
+    // Grid item height = width based on aspect ratio 1:1
+    if (containerWidth === 0) return 200
+    const itemWidth = (containerWidth - (columns - 1) * gap) / columns
+    return itemWidth // 1:1 aspect ratio
+  }, [viewMode, containerWidth, columns, gap])
+
+  const virtualizer = useVirtualizer({
+    count: rowData.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: estimateRowHeight,
+    overscan: 5, // Render 5 extra rows above/below viewport
+    gap,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+
   return (
     <div className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
       <div className="max-w-screen-2xl mx-auto">
@@ -276,7 +368,7 @@ export default function Stream() {
         <div className="2xl:flex 2xl:gap-6 2xl:items-start">
 
         {/* Main content column */}
-        <div className="2xl:flex-1 2xl:min-w-0">
+        <div className="2xl:flex-1 2xl:min-w-0" ref={scrollContainerRef} style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}>
 
         {/* Recently Played — inline strip (hidden at 2xl, shown in sidebar instead) */}
         {recentlyPlayed.length > 0 && (
@@ -472,23 +564,53 @@ export default function Stream() {
             )}
           </motion.div>
         ) : (
-          <div className={clsx(
-            viewMode === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3'
-              : 'space-y-1'
-          )}>
-            <AnimatePresence mode="popLayout">
-              {displayed.map((track, i) => (
-                <TrackCard
-                  key={track.track_id}
-                  track={track}
-                  index={i}
-                  viewMode={viewMode}
-                  isNew={newTrackIdsRef.current.has(track.track_id)}
-                  isTopArtist={topArtistNames.has(track.artist_name)}
-                />
-              ))}
-            </AnimatePresence>
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualItems.map((virtualItem) => {
+              const rowTracks = rowData[virtualItem.index]
+              return (
+                <div
+                  key={virtualItem.key}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {viewMode === 'grid' ? (
+                    <VirtualGridRow
+                      tracks={rowTracks}
+                      columns={columns}
+                      gap={gap}
+                      viewMode={viewMode}
+                      topArtistNames={topArtistNames}
+                      newTrackIdsRef={newTrackIdsRef}
+                    />
+                  ) : (
+                    <div className="space-y-1">
+                      {rowTracks.map((track) => (
+                        <TrackCard
+                          key={track.track_id}
+                          track={track}
+                          viewMode={viewMode}
+                          isNew={newTrackIdsRef.current.has(track.track_id)}
+                          isTopArtist={topArtistNames.has(track.artist_name)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 

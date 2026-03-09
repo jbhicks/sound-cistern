@@ -1243,7 +1243,7 @@ func main() {
 				Name:     "pb_auth",
 				Value:    "",
 				Path:     "/",
-				Domain:   ".jbhicks.dev",
+				Domain:   ".soundcistern.com",
 				HttpOnly: true,
 				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
@@ -1721,12 +1721,12 @@ func main() {
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=token_gen_failed")
 			}
 
-			// Set auth cookie - make it work across all jbhicks.dev subdomains
+			// Set auth cookie - make it work across all soundcistern.com subdomains
 			c.SetCookie(&http.Cookie{
 				Name:     "pb_auth",
 				Value:    tokenString,
 				Path:     "/",
-				Domain:   ".jbhicks.dev",
+				Domain:   ".soundcistern.com",
 				HttpOnly: true,
 				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
@@ -2095,7 +2095,7 @@ func main() {
 				Name:     "pb_auth",
 				Value:    tokenString,
 				Path:     "/",
-				Domain:   ".jbhicks.dev",
+				Domain:   ".soundcistern.com",
 				HttpOnly: true,
 				Secure:   true,
 				SameSite: http.SameSiteLaxMode,
