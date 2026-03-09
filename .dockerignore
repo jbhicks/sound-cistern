@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Node modules (built in separate stage)
+v2/node_modules
+v2/.vite
+v2/dist
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+sound-cistern
+
+# Test data
+pb_data_test/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentation (not needed for build)
+docs/
+specs/
+README.md
+
+# Temp files
+*.tmp
+*.temp
