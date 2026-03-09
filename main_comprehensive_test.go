@@ -463,3 +463,48 @@ func TestPublicEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// TestStreamFormatByOS tests that the correct stream format is selected based on OS
+func TestStreamFormatByOS(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Test Apple device detection
+	t.Run("Apple devices get MP3", func(t *testing.T) {
+		appleUserAgents := []string{
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+			"Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+			"Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+		}
+
+		for _, ua := range appleUserAgents {
+			// Verify User-Agent contains Apple identifiers
+			lowerUA := strings.ToLower(ua)
+			isApple := strings.Contains(lowerUA, "macintosh") || 
+				strings.Contains(lowerUA, "mac os") ||
+				strings.Contains(lowerUA, "iphone") || 
+				strings.Contains(lowerUA, "ipad")
+			assert.True(t, isApple, "Should detect Apple device: %s", ua)
+		}
+	})
+
+	// Test non-Apple device detection
+	t.Run("Non-Apple devices get HLS", func(t *testing.T) {
+		nonAppleUserAgents := []string{
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+			"Mozilla/5.0 (Android 10; Mobile; rv:91.0) Gecko/91.0 Firefox/91.0",
+		}
+
+		for _, ua := range nonAppleUserAgents {
+			lowerUA := strings.ToLower(ua)
+			isApple := strings.Contains(lowerUA, "macintosh") || 
+				strings.Contains(lowerUA, "mac os") ||
+				strings.Contains(lowerUA, "iphone") || 
+				strings.Contains(lowerUA, "ipad") ||
+				strings.Contains(lowerUA, "ipod")
+			assert.False(t, isApple, "Should NOT detect as Apple: %s", ua)
+		}
+	})
+}

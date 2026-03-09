@@ -708,10 +708,19 @@ func mockSoundcloudTokenResponse(c echo.Context) error {
 }
 
 func main() {
+	// isAppleDevice checks if the User-Agent indicates an Apple device (macOS, iOS, iPadOS)
+	isAppleDevice := func(userAgent string) bool {
+		ua := strings.ToLower(userAgent)
+		return strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os") ||
+			strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") ||
+			strings.Contains(ua, "ipod") || strings.Contains(ua, "apple")
+	}
+
 	// getStreamURL fetches a stream URL from SoundCloud using the /tracks/{id}/streams
 	// endpoint, which reliably returns all available formats.
-	// quality can be: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" or "auto" (best available)
-	getStreamURL := func(accessToken, trackID, quality string) string {
+	// quality can be: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" or "auto"
+	// Apple devices get HLS for better compatibility, others get MP3
+	getStreamURL := func(accessToken, trackID, quality, userAgent string) string {
 		// In test mode, return mock stream URL
 		if isTestMode {
 			return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
@@ -780,8 +789,15 @@ func main() {
 		}
 		log.Printf("[Stream] Available streams for %s: %v", trackID, keys)
 
-		// Quality preference order for auto: hls_aac_160 > http_mp3_128 > hls_mp3_128
-		preference := []string{"hls_aac_160_url", "http_mp3_128_url", "hls_mp3_128_url"}
+		// Quality preference order based on device type
+		// Apple devices: MP3 (better native support)
+		// Others: HLS AAC 160 (higher quality)
+		var preference []string
+		if isAppleDevice(userAgent) {
+			preference = []string{"http_mp3_128_url", "hls_mp3_128_url", "hls_aac_160_url"}
+		} else {
+			preference = []string{"hls_aac_160_url", "http_mp3_128_url", "hls_mp3_128_url"}
+		}
 
 		if quality != "" && quality != "auto" {
 			key := quality + "_url"
@@ -3275,9 +3291,10 @@ func main() {
 				}
 			}
 
-			// quality param: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" (auto = best)
+			// quality param: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" (auto = device-specific)
 			quality := c.QueryParam("quality")
-			streamURL := getStreamURL(accessToken, trackID, quality)
+			userAgent := c.Request().Header.Get("User-Agent")
+			streamURL := getStreamURL(accessToken, trackID, quality, userAgent)
 
 			// If no URL from /streams, fall back to stored stream_url
 			if streamURL == "" && len(trackRecords) > 0 {
