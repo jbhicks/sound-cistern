@@ -449,12 +449,24 @@ export function ButterchurnFullscreen({ open, onClose }) {
         let lastFrameTime = performance.now()
         let frameCount = 0
         
+        // Ensure canvas has valid dimensions before starting
+        if (canvas.width <= 0 || canvas.height <= 0) {
+          console.log('[Butterchurn] Fixing canvas dimensions before render loop')
+          canvas.width = Math.max(4, statsRef.current.resW || 640)
+          canvas.height = Math.max(4, statsRef.current.resH || 360)
+        }
+        
         const loop = (now) => {
           rafRef.current = requestAnimationFrame(loop)
           
-          // Skip rendering if visualizer isn't ready or canvas has invalid dimensions
+          // Skip rendering if visualizer isn't ready
           if (!vizRef.current) return
-          if (canvas.width <= 0 || canvas.height <= 0) return
+          
+          // Ensure canvas always has valid dimensions
+          if (canvas.width <= 0 || canvas.height <= 0) {
+            canvas.width = Math.max(4, statsRef.current.resW || 640)
+            canvas.height = Math.max(4, statsRef.current.resH || 360)
+          }
           
           frameCount++
           
