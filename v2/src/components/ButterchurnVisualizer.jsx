@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Shuffle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '../store'
+import { vizConfig } from '../pages/DebugViz'
 
 /**
  * ButterchurnVisualizer — two separate exported components:
@@ -30,11 +31,23 @@ function notifyPresetChange(name) {
 
 function loadSharedPresets() {
   if (shared.keys.length > 0) return
-  const pkg = window.butterchurnPresets?.default ?? window.butterchurnPresets
-  if (!pkg) return
-  const presets = typeof pkg.getPresets === 'function' ? pkg.getPresets() : pkg
-  shared.presets = presets
-  shared.keys    = Object.keys(presets)
+  
+  // Load base presets
+  const basePkg = window.butterchurnPresets?.default ?? window.butterchurnPresets
+  if (basePkg) {
+    const basePresets = typeof basePkg.getPresets === 'function' ? basePkg.getPresets() : basePkg
+    shared.presets = { ...basePresets }
+  }
+  
+  // Load extra presets if available
+  const extraPkg = window.butterchurnPresetsExtra?.default ?? window.butterchurnPresetsExtra
+  if (extraPkg) {
+    const extraPresets = typeof extraPkg.getPresets === 'function' ? extraPkg.getPresets() : extraPkg
+    shared.presets = { ...shared.presets, ...extraPresets }
+  }
+  
+  shared.keys = Object.keys(shared.presets)
+  console.log(`[Butterchurn] Loaded ${shared.keys.length} presets`)
 }
 
 function applySharedPreset(idx, ...vizInstances) {
@@ -49,20 +62,26 @@ function applySharedPreset(idx, ...vizInstances) {
 }
 
 // ── createViz helper ─────────────────────────────────────────────────────────
-function createViz(canvas, audioCtx, analyserNode) {
+function createViz(canvas, audioCtx, analyserNode, dpr = 1) {
   if (!canvas || !audioCtx || !analyserNode) return null
   let bc = window.butterchurn?.default ?? window.butterchurn
   if (!bc || typeof bc.createVisualizer !== 'function') {
     console.warn('[Butterchurn] library not ready'); return null
   }
   try {
+    // Use vizConfig for quality settings
     const viz = bc.createVisualizer(audioCtx, canvas, {
-      width: canvas.width, height: canvas.height, pixelRatio: 1, textureRatio: 0.5,
+      width: canvas.width, 
+      height: canvas.height, 
+      pixelRatio: dpr, 
+      textureRatio: vizConfig?.textureRatio ?? 1,
+      meshWidth: vizConfig?.meshWidth ?? 48,
+      meshHeight: vizConfig?.meshHeight ?? 36,
     })
     viz.connectAudio(analyserNode)
     loadSharedPresets()
     if (shared.keys.length > 0) {
-      viz.loadPreset(shared.presets[shared.keys[shared.idx]], 0.0)
+      viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0) // 2 second smooth blend
     }
     return viz
   } catch (e) {
@@ -134,6 +153,8 @@ export function ButterchurnFullscreen({ open, onClose }) {
   const panelRef   = useRef(null)
   const vizRef     = useRef(null)
   const rafRef     = useRef(null)
+  const mockAudioRef = useRef(null) // Store mock audio to prevent recreation
+  const initializedRef = useRef(false) // Track if we've initialized in this component instance
   const [presetName, setPresetName] = useState('')
   const [presetCount, setPresetCount] = useState(0)
 
@@ -166,10 +187,11 @@ export function ButterchurnFullscreen({ open, onClose }) {
     applySharedPreset(shared.idx, vizRef.current)
   }, [])
 
+  // Initialize visualizer only once when component mounts
   useEffect(() => {
     if (!open) {
       cancelAnimationFrame(rafRef.current)
-      vizRef.current = null
+      rafRef.current = null
       // Reset stats so stale timestamps don't corrupt the next open
       statsRef.current.times    = []
       statsRef.current.lastFlush = 0
@@ -177,32 +199,80 @@ export function ButterchurnFullscreen({ open, onClose }) {
       return
     }
 
-    const canvas = canvasRef.current
-    if (!canvas || !analyserNode || !audioCtx) return
+    // If RAF loop is running, visualizer is already set up - just continue
+    if (rafRef.current) {
+      return
+    }
 
-    // Cap render resolution — butterchurn is shader-heavy and doesn't need
-    // native 4K/5K. 1280×720 looks great and runs at 60fps on any GPU.
-    const MAX_W = 1280
-    const MAX_H = 720
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Create mock audio context/analyser if none exists (for testing without playing audio)
+    let ctx = audioCtx
+    let analyser = analyserNode
+    if (!ctx || !analyser) {
+      // Reuse existing mock audio if available
+      if (!mockAudioRef.current) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)()
+        analyser = ctx.createAnalyser()
+        analyser.fftSize = 512
+        
+        // Create oscillator for mock audio data
+        const oscillator = ctx.createOscillator()
+        const gain = ctx.createGain()
+        oscillator.connect(gain)
+        gain.connect(analyser)
+        oscillator.start()
+        gain.gain.value = 0 // Silent but generates data for visualizer
+        
+        // Resume audio context (required by Chrome autoplay policy)
+        ctx.resume().catch(() => {})
+        
+        // Store in ref to prevent recreation
+        mockAudioRef.current = { ctx, analyser, oscillator, gain }
+      } else {
+        ctx = mockAudioRef.current.ctx
+        analyser = mockAudioRef.current.analyser
+      }
+      
+      // Fill with synthetic data
+      const dataArray = new Uint8Array(analyser.frequencyBinCount)
+      for (let i = 0; i < dataArray.length; i++) {
+        dataArray[i] = Math.random() * 255
+      }
+      analyser.getByteFrequencyData = () => dataArray
+      analyser.getByteTimeDomainData = () => dataArray
+    }
+
+    const MAX_W = vizConfig?.maxWidth ?? 1920
+    const MAX_H = vizConfig?.maxHeight ?? 1080
+    const dpr = window.devicePixelRatio || 1
     const panel = panelRef.current
     const panelW = panel?.clientWidth  || window.innerWidth
     const panelH = panel?.clientHeight || window.innerHeight
-    const scale  = Math.min(1, MAX_W / panelW, MAX_H / panelH)
+    const scale  = Math.min(dpr, MAX_W / panelW, MAX_H / panelH)
     canvas.width  = Math.round(panelW * scale)
     canvas.height = Math.round(panelH * scale)
     statsRef.current.resW = canvas.width
     statsRef.current.resH = canvas.height
 
-    const viz = createViz(canvas, audioCtx, analyserNode)
-    if (!viz) return
-    vizRef.current = viz
-
-    // Sync to current shared preset
-    if (shared.keys.length > 0) {
-      viz.loadPreset(shared.presets[shared.keys[shared.idx]], 0.0)
-      setPresetName(shared.keys[shared.idx])
+    // Only create visualizer if it doesn't exist (don't recreate on StrictMode double-invoke)
+    let viz = vizRef.current
+    if (!viz) {
+      viz = createViz(canvas, ctx, analyser, 1)
+      if (!viz) return
+      vizRef.current = viz
+      
+      // Sync to current shared preset
+      if (shared.keys.length > 0) {
+        viz.loadPreset(shared.presets[shared.keys[shared.idx]], 2.0) // 2 second smooth blend
+        setPresetName(shared.keys[shared.idx])
+      }
+      setPresetCount(shared.keys.length)
     }
-    setPresetCount(shared.keys.length)
+    
+    // Frame skipping for heavy presets - render every 2nd frame to maintain smooth UI
+    let frameCount = 0
 
     // Re-measure after enter animation settles (in case panel was 0×0 at mount)
     const resizeTimer = setTimeout(() => {
@@ -210,7 +280,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
       const pw = panel ? panel.clientWidth  : window.innerWidth
       const ph = panel ? panel.clientHeight : window.innerHeight
       if (pw > 0 && ph > 0) {
-        const s = Math.min(1, MAX_W / pw, MAX_H / ph)
+        const s = Math.min(dpr, MAX_W / pw, MAX_H / ph)
         const w = Math.round(pw * s)
         const h = Math.round(ph * s)
         if (canvas.width !== w || canvas.height !== h) {
@@ -225,7 +295,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
       const panel = panelRef.current
       const pw = panel?.clientWidth  ?? window.innerWidth
       const ph = panel?.clientHeight ?? window.innerHeight
-      const s  = Math.min(1, MAX_W / pw, MAX_H / ph)
+      const s  = Math.min(dpr, MAX_W / pw, MAX_H / ph)
       const w  = Math.round(pw * s)
       const h  = Math.round(ph * s)
       canvas.width  = w
@@ -244,9 +314,19 @@ export function ButterchurnFullscreen({ open, onClose }) {
     }
     window.addEventListener('keydown', onKey)
 
+    let lastFrameTime = performance.now()
+    
     const loop = (now) => {
       rafRef.current = requestAnimationFrame(loop)
+      
+      // Measure actual time between frames
+      const delta = now - lastFrameTime
+      lastFrameTime = now
+      
+      // Render the visualizer
+      const renderStart = performance.now()
       vizRef.current?.render()
+      const renderDuration = performance.now() - renderStart
 
       // Track frame times for stats
       const s = statsRef.current
@@ -259,7 +339,10 @@ export function ButterchurnFullscreen({ open, onClose }) {
         const span = s.times[s.times.length - 1] - s.times[0]
         const fps  = Math.round((s.times.length - 1) / (span / 1000))
         const frameMs = span / (s.times.length - 1)
-        setStats({ fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH })
+        const stats = { fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH }
+        setStats(stats)
+        // Export for debug page
+        window._vizStats = stats
       }
     }
     loop(performance.now())
@@ -267,11 +350,30 @@ export function ButterchurnFullscreen({ open, onClose }) {
     return () => {
       clearTimeout(resizeTimer)
       cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
       window.removeEventListener('resize', onResize)
       window.removeEventListener('keydown', onKey)
-      vizRef.current = null
     }
   }, [open, analyserNode, audioCtx, next, prev, random, onClose])
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      vizRef.current = null
+      initializedRef.current = false
+      
+      // Clean up mock audio if we created it
+      if (mockAudioRef.current) {
+        try {
+          mockAudioRef.current.oscillator?.stop()
+          mockAudioRef.current.ctx?.close()
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        mockAudioRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (isPlaying && audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {})
@@ -342,23 +444,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
             <p className="absolute top-16 right-6 text-white/30 text-[10px]">{presetCount} presets</p>
           )}
 
-          {/* Render stats — bottom right */}
-          {stats && (
-            <div className="absolute bottom-6 right-6 text-right pointer-events-none select-none">
-              <p style={{ fontFamily: 'monospace', fontSize: 11, lineHeight: '1.6' }}
-                 className={stats.fps >= 55 ? 'text-green-400/70' : stats.fps >= 30 ? 'text-yellow-400/70' : 'text-red-400/80'}>
-                {stats.fps} fps
-              </p>
-              <p style={{ fontFamily: 'monospace', fontSize: 10, lineHeight: '1.6' }}
-                 className="text-white/25">
-                {stats.frameMs} ms
-              </p>
-              <p style={{ fontFamily: 'monospace', fontSize: 10, lineHeight: '1.6' }}
-                 className="text-white/25">
-                {stats.resW}×{stats.resH}
-              </p>
-            </div>
-          )}
+          {/* Stats are now displayed in debug menu */}
         </motion.div>
       )}
     </AnimatePresence>

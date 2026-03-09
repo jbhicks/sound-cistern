@@ -5,6 +5,7 @@ import Stream from './pages/Stream'
 import Favorites from './pages/Favorites'
 import Playlists from './pages/Playlists'
 import Analytics from './pages/Analytics'
+import DebugViz from './pages/DebugViz'
 import { useStore } from './store'
 
 export default function App() {
@@ -95,15 +96,23 @@ export default function App() {
 
   return (
     <BrowserRouter basename="/">
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/stream" replace />} />
-          <Route path="/stream" element={<Stream />} />
-          <Route path="/favorites" element={<Favorites />} />
-          <Route path="/playlists" element={<Playlists />} />
-          <Route path="/analytics" element={<Analytics />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        {/* Debug route - isolated visualizer testing */}
+        <Route path="/debug/viz" element={<DebugViz />} />
+        
+        {/* Main app routes */}
+        <Route path="/*" element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/stream" replace />} />
+              <Route path="/stream" element={<Stream />} />
+              <Route path="/favorites" element={<Favorites />} />
+              <Route path="/playlists" element={<Playlists />} />
+              <Route path="/analytics" element={<Analytics />} />
+            </Routes>
+          </Layout>
+        } />
+      </Routes>
     </BrowserRouter>
   )
 }
