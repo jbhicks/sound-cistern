@@ -9,6 +9,11 @@ COPY v2/package*.json ./
 RUN npm ci
 
 COPY v2/ ./
+
+# Copy butterchurn preset files from root public/js to v2/public/js
+COPY public/js/butterchurnPresets.min.js ./public/js/
+COPY public/js/butterchurnPresetsExtra.min.js ./public/js/
+
 RUN npm run build
 
 # Stage 2: Build Go backend
