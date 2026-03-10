@@ -97,14 +97,17 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
   
   try {
     // Use provided options or fall back to vizConfig defaults
-    // Force textureRatio to 1 for macOS stability
-    const textureRatio = 1
-    const meshWidth = Math.min(32, options.meshWidth ?? vizConfig?.meshWidth ?? 32)
-    const meshHeight = meshWidth
+    // Use high quality settings for capable GPUs
+    const textureRatio = options.textureRatio ?? vizConfig?.textureRatio ?? 4
+    const meshWidth = options.meshWidth ?? vizConfig?.meshWidth ?? 128
+    const meshHeight = options.meshHeight ?? vizConfig?.meshHeight ?? 96
     
-    // For macOS: use a small fixed size that works
-    const useWidth = Math.min(width, 512)
-    const useHeight = Math.min(height, 512)
+    // Respect screen size and DPR for crisp visuals
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) // Cap at 2x for performance
+    const maxWidth = options.maxWidth ?? vizConfig?.maxWidth ?? 1920
+    const maxHeight = options.maxHeight ?? vizConfig?.maxHeight ?? 1080
+    const useWidth = Math.min(Math.round(width * dpr), maxWidth)
+    const useHeight = Math.min(Math.round(height * dpr), maxHeight)
     
     // Set canvas dimensions
     canvas.width = useWidth
@@ -116,6 +119,7 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
       textureRatio, 
       meshWidth, 
       meshHeight,
+      dpr,
       speed: options.speed ?? 1.0
     })
     
@@ -123,7 +127,7 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     const viz = bc.createVisualizer(audioCtx, canvas, {
       width: useWidth, 
       height: useHeight, 
-      pixelRatio: 1, 
+      pixelRatio: dpr, 
       textureRatio: textureRatio,
       meshWidth: meshWidth,
       meshHeight: meshHeight,
@@ -269,9 +273,9 @@ export function ButterchurnFullscreen({ open, onClose }) {
   // ── Settings Panel ────────────────────────────────────────────────────────
   const [showSettings, setShowSettings] = useState(false)
   const [vizSpeed, setVizSpeed] = useState(1.0) // Animation speed multiplier
-  const [meshQuality, setMeshQuality] = useState(vizConfig?.meshWidth ?? 48) // Mesh resolution
-  const [texQuality, setTexQuality] = useState(1) // Force texture ratio to 1 for stability
-  const [maxRes, setMaxRes] = useState(480) // Lower max resolution for stability
+  const [meshQuality, setMeshQuality] = useState(vizConfig?.meshWidth ?? 128) // High quality mesh
+  const [texQuality, setTexQuality] = useState(vizConfig?.textureRatio ?? 4) // High quality textures
+  const [maxRes, setMaxRes] = useState(1080) // Full HD resolution
 
   // Subscribe to preset name updates
   useEffect(() => {
@@ -403,7 +407,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
     const aspectRatio = panel.clientWidth / Math.max(1, panel.clientHeight)
     const MAX_H = maxRes
     const MAX_W = Math.round(maxRes * aspectRatio)
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)  // Cap DPR to avoid large textures
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)  // Cap DPR at 2x for high quality
 
     // Track all cleanup functions
     const cleanupFns = []
@@ -428,9 +432,9 @@ export function ButterchurnFullscreen({ open, onClose }) {
         return false
       }
       
-      // Use smaller dimensions for macOS stability
-      const rawW = Math.min(512, Math.max(256, Math.round(panelW * dpr)))
-      const rawH = Math.min(512, Math.max(256, Math.round(panelH * dpr)))
+      // Use high quality dimensions based on user settings and DPR
+      const rawW = Math.min(MAX_W, Math.max(256, Math.round(panelW * dpr)))
+      const rawH = Math.min(MAX_H, Math.max(256, Math.round(panelH * dpr)))
       
       // Store the raw dimensions for display
       statsRef.current.resW = rawW
@@ -851,21 +855,26 @@ export function ButterchurnFullscreen({ open, onClose }) {
                   <p className="text-[10px] text-white/30 mt-1">Requires restart</p>
                 </div>
 
-                {/* Texture Quality - DISABLED for stability */}
-                <div className="mb-4 opacity-50">
+                {/* Texture Quality */}
+                <div className="mb-4">
                   <label className="text-white/60 text-xs mb-1 block">
-                    Texture Quality: {texQuality.toFixed(1)}x (Locked)
+                    Texture Quality: {texQuality.toFixed(1)}x
                   </label>
                   <input
                     type="range"
                     min="1"
-                    max="1"
-                    step="1"
-                    value={1}
-                    disabled
+                    max="4"
+                    step="0.5"
+                    value={texQuality}
+                    onChange={(e) => setTexQuality(parseFloat(e.target.value))}
                     className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
                   />
-                  <p className="text-[10px] text-white/30 mt-1">Locked for macOS compatibility</p>
+                  <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                    <span>1x</span>
+                    <span>2x</span>
+                    <span>4x</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1">Higher = sharper textures, more GPU load</p>
                 </div>
 
                 {/* Max Resolution */}
@@ -876,16 +885,16 @@ export function ButterchurnFullscreen({ open, onClose }) {
                   <input
                     type="range"
                     min="480"
-                    max="1080"
-                    step="120"
+                    max="2160"
+                    step="240"
                     value={maxRes}
                     onChange={(e) => setMaxRes(parseInt(e.target.value))}
                     className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-accent"
                   />
                   <div className="flex justify-between text-[10px] text-white/40 mt-1">
                     <span>480p</span>
-                    <span>720p</span>
                     <span>1080p</span>
+                    <span>4K</span>
                   </div>
                 </div>
 
