@@ -85,12 +85,9 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
     console.warn('[Butterchurn] library not ready'); return null
   }
   
-  // Check if canvas already has a WebGL context that might be lost/invalid
-  const existingGL = canvas.getContext('webgl2') || canvas.getContext('webgl')
-  if (existingGL && existingGL.isContextLost()) {
-    console.warn('[Butterchurn] Canvas has lost WebGL context, cannot reuse')
-    return null
-  }
+  // Note: Don't check for existing WebGL context here - butterchurn needs
+  // to get a 2D context on this canvas, and calling getContext('webgl')
+  // would prevent that. Butterchurn creates its own WebGL context internally.
   
   // Verify we have valid dimensions
   if (width <= 0 || height <= 0) {
@@ -350,10 +347,13 @@ export function ButterchurnFullscreen({ open, onClose }) {
         // Create oscillator for mock audio data
         const oscillator = ctx.createOscillator()
         const gain = ctx.createGain()
+        oscillator.type = 'sine'
+        oscillator.frequency.value = 440 // A4 note
         oscillator.connect(gain)
         gain.connect(analyser)
+        analyser.connect(ctx.destination) // Connect to destination so audio flows
+        gain.gain.value = 0.01 // Very quiet but generates data for butterchurn's internal analysers
         oscillator.start()
-        gain.gain.value = 0 // Silent but generates data for visualizer
         
         // Resume audio context (required by Chrome autoplay policy)
         ctx.resume().catch(() => {})
@@ -442,7 +442,8 @@ export function ButterchurnFullscreen({ open, onClose }) {
       const viz = createVizWithDimensions(canvas, ctx, analyser, rawW, rawH, {
         meshWidth: meshQuality,
         meshHeight: meshQuality,
-        textureRatio: texQuality
+        textureRatio: texQuality,
+        speed: vizSpeed
       })
       if (!viz) {
         failureCountRef.current++
@@ -463,78 +464,63 @@ export function ButterchurnFullscreen({ open, onClose }) {
       }
       setPresetCount(shared.keys.length)
       
-      // Start animation loop after a brief delay to let butterchurn initialize
-      setTimeout(() => {
+      return true
+    }
+    
+    // Start animation loop - separate from init so it restarts on re-renders
+    const startAnimationLoop = () => {
+      // Don't start if already running
+      if (rafRef.current) return
+      
+      let lastFrameTime = performance.now()
+      let frameCount = 0
+      
+      console.log('[Butterchurn] Starting render loop')
+      
+      const loop = (now) => {
+        rafRef.current = requestAnimationFrame(loop)
+        
+        // Always render if visualizer exists (matching working version pattern)
         if (!vizRef.current) return
         
-        let lastFrameTime = performance.now()
-        let frameCount = 0
+        frameCount++
         
-        console.log('[Butterchurn] Starting render loop')
-        
-        // Debug: Check audio context state
-        const audioDebug = analyserNode || window._butterchurnAudio?.analyser
-        const ctxDebug = audioCtx || window._butterchurnAudio?.ctx
-        if (ctxDebug) {
-          console.log('[Butterchurn] Audio context state:', ctxDebug.state)
-          if (ctxDebug.state === 'suspended') {
-            ctxDebug.resume().then(() => console.log('[Butterchurn] Audio context resumed'))
-          }
+        // Speed control: skip frames based on speed setting
+        const speed = vizSpeed
+        if (speed < 1.0) {
+          const skipInterval = Math.max(1, Math.round(1 / speed))
+          if (frameCount % skipInterval !== 0) return
         }
         
-        const loop = (now) => {
-          rafRef.current = requestAnimationFrame(loop)
+        // Render the visualizer
+        try {
+          vizRef.current.render()
           
-          // Skip rendering if visualizer isn't ready
-          if (!vizRef.current) return
-          
-          frameCount++
-          
-          // Speed control: skip frames based on speed setting
-          const speed = vizSpeed
-          if (speed < 1.0) {
-            const skipInterval = Math.max(1, Math.round(1 / speed))
-            if (frameCount % skipInterval !== 0) return
-          }
-          
-          // Render the visualizer
-          try {
-            vizRef.current.render()
-            
-            // Debug: Log first few frames and check audio data
-            if (frameCount === 1) console.log('[Butterchurn] First frame rendered')
-            if (frameCount <= 5 && audioDebug) {
-              const testData = new Uint8Array(16)
-              audioDebug.getByteFrequencyData(testData)
-              const sum = testData.reduce((a, b) => a + b, 0)
-              console.log(`[Butterchurn] Frame ${frameCount} audio sum:`, sum, 'sample:', testData[0])
-            }
-            if (frameCount % 60 === 0) console.log(`[Butterchurn] Rendered ${frameCount} frames`)
-          } catch (e) {
-            console.warn('[Butterchurn] Render error:', e)
-          }
+          // Debug: Log first few frames
+          if (frameCount === 1) console.log('[Butterchurn] First frame rendered')
+          if (frameCount % 60 === 0) console.log(`[Butterchurn] Rendered ${frameCount} frames`)
+        } catch (e) {
+          console.warn('[Butterchurn] Render error:', e)
+        }
 
-          // Track frame times for stats
-          const s = statsRef.current
-          s.times.push(now)
-          // Keep a rolling 60-frame window
-          if (s.times.length > 60) s.times.shift()
-          // Flush to React state ~4×/sec so the display stays readable
-          if (now - s.lastFlush > 250 && s.times.length >= 2) {
-            s.lastFlush = now
-            const span = s.times[s.times.length - 1] - s.times[0]
-            const fps  = Math.round((s.times.length - 1) / (span / 1000))
-            const frameMs = span / (s.times.length - 1)
-            const stats = { fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH }
-            setStats(stats)
-            // Export for debug page
-            window._vizStats = stats
-          }
+        // Track frame times for stats
+        const s = statsRef.current
+        s.times.push(now)
+        // Keep a rolling 60-frame window
+        if (s.times.length > 60) s.times.shift()
+        // Flush to React state ~4×/sec so the display stays readable
+        if (now - s.lastFlush > 250 && s.times.length >= 2) {
+          s.lastFlush = now
+          const span = s.times[s.times.length - 1] - s.times[0]
+          const fps  = Math.round((s.times.length - 1) / (span / 1000))
+          const frameMs = span / (s.times.length - 1)
+          const stats = { fps, frameMs: frameMs.toFixed(1), resW: s.resW, resH: s.resH }
+          setStats(stats)
+          // Export for debug page
+          window._vizStats = stats
         }
-        loop(performance.now())
-      }, 100)
-      
-      return true
+      }
+      loop(performance.now())
     }
 
     // Set up resize handler
@@ -575,28 +561,39 @@ export function ButterchurnFullscreen({ open, onClose }) {
     window.addEventListener('keydown', onKey)
     cleanupFns.push(() => window.removeEventListener('keydown', onKey))
 
+    // If visualizer exists but no RAF (e.g., after dependency change), restart loop
+    if (vizRef.current) {
+      startAnimationLoop()
+      return
+    }
+
     // Try immediate initialization first
-    if (!tryInitViz()) {
+    if (tryInitViz()) {
+      startAnimationLoop()
+    } else {
       // If that fails, use ResizeObserver to wait for dimensions
       console.log('[Butterchurn] Using ResizeObserver to wait for dimensions...')
-      
+
       const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect
           if (width > 0 && height > 0 && tryInitViz()) {
             ro.disconnect()
+            startAnimationLoop()
             break
           }
         }
       })
       ro.observe(panel)
       cleanupFns.push(() => ro.disconnect())
-      
+
       // Also try after animation settles
       const fallbackTimer = setTimeout(() => {
         if (!vizRef.current) {
           console.log('[Butterchurn] Fallback initialization attempt...')
-          tryInitViz()
+          if (tryInitViz()) {
+            startAnimationLoop()
+          }
         }
       }, 350)
       cleanupFns.push(() => clearTimeout(fallbackTimer))
@@ -645,6 +642,14 @@ export function ButterchurnFullscreen({ open, onClose }) {
     if (isPlaying && audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {})
   }, [isPlaying, audioCtx])
 
+  // Sync speed to butterchurn when it changes
+  useEffect(() => {
+    if (vizRef.current && typeof vizRef.current.setSpeed === 'function') {
+      vizRef.current.setSpeed(vizSpeed)
+      console.log(`[Butterchurn] Speed set to ${vizSpeed}x`)
+    }
+  }, [vizSpeed])
+
   // Auto-cycle through presets
   useEffect(() => {
     if (!open || !autoCycle) {
@@ -684,7 +689,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed top-14 left-0 right-0 bottom-[76px] z-[45] bg-black overflow-hidden"
         >
-          <canvas key={canvasKey} ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+          <canvas key={canvasKey} ref={canvasRef} width={800} height={600} style={{ width: '100%', height: '100%', display: 'block' }} />
 
           {currentTrack && (
             <motion.div
