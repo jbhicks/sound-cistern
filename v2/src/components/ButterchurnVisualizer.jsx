@@ -680,6 +680,54 @@ export function ButterchurnFullscreen({ open, onClose }) {
     }
   }, [open, autoCycle, cycleInterval])
 
+  // Track container dimensions for canvas sizing
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+
+  useEffect(() => {
+    if (!open || !panelRef.current) return
+
+    const updateSize = () => {
+      const rect = panelRef.current.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        setCanvasSize({ width: rect.width, height: rect.height })
+      }
+    }
+
+    // Initial size after a short delay to let animation start
+    const timeoutId = setTimeout(updateSize, 50)
+
+    // ResizeObserver for continuous updates
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) {
+          setCanvasSize({ width, height })
+        }
+      }
+    })
+
+    resizeObserver.observe(panelRef.current)
+
+    return () => {
+      clearTimeout(timeoutId)
+      resizeObserver.disconnect()
+    }
+  }, [open])
+
+  // Update butterchurn when canvas size changes
+  useEffect(() => {
+    if (vizRef.current && canvasSize.width > 0 && canvasSize.height > 0) {
+      try {
+        // Butterchurn has a resize method we can call
+        if (typeof vizRef.current.resize === 'function') {
+          vizRef.current.resize(canvasSize.width, canvasSize.height)
+        }
+      } catch (e) {
+        // Resize not critical, visualizer will work with CSS scaling
+      }
+    }
+  }, [canvasSize])
+
   return (
     <AnimatePresence>
       {open && (
@@ -693,7 +741,13 @@ export function ButterchurnFullscreen({ open, onClose }) {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed top-14 left-0 right-0 bottom-0 z-[45] bg-black overflow-hidden"
         >
-          <canvas key={canvasKey} ref={canvasRef} width={800} height={600} style={{ width: '100%', height: '100%', display: 'block' }} />
+          <canvas 
+            key={canvasKey} 
+            ref={canvasRef} 
+            width={canvasSize.width} 
+            height={canvasSize.height} 
+            style={{ width: '100%', height: '100%', display: 'block' }} 
+          />
 
           {currentTrack && (
             <motion.div
