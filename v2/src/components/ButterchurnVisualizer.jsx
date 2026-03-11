@@ -691,7 +691,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
           exit={{ opacity: 0, scaleY: 0.97 }}
           style={{ transformOrigin: 'bottom center' }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed top-14 left-0 right-0 bottom-[76px] z-[45] bg-black overflow-hidden"
+          className="fixed top-14 left-0 right-0 bottom-0 z-[45] bg-black overflow-hidden"
         >
           <canvas key={canvasKey} ref={canvasRef} width={800} height={600} style={{ width: '100%', height: '100%', display: 'block' }} />
 
