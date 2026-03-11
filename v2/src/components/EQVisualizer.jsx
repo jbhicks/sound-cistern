@@ -144,6 +144,6 @@ export default function EQVisualizer({ height = 40 }) {
   }, [height]) // intentionally omit analyserNode/isPlaying — read via stateRef
 
   return (
-    <canvas ref={canvasRef} style={{ width: '100%', height, display: 'block' }} />
+    <canvas ref={canvasRef} style={{ width: '100%', height, display: 'block', pointerEvents: 'none' }} />
   )
 }
