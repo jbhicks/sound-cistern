@@ -21,10 +21,10 @@ export default {
           950: '#0a0a0b',
         },
         accent: {
-          DEFAULT: '#8b5cf6',
-          hover:   '#7c3aed',
-          light:   '#a78bfa',
-          dark:    '#6d28d9',
+          DEFAULT: '#00d4ff',
+          hover:   '#00b8e6',
+          light:   '#5ce1ff',
+          dark:    '#0099cc',
         },
         vapor: {
           pink:   '#ff6b9d',
@@ -50,8 +50,8 @@ export default {
           '50%':      { transform: 'translateY(-8px)' },
         },
         glow: {
-          '0%':   { boxShadow: '0 0 5px rgba(139, 92, 246, 0.4)' },
-          '100%': { boxShadow: '0 0 20px rgba(139, 92, 246, 0.7)' },
+          '0%':   { boxShadow: '0 0 5px rgba(0, 212, 255, 0.4)' },
+          '100%': { boxShadow: '0 0 20px rgba(0, 212, 255, 0.7)' },
         },
         bar: {
           '0%':   { transform: 'scaleY(0.4)' },

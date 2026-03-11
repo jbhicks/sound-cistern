@@ -9,7 +9,7 @@ import { useStore } from '../store'
  *   width  — canvas pixel width  (default 200)
  *   height — canvas pixel height (default 48)
  *   bars   — number of frequency bars (default 32)
- *   color  — bar fill color (default '#8b5cf6')
+ *   color  — bar fill color (default '#00d4ff')
  *   className — extra CSS classes on the canvas wrapper
  *   style  — inline styles on wrapper
  */
@@ -17,7 +17,7 @@ export default function AudioVisualizer({
   width = 200,
   height = 48,
   bars = 32,
-  color = '#8b5cf6',
+  color = '#00d4ff',
   secondaryColor = '#ff6b9d',
   className = '',
   style = {},
