@@ -4,6 +4,90 @@ import { ListMusic, Plus, Play, Trash2, X, Download, Edit2, Share2, ArrowLeft, C
 import { formatDuration } from '../components/TrackCard'
 import { useStore } from '../store'
 
+// Import genre color utility
+const GENRE_COLORS = {
+  'electronic': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'house': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'techno': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'trance': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'dubstep': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'drum & bass': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'edm': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'ambient': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'synthwave': { bg: 'rgba(139, 92, 246, 0.35)', border: 'rgba(139, 92, 246, 0.5)', text: '#e9d5ff', hue: 263 },
+  'hip hop': { bg: 'rgba(255, 107, 157, 0.35)', border: 'rgba(255, 107, 157, 0.5)', text: '#fce7f3', hue: 340 },
+  'rap': { bg: 'rgba(255, 107, 157, 0.35)', border: 'rgba(255, 107, 157, 0.5)', text: '#fce7f3', hue: 340 },
+  'r&b': { bg: 'rgba(255, 107, 157, 0.35)', border: 'rgba(255, 107, 157, 0.5)', text: '#fce7f3', hue: 340 },
+  'trap': { bg: 'rgba(255, 107, 157, 0.35)', border: 'rgba(255, 107, 157, 0.5)', text: '#fce7f3', hue: 340 },
+  'pop': { bg: 'rgba(0, 212, 255, 0.35)', border: 'rgba(0, 212, 255, 0.5)', text: '#cffafe', hue: 190 },
+  'dance pop': { bg: 'rgba(0, 212, 255, 0.35)', border: 'rgba(0, 212, 255, 0.5)', text: '#cffafe', hue: 190 },
+  'indie pop': { bg: 'rgba(0, 212, 255, 0.35)', border: 'rgba(0, 212, 255, 0.5)', text: '#cffafe', hue: 190 },
+  'rock': { bg: 'rgba(251, 191, 36, 0.35)', border: 'rgba(251, 191, 36, 0.5)', text: '#fef3c7', hue: 45 },
+  'indie rock': { bg: 'rgba(251, 191, 36, 0.35)', border: 'rgba(251, 191, 36, 0.5)', text: '#fef3c7', hue: 45 },
+  'alternative': { bg: 'rgba(251, 191, 36, 0.35)', border: 'rgba(251, 191, 36, 0.5)', text: '#fef3c7', hue: 45 },
+  'metal': { bg: 'rgba(251, 191, 36, 0.35)', border: 'rgba(251, 191, 36, 0.5)', text: '#fef3c7', hue: 45 },
+  'punk': { bg: 'rgba(251, 191, 36, 0.35)', border: 'rgba(251, 191, 36, 0.5)', text: '#fef3c7', hue: 45 },
+  'jazz': { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.5)', text: '#fef3c7', hue: 38 },
+  'soul': { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.5)', text: '#fef3c7', hue: 38 },
+  'funk': { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.5)', text: '#fef3c7', hue: 38 },
+  'folk': { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.5)', text: '#d1fae5', hue: 158 },
+  'acoustic': { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.5)', text: '#d1fae5', hue: 158 },
+  'country': { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.5)', text: '#d1fae5', hue: 158 },
+  'indie': { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.5)', text: '#d1fae5', hue: 158 },
+  'classical': { bg: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.5)', text: '#e0e7ff', hue: 239 },
+  'world': { bg: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.5)', text: '#e0e7ff', hue: 239 },
+  'reggae': { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.5)', text: '#d1fae5', hue: 158 },
+  'latin': { bg: 'rgba(249, 115, 22, 0.35)', border: 'rgba(249, 115, 22, 0.5)', text: '#ffedd5', hue: 25 }
+}
+
+function hashString(str) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  return Math.abs(hash)
+}
+
+function generateGenreColor(genre) {
+  const hash = hashString(genre.toLowerCase())
+  const hue = hash % 360
+  const saturation = 70 + (hash % 20)
+  const lightness = 50 + (hash % 15)
+  
+  const s = saturation / 100
+  const l = lightness / 100
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1))
+  const m = l - c / 2
+  
+  let r, g, b
+  if (hue < 60) { r = c; g = x; b = 0 }
+  else if (hue < 120) { r = x; g = c; b = 0 }
+  else if (hue < 180) { r = 0; g = c; b = x }
+  else if (hue < 240) { r = 0; g = x; b = c }
+  else if (hue < 300) { r = x; g = 0; b = c }
+  else { r = c; g = 0; b = x }
+  
+  r = Math.round((r + m) * 255)
+  g = Math.round((g + m) * 255)
+  b = Math.round((b + m) * 255)
+  
+  return {
+    bg: `rgba(${r}, ${g}, ${b}, 0.35)`,
+    border: `rgba(${r}, ${g}, ${b}, 0.5)`,
+    text: `hsl(${hue}, ${saturation}%, 90%)`,
+    hue
+  }
+}
+
+function getGenreStyle(genre) {
+  if (!genre) return generateGenreColor('unknown')
+  const normalized = genre.toLowerCase().trim()
+  return GENRE_COLORS[normalized] || generateGenreColor(normalized)
+}
+
 export default function Playlists() {
   const { playlists, setPlaylists, loadPlaylists } = useStore()
   const [loading, setLoading] = useState(true)
@@ -210,11 +294,32 @@ export default function Playlists() {
                       <p className="text-xs text-surface-400 truncate">{t.artist_name}</p>
                     </div>
                     {t.genre && (
-                      <span className="hidden md:block px-2 py-0.5 text-xs rounded-full bg-surface-700/80 text-surface-400 flex-shrink-0">
+                      <span
+                        className="hidden md:block px-2 py-0.5 text-xs rounded-md flex-shrink-0 backdrop-blur-md"
+                        style={{
+                          backgroundColor: getGenreStyle(t.genre).bg,
+                          border: `1px solid ${getGenreStyle(t.genre).border}`,
+                          color: getGenreStyle(t.genre).text
+                        }}
+                      >
                         {t.genre}
                       </span>
                     )}
-                    <span className="text-xs text-surface-500 w-10 text-right flex-shrink-0 flex items-center gap-0.5">
+                    {t.bpm > 0 && (
+                      <span className="hidden md:flex items-center gap-0.5 text-xs text-amber-400/80 flex-shrink-0">
+                        <span 
+                          className="text-[10px]"
+                          style={{
+                            animation: `bpmPulse ${60 / t.bpm}s ease-in-out infinite`,
+                            textShadow: '0 0 4px rgba(251, 191, 36, 0.5)'
+                          }}
+                        >
+                          ♫
+                        </span>
+                        {Math.round(t.bpm)}
+                      </span>
+                    )}
+                    <span className="text-xs text-surface-500 w-12 text-right flex-shrink-0 flex items-center justify-end gap-0.5">
                       <Clock className="w-3 h-3" />
                       {formatDuration(t.track_duration)}
                     </span>

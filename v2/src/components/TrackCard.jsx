@@ -1,8 +1,10 @@
 import { useState, forwardRef, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Heart, Play, Pause, Disc3, Download, ListPlus, Check } from 'lucide-react'
+import { Heart, Play, Pause, Disc3, Download, ListPlus, Check, Clock } from 'lucide-react'
 import clsx from 'clsx'
 import { useStore } from '../store'
+
+// Use store's genre color system
 
 export function formatDuration(ms) {
   if (!ms) return '0:00'
@@ -101,12 +103,22 @@ function AddToPlaylistButton({ track }) {
 const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid', isNew = false, isTopArtist = false }, ref) {
   const [flipped, setFlipped] = useState(false)
   const [imgError, setImgError] = useState(false)
-  const { currentTrack, isPlaying, playTrack, favorites, toggleFavorite } = useStore()
+  const { currentTrack, isPlaying, playbackRate, playTrack, favorites, toggleFavorite, getGenreColor } = useStore()
 
   const isActive = currentTrack?.track_id === track.track_id
   const isThisPlaying = isActive && isPlaying
   const isFav = favorites.has(track.track_id)
   const art = imgError ? null : upgradeArtwork(track.artwork_url)
+
+  // Helper to get genre style from store
+  const getGenreStyle = (genre) => {
+    const color = getGenreColor(genre)
+    return {
+      bg: color.bg,
+      border: color.border,
+      text: color.text
+    }
+  }
 
   const handleCardClick = () => {
     playTrack(track)
@@ -164,25 +176,47 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
         </div>
 
         {track.genre && (
-          <span className="hidden md:block px-2 py-0.5 text-xs rounded-full bg-surface-700/80 text-surface-400 flex-shrink-0">
+          <span 
+            className="hidden md:block px-2 py-0.5 text-[10px] rounded-md flex-shrink-0 backdrop-blur-md"
+            style={{
+              backgroundColor: getGenreStyle(track.genre).bg,
+              border: `1px solid ${getGenreStyle(track.genre).border}`,
+              color: getGenreStyle(track.genre).text
+            }}
+          >
             {track.genre}
           </span>
         )}
 
         {track.playback_count > 0 && (
-          <span className="hidden lg:flex items-center gap-0.5 text-xs text-surface-500 flex-shrink-0">
+          <span className="hidden lg:flex items-center gap-0.5 text-xs text-cyan-400/80 flex-shrink-0">
             <Play className="w-3 h-3" />
             {formatCompact(track.playback_count)}
           </span>
         )}
         {track.favoritings_count > 0 && (
-          <span className="hidden lg:flex items-center gap-0.5 text-xs text-surface-500 flex-shrink-0">
+          <span className="hidden lg:flex items-center gap-0.5 text-xs text-pink-400/80 flex-shrink-0">
             <Heart className="w-3 h-3" />
             {formatCompact(track.favoritings_count)}
           </span>
         )}
+        {track.bpm > 0 && (
+          <span className="hidden lg:flex items-center gap-0.5 text-xs text-amber-400/80 flex-shrink-0">
+            <span 
+              className="text-[10px]"
+              style={{
+                animation: `bpmPulse ${60 / track.bpm}s ease-in-out infinite`,
+                textShadow: '0 0 4px rgba(251, 191, 36, 0.5)'
+              }}
+            >
+              ♫
+            </span>
+            {Math.round(track.bpm)}
+          </span>
+        )}
 
-        <span className="text-xs text-surface-500 w-10 text-right flex-shrink-0">
+        <span className="flex items-center justify-end gap-0.5 text-xs text-surface-500 w-12 text-right flex-shrink-0">
+          <Clock className="w-3 h-3" />
           {formatDuration(track.track_duration)}
         </span>
 
@@ -270,7 +304,7 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
                 width: '86%',
                 aspectRatio: '1/1',
                 background: 'repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.85) 3px, rgba(40,40,40,0.85) 4px), radial-gradient(circle at center, #1a1a1a 35%, #050505 100%)',
-                animation: 'vinylSpin 2s linear infinite',
+                animation: isThisPlaying ? `vinylSpin ${1.8 / playbackRate}s linear infinite` : 'none',
                 boxShadow: '0 0 50px rgba(139,92,246,0.25), 0 0 20px rgba(139,92,246,0.1), 0 8px 40px rgba(0,0,0,0.8)',
               }}
             >
@@ -322,59 +356,81 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
 
           {/* Bottom gradient + info overlay */}
           <div className="absolute bottom-0 left-0 right-0 z-10"
-            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)' }}
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 40%, transparent 100%)' }}
           >
-            <div className="px-3 pt-6 pb-3">
-              {/* Genre / BPM pills */}
-              {(track.genre || track.bpm > 0) && (
-                <div className="flex flex-wrap gap-1 mb-1.5">
+            <div className="px-3 pt-8 pb-3">
+              {/* Title - larger and more prominent */}
+              <p className={clsx('font-semibold text-[15px] truncate leading-tight', isActive ? 'text-accent-light' : 'text-white')}>
+                {track.track_title}
+              </p>
+              
+              {/* Artist - clear hierarchy */}
+              <p className="text-xs text-white/60 truncate mt-0.5">{track.artist_name}</p>
+
+              {/* Metadata row: Genre + Stats + Duration */}
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {/* Genre pill - compact, integrated */}
                   {track.genre && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm text-white/80 text-[9px] font-medium truncate max-w-[80px]">
+                    <span 
+                      className="px-1.5 py-0.5 rounded-md backdrop-blur-md text-[9px] font-medium truncate flex-shrink-0"
+                      style={{
+                        backgroundColor: getGenreStyle(track.genre).bg,
+                        border: `1px solid ${getGenreStyle(track.genre).border}`,
+                        color: getGenreStyle(track.genre).text
+                      }}
+                    >
                       {track.genre}
                     </span>
                   )}
-                  {track.bpm > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm text-white/80 text-[9px] font-medium">
-                      {Math.round(track.bpm)} BPM
-                    </span>
-                  )}
+                  
+                  {/* Stats with semantic colors */}
+                  <div className="flex items-center gap-2 text-[10px]">
+                    {track.playback_count > 0 && (
+                      <span className="flex items-center gap-0.5 text-cyan-300/80">
+                        <Play className="w-2.5 h-2.5" />
+                        {formatCompact(track.playback_count)}
+                      </span>
+                    )}
+                    {track.favoritings_count > 0 && (
+                      <span className="flex items-center gap-0.5 text-pink-300/80">
+                        <Heart className="w-2.5 h-2.5" />
+                        {formatCompact(track.favoritings_count)}
+                      </span>
+                    )}
+                    {track.downloadable && (
+                      <a
+                        href={track.download_url || track.permalink_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-0.5 text-emerald-300/80 hover:text-emerald-200 transition-colors"
+                        title={track.download_url ? "Download track" : "Download on SoundCloud"}
+                      >
+                        <Download className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                    {/* BPM badge with breathing glow */}
+                    {track.bpm > 0 && (
+                      <span className="flex items-center gap-0.5 text-amber-300/80">
+                        <span 
+                          className="text-[8px]"
+                          style={{
+                            animation: `bpmPulse ${60 / track.bpm}s ease-in-out infinite`,
+                            textShadow: '0 0 4px rgba(251, 191, 36, 0.5)'
+                          }}
+                        >
+                          ♫
+                        </span>
+                        {Math.round(track.bpm)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-
-              <p className={clsx('font-semibold text-sm truncate leading-tight', isActive ? 'text-accent-light' : 'text-white')}>
-                {track.track_title}
-              </p>
-              <p className="text-xs text-white/70 truncate mt-0.5">{track.artist_name}</p>
-
-              {/* Stats row */}
-              <div className="flex items-center justify-between mt-1.5">
-                <div className="flex items-center gap-2.5 text-[10px] text-white/60">
-                  {track.playback_count > 0 && (
-                    <span className="flex items-center gap-0.5">
-                      <Play className="w-2.5 h-2.5" />
-                      {formatCompact(track.playback_count)}
-                    </span>
-                  )}
-                  {track.favoritings_count > 0 && (
-                    <span className="flex items-center gap-0.5">
-                      <Heart className="w-2.5 h-2.5" />
-                      {formatCompact(track.favoritings_count)}
-                    </span>
-                  )}
-                  {track.downloadable && (
-                    <a
-                      href={track.download_url || track.permalink_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="flex items-center gap-0.5 text-white/60 hover:text-white transition-colors"
-                      title={track.download_url ? "Download track" : "Download on SoundCloud"}
-                    >
-                      <Download className="w-2.5 h-2.5" />
-                    </a>
-                  )}
-                </div>
-                <span className="text-[10px] text-white/60 tabular-nums font-medium">
+                
+                {/* Duration - right aligned with icon */}
+                <span className="flex items-center gap-0.5 text-[10px] text-white/50 tabular-nums font-medium flex-shrink-0 ml-2">
+                  <Clock className="w-2.5 h-2.5" />
                   {formatDuration(track.track_duration)}
                 </span>
               </div>
@@ -399,7 +455,7 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
                 width: '88%',
                 aspectRatio: '1/1',
                 background: 'repeating-radial-gradient(circle at center, transparent 0px, transparent 3px, rgba(40,40,40,0.85) 3px, rgba(40,40,40,0.85) 4px), radial-gradient(circle at center, #1a1a1a 35%, #050505 100%)',
-                animation: isThisPlaying ? 'vinylSpin 2s linear infinite' : 'none',
+                animation: isThisPlaying ? `vinylSpin ${1.8 / playbackRate}s linear infinite` : 'none',
                 boxShadow: isActive
                   ? '0 0 50px rgba(139,92,246,0.35), 0 0 20px rgba(139,92,246,0.15), 0 8px 40px rgba(0,0,0,0.7)'
                   : '0 8px 40px rgba(0,0,0,0.7)',

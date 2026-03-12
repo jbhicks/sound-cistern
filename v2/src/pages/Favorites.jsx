@@ -26,7 +26,7 @@ export default function Favorites() {
   const exportRef = useRef(null)
   const newTrackIdsRef = useRef(new Set())
   const tracksRef = useRef(cached)
-  const { favorites, user } = useStore()
+  const { favorites, user, setTracks: setStoreTracks } = useStore()
 
   const publicRssUrl = user ? `${window.location.origin}/feed/rss/${user.id}` : null
 
@@ -44,7 +44,10 @@ export default function Favorites() {
     tracksRef.current = merged
     writeCache(merged)
     setTracks(merged)
-  }, [])
+    
+    // Also update store tracks to populate genre colors
+    setStoreTracks(merged)
+  }, [setStoreTracks])
 
   // Load from DB on mount — fast, no SoundCloud call
   useEffect(() => {

@@ -5,6 +5,7 @@ import { Search, RefreshCw, Grid, List, X, Music, SlidersHorizontal, Clock } fro
 import clsx from 'clsx'
 import TrackCard from '../components/TrackCard'
 import FilterPanel, { DEFAULT_FILTERS, applyFilters, countActiveFilters } from '../components/FilterPanel'
+import AutoMix from '../components/AutoMix'
 import { useStore } from '../store'
 
 const LIMIT = 50
@@ -44,6 +45,11 @@ function filterChips(filters) {
     const lo = filters.durationMin > 0 ? `${filters.durationMin}m` : '0'
     const hi = filters.durationMax > 0 ? `${filters.durationMax}m` : '∞'
     chips.push({ key: 'duration', label: `${lo} – ${hi}` })
+  }
+  if (filters.bpmMin > 0 || filters.bpmMax > 0) {
+    const lo = filters.bpmMin > 0 ? `${filters.bpmMin}` : '0'
+    const hi = filters.bpmMax > 0 ? `${filters.bpmMax}` : '∞'
+    chips.push({ key: 'bpm', label: `${lo} – ${hi} BPM` })
   }
   if (filters.genre) chips.push({ key: 'genre', label: filters.genre })
   if (filters.onlyFavorites) chips.push({ key: 'onlyFavorites', label: 'Favorites' })
@@ -121,7 +127,7 @@ export default function Stream() {
       return saved ? { ...DEFAULT_FILTERS, ...JSON.parse(saved) } : DEFAULT_FILTERS
     } catch { return DEFAULT_FILTERS }
   })
-  const { favorites, playHistory, playTrack } = useStore()
+  const { favorites, playHistory, playTrack, setTracks: setStoreTracks } = useStore()
   const recentlyPlayed = [...new Map(playHistory.map(e => [e.track_id, e])).values()].slice(0, 5)
 
   // Refs for virtualization
@@ -243,6 +249,9 @@ export default function Stream() {
       }
       tracksRef.current = nextTracks
       setTracks(nextTracks)
+      
+      // Also update store tracks to populate genre colors
+      setStoreTracks(nextTracks)
 
       // Always keep fetching until MIN_VISIBLE filtered results or API exhausted.
       // Clear the lock first so the recursive call isn't blocked.
@@ -310,6 +319,7 @@ export default function Stream() {
 
   const removeFilter = (key) => {
     if (key === 'duration') setFilters(f => ({ ...f, durationMin: 0, durationMax: 0 }))
+    else if (key === 'bpm') setFilters(f => ({ ...f, bpmMin: 0, bpmMax: 0 }))
     else if (key === 'sort') setFilters(f => ({ ...f, sort: 'newest' }))
     else setFilters(f => ({ ...f, [key]: DEFAULT_FILTERS[key] }))
   }
@@ -452,6 +462,9 @@ export default function Stream() {
               </span>
             )}
           </button>
+
+          {/* AutoMix */}
+          <AutoMix tracks={tracks} onPlayTrack={playTrack} />
 
           {/* Sync */}
           <motion.button

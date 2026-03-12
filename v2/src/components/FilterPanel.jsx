@@ -8,6 +8,8 @@ export const DEFAULT_FILTERS = {
   sort: 'newest',
   durationMin: 0,   // minutes
   durationMax: 0,   // 0 = no limit
+  bpmMin: 0,        // 0 = no min
+  bpmMax: 0,        // 0 = no max
   genre: '',
   onlyFavorites: false,
   hideReposts: false,
@@ -31,6 +33,16 @@ const DURATION_PRESETS = [
   { label: '30m+',  min: 30, max: 0  },
 ]
 
+const BPM_PRESETS = [
+  { label: 'Any', min: 0, max: 0 },
+  { label: '< 100', min: 0, max: 100 },
+  { label: '100–120', min: 100, max: 120 },
+  { label: '120–128', min: 120, max: 128 },
+  { label: '128–140', min: 128, max: 140 },
+  { label: '140–175', min: 140, max: 175 },
+  { label: '175+', min: 175, max: 0 },
+]
+
 export function applyFilters(tracks, filters, favorites) {
   let out = [...tracks]
 
@@ -52,6 +64,13 @@ export function applyFilters(tracks, filters, favorites) {
   }
   if (filters.durationMax > 0) {
     out = out.filter(t => t.track_duration <= filters.durationMax * 60 * 1000)
+  }
+
+  if (filters.bpmMin > 0) {
+    out = out.filter(t => (t.bpm || 0) >= filters.bpmMin)
+  }
+  if (filters.bpmMax > 0) {
+    out = out.filter(t => (t.bpm || 0) <= filters.bpmMax)
   }
 
   if (filters.onlyFavorites) {
@@ -79,6 +98,7 @@ export function countActiveFilters(f) {
   if (f.q) n++
   if (f.genre) n++
   if (f.durationMin > 0 || f.durationMax > 0) n++
+  if (f.bpmMin > 0 || f.bpmMax > 0) n++
   if (f.onlyFavorites) n++
   if (f.hideReposts) n++
   if (f.sort !== 'newest') n++
@@ -224,6 +244,64 @@ export default function FilterPanel({ open, onClose, filters, onChange, tracks }
                       value={filters.durationMax || ''}
                       placeholder="∞"
                       onChange={e => set('durationMax', Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700/60 rounded-xl text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* BPM */}
+              <section>
+                <Label>BPM (Tempo)</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {BPM_PRESETS.map(p => {
+                    const isActive = p.min === filters.bpmMin && p.max === filters.bpmMax
+                    return (
+                      <button
+                        key={p.label}
+                        onClick={() => onChange({ ...filters, bpmMin: p.min, bpmMax: p.max })}
+                        className={clsx(
+                          'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
+                          isActive
+                            ? 'bg-accent/15 border-accent/40 text-accent-light'
+                            : 'bg-surface-800/50 border-surface-700/40 text-surface-400 hover:text-surface-200 hover:border-surface-600'
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Custom range */}
+                {!BPM_PRESETS.find(p => p.min === filters.bpmMin && p.max === filters.bpmMax) && (filters.bpmMin > 0 || filters.bpmMax > 0) && (
+                  <p className="text-xs text-accent mt-2">
+                    {filters.bpmMin} – {filters.bpmMax > 0 ? filters.bpmMax : '∞'} BPM
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <span className="text-xs text-surface-500 mb-1 block">Min BPM</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="300"
+                      value={filters.bpmMin || ''}
+                      placeholder="0"
+                      onChange={e => set('bpmMin', Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full px-3 py-2 bg-surface-800 border border-surface-700/60 rounded-xl text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-surface-500 mb-1 block">Max BPM</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="300"
+                      value={filters.bpmMax || ''}
+                      placeholder="∞"
+                      onChange={e => set('bpmMax', Math.max(0, parseInt(e.target.value) || 0))}
                       className="w-full px-3 py-2 bg-surface-800 border border-surface-700/60 rounded-xl text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
                     />
                   </div>

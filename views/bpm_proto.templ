@@ -1,0 +1,916 @@
+package views
+
+import "fmt"
+
+type BPMProtoData struct {
+	PageData
+	Tracks []Track
+}
+
+templ BPMProto(data BPMProtoData) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="dark">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>BPM Manipulation & AutoMix Prototype - Sound Cistern</title>
+			<link rel="stylesheet" href="/css/pico.min.css"/>
+			<style>
+				:root {
+					--accent: #8b5cf6;
+					--accent-light: #a78bfa;
+					--surface-900: #0f0f0f;
+					--surface-800: #1a1a1a;
+					--surface-700: #2d2d2d;
+				}
+				
+				body {
+					background: var(--surface-900);
+					color: #fff;
+				}
+				
+				/* Header */
+				.proto-header {
+					background: linear-gradient(135deg, #1a1a2e, #16213e);
+					border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+					padding: 1rem 0;
+					margin-bottom: 2rem;
+				}
+				
+				.proto-title {
+					color: var(--accent-light);
+					font-size: 0.75rem;
+					text-transform: uppercase;
+					letter-spacing: 0.1em;
+					margin-bottom: 0.5rem;
+				}
+				
+				/* Section Cards */
+				.proto-section {
+					background: var(--surface-800);
+					border-radius: 16px;
+					padding: 1.5rem;
+					margin-bottom: 1.5rem;
+					border: 1px solid rgba(139, 92, 246, 0.2);
+				}
+				
+				/* BPM Filter Pills */
+				.bpm-filter-container {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 0.5rem;
+					margin: 1rem 0;
+				}
+				
+				.bpm-pill {
+					padding: 0.5rem 1rem;
+					border-radius: 20px;
+					border: 1px solid rgba(139, 92, 246, 0.3);
+					background: rgba(139, 92, 246, 0.1);
+					color: #fff;
+					cursor: pointer;
+					transition: all 0.2s;
+					font-size: 0.85rem;
+				}
+				
+				.bpm-pill:hover {
+					background: rgba(139, 92, 246, 0.2);
+					border-color: var(--accent);
+				}
+				
+				.bpm-pill.active {
+					background: var(--accent);
+					border-color: var(--accent);
+				}
+				
+				/* Track Cards */
+				.track-grid {
+					display: grid;
+					grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+					gap: 1rem;
+					margin-top: 1rem;
+				}
+				
+				.track-card {
+					background: var(--surface-900);
+					border-radius: 12px;
+					overflow: hidden;
+					border: 2px solid transparent;
+					cursor: pointer;
+					transition: all 0.2s;
+					position: relative;
+				}
+				
+				.track-card:hover {
+					border-color: var(--accent);
+					transform: translateY(-2px);
+				}
+				
+				.track-card.in-mix {
+					border-color: #22c55e;
+					box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+				}
+				
+				.track-card.hidden {
+					display: none;
+				}
+				
+				.track-artwork {
+					aspect-ratio: 1;
+					background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+					position: relative;
+				}
+				
+				.track-artwork img {
+					width: 100%;
+					height: 100%;
+					object-fit: cover;
+				}
+				
+				/* BPM Badge */
+				.bpm-badge {
+					position: absolute;
+					top: 8px;
+					right: 8px;
+					background: rgba(0, 0, 0, 0.7);
+					backdrop-filter: blur(4px);
+					padding: 4px 8px;
+					border-radius: 12px;
+					font-size: 0.75rem;
+					font-weight: 600;
+					color: #fff;
+					border: 1px solid rgba(139, 92, 246, 0.5);
+				}
+				
+				.bpm-badge.in-range {
+					background: rgba(34, 197, 94, 0.9);
+					border-color: #22c55e;
+				}
+				
+				.track-info {
+					padding: 0.75rem;
+				}
+				
+				.track-title {
+					font-weight: 600;
+					font-size: 0.9rem;
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					margin-bottom: 0.25rem;
+				}
+				
+				.track-artist {
+					font-size: 0.8rem;
+					color: rgba(255,255,255,0.6);
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+				
+				/* Player Bar */
+				.player-bar {
+					position: fixed;
+					bottom: 0;
+					left: 0;
+					right: 0;
+					background: linear-gradient(to top, #0a0a0a, #1a1a1a);
+					border-top: 1px solid rgba(139, 92, 246, 0.3);
+					padding: 1rem;
+					z-index: 1000;
+					transform: translateY(100%);
+					transition: transform 0.3s ease;
+				}
+				
+				.player-bar.active {
+					transform: translateY(0);
+				}
+				
+				.player-content {
+					display: flex;
+					align-items: center;
+					gap: 1rem;
+					max-width: 1200px;
+					margin: 0 auto;
+				}
+				
+				.player-track {
+					display: flex;
+					align-items: center;
+					gap: 0.75rem;
+					flex: 0 0 200px;
+				}
+				
+				.player-art {
+					width: 48px;
+					height: 48px;
+					border-radius: 8px;
+					object-fit: cover;
+				}
+				
+				.player-info {
+					overflow: hidden;
+				}
+				
+				.player-title {
+					font-weight: 600;
+					font-size: 0.85rem;
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+				
+				.player-artist {
+					font-size: 0.75rem;
+					color: rgba(255,255,255,0.6);
+				}
+				
+				/* BPM Controls */
+				.bpm-controls {
+					display: flex;
+					align-items: center;
+					gap: 1rem;
+					flex: 1;
+					justify-content: center;
+				}
+				
+				.bpm-display {
+					text-align: center;
+				}
+				
+				.bpm-value {
+					font-size: 2rem;
+					font-weight: 700;
+					color: var(--accent-light);
+					font-variant-numeric: tabular-nums;
+				}
+				
+				.bpm-label {
+					font-size: 0.7rem;
+					color: rgba(255,255,255,0.5);
+					text-transform: uppercase;
+					letter-spacing: 0.05em;
+				}
+				
+				.bpm-slider-container {
+					flex: 0 0 200px;
+				}
+				
+				.bpm-slider {
+					width: 100%;
+					-webkit-appearance: none;
+					appearance: none;
+					height: 6px;
+					background: rgba(139, 92, 246, 0.2);
+					border-radius: 3px;
+					outline: none;
+				}
+				
+				.bpm-slider::-webkit-slider-thumb {
+					-webkit-appearance: none;
+					appearance: none;
+					width: 18px;
+					height: 18px;
+					background: var(--accent);
+					border-radius: 50%;
+					cursor: pointer;
+				}
+				
+				.bpm-slider::-moz-range-thumb {
+					width: 18px;
+					height: 18px;
+					background: var(--accent);
+					border-radius: 50%;
+					cursor: pointer;
+					border: none;
+				}
+				
+				.bpm-buttons {
+					display: flex;
+					gap: 0.5rem;
+				}
+				
+				.bpm-btn {
+					padding: 0.5rem 1rem;
+					border-radius: 8px;
+					border: 1px solid rgba(139, 92, 246, 0.3);
+					background: rgba(139, 92, 246, 0.1);
+					color: #fff;
+					cursor: pointer;
+					transition: all 0.2s;
+					font-size: 0.8rem;
+				}
+				
+				.bpm-btn:hover {
+					background: rgba(139, 92, 246, 0.2);
+				}
+				
+				.bpm-btn.active {
+					background: var(--accent);
+				}
+				
+				/* Play Controls */
+				.play-controls {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+				}
+				
+				.play-btn {
+					width: 48px;
+					height: 48px;
+					border-radius: 50%;
+					background: var(--accent);
+					border: none;
+					color: #fff;
+					cursor: pointer;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					transition: all 0.2s;
+				}
+				
+				.play-btn:hover {
+					background: #7c3aed;
+					transform: scale(1.05);
+				}
+				
+				/* Metronome */
+				.metronome {
+					width: 60px;
+					height: 60px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				}
+				
+				.metronome-beat {
+					width: 20px;
+					height: 20px;
+					border-radius: 50%;
+					background: var(--accent);
+					animation: none;
+				}
+				
+				.metronome-beat.pulsing {
+					animation: beatPulse 0.5s ease-in-out infinite;
+				}
+				
+				@keyframes beatPulse {
+					0%, 100% { transform: scale(1); opacity: 1; }
+					50% { transform: scale(1.5); opacity: 0.5; }
+				}
+				
+				/* AutoMix Section */
+				.mix-target {
+					display: flex;
+					align-items: center;
+					gap: 1rem;
+					margin: 1rem 0;
+					padding: 1rem;
+					background: rgba(139, 92, 246, 0.1);
+					border-radius: 12px;
+					border: 1px solid rgba(139, 92, 246, 0.2);
+				}
+				
+				.mix-target-label {
+					font-weight: 600;
+					color: var(--accent-light);
+				}
+				
+				.mix-target-value {
+					font-size: 1.5rem;
+					font-weight: 700;
+					color: #fff;
+				}
+				
+				.mix-stats {
+					display: flex;
+					gap: 2rem;
+					margin-top: 1rem;
+					font-size: 0.9rem;
+					color: rgba(255,255,255,0.7);
+				}
+				
+				.mix-flow {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					margin-top: 1rem;
+					padding: 1rem;
+					background: var(--surface-900);
+					border-radius: 12px;
+					overflow-x: auto;
+				}
+				
+				.mix-flow-item {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					padding: 0.5rem 0.75rem;
+					background: rgba(139, 92, 246, 0.1);
+					border-radius: 8px;
+					border: 1px solid rgba(139, 92, 246, 0.3);
+					white-space: nowrap;
+				}
+				
+				.mix-flow-arrow {
+					color: var(--accent);
+					font-size: 1.2rem;
+				}
+				
+				/* Info Section */
+				.info-box {
+					background: rgba(139, 92, 246, 0.1);
+					border-left: 3px solid var(--accent);
+					padding: 1rem;
+					border-radius: 0 8px 8px 0;
+					margin: 1rem 0;
+				}
+				
+				.info-box h4 {
+					margin: 0 0 0.5rem 0;
+					color: var(--accent-light);
+				}
+				
+				.info-box p {
+					margin: 0;
+					font-size: 0.9rem;
+					color: rgba(255,255,255,0.8);
+				}
+			</style>
+		</head>
+		<body>
+			<header class="proto-header">
+				<div class="container">
+					<div style="display: flex; justify-content: space-between; align-items: center;">
+						<div>
+							<div class="proto-title">Prototype</div>
+							<h1 style="margin: 0; font-size: 1.5rem;">BPM Manipulation & AutoMix</h1>
+						</div>
+						<a href="/stream" style="color: var(--accent-light); text-decoration: none;">← Back to App</a>
+					</div>
+				</div>
+			</header>
+
+			<main class="container" style="padding-bottom: 140px;">
+				<!-- Info Section -->
+				<div class="info-box">
+					<h4>🎛️ BPM Manipulation Prototype</h4>
+					<p>
+						This prototype demonstrates BPM-based features: filter tracks by tempo range, 
+						manipulate playback speed, and generate AutoMix playlists that flow seamlessly 
+						between compatible BPMs. Click any track to play and experiment with the controls.
+					</p>
+				</div>
+
+				<!-- Section 1: BPM Filtering -->
+				<section class="proto-section">
+					<div class="proto-title">01. BPM Filtering</div>
+					<h3 style="margin-top: 0;">Filter by Tempo Range</h3>
+					<p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+						Click a BPM range to filter tracks. Compatible tracks (within ±6% of target) are highlighted in green.
+					</p>
+					
+					<div class="bpm-filter-container">
+						<button class="bpm-pill active" data-min="0" data-max="0" onclick="filterByBPM(0, 0)">All</button>
+						<button class="bpm-pill" data-min="0" data-max="100" onclick="filterByBPM(0, 100)">&lt; 100</button>
+						<button class="bpm-pill" data-min="100" data-max="120" onclick="filterByBPM(100, 120)">100–120</button>
+						<button class="bpm-pill" data-min="120" data-max="128" onclick="filterByBPM(120, 128)">120–128</button>
+						<button class="bpm-pill" data-min="128" data-max="140" onclick="filterByBPM(128, 140)">128–140</button>
+						<button class="bpm-pill" data-min="140" data-max="175" onclick="filterByBPM(140, 175)">140–175</button>
+						<button class="bpm-pill" data-min="175" data-max="300" onclick="filterByBPM(175, 300)">175+</button>
+					</div>
+					
+					<div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+						<div>
+							<label style="font-size: 0.8rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 0.25rem;">Target BPM</label>
+							<input type="number" id="target-bpm-input" value="128" min="60" max="200" 
+								style="width: 80px; padding: 0.5rem; background: var(--surface-900); border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; color: #fff;"
+								onchange="updateTargetBPM(this.value)">
+						</div>
+						<div>
+							<label style="font-size: 0.8rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 0.25rem;">Tolerance (%)</label>
+							<input type="range" id="tolerance-slider" min="3" max="12" value="6" 
+								style="width: 150px;"
+								oninput="updateTolerance(this.value)">
+							<span id="tolerance-value" style="font-size: 0.8rem; margin-left: 0.5rem;">6%</span>
+						</div>
+						<div style="margin-left: auto;">
+							<span id="filtered-count" style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">Showing all tracks</span>
+						</div>
+					</div>
+				</section>
+
+				<!-- Section 2: Track Grid -->
+				<section class="proto-section">
+					<div class="proto-title">02. Track Collection</div>
+					<h3 style="margin-top: 0;">Available Tracks</h3>
+					
+					<div class="track-grid" id="track-grid">
+						for _, track := range data.Tracks {
+							<div class="track-card" 
+								data-track-id={ track.TrackID }
+								data-bpm={ fmt.Sprintf("%.0f", track.BPM) }
+								data-title={ track.TrackTitle }
+								data-artist={ track.ArtistName }
+								data-artwork={ track.ArtworkURL }
+								data-stream={ track.StreamURL }
+								onclick="playTrack(this)">
+								<div class="track-artwork">
+									<img src={ track.ArtworkURL } alt="" loading="lazy"/>
+									<div class="bpm-badge" data-bpm-badge={ fmt.Sprintf("%.0f", track.BPM) }>
+										if track.BPM > 0 {
+											{ fmt.Sprintf("%.0f", track.BPM) } BPM
+										} else {
+											--
+										}
+									</div>
+								</div>
+								<div class="track-info">
+									<div class="track-title">{ track.TrackTitle }</div>
+									<div class="track-artist">{ track.ArtistName }</div>
+								</div>
+							</div>
+						}
+					</div>
+				</section>
+
+				<!-- Section 3: AutoMix Generator -->
+				<section class="proto-section">
+					<div class="proto-title">03. AutoMix Generator</div>
+					<h3 style="margin-top: 0;">Generate BPM-Compatible Playlist</h3>
+					<p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+						Create an automatically mixed playlist where tracks flow together by matching compatible BPMs.
+					</p>
+					
+					<div class="mix-target">
+						<span class="mix-target-label">Target BPM:</span>
+						<span class="mix-target-value" id="mix-target-display">128</span>
+						<span style="color: rgba(255,255,255,0.6); margin-left: 1rem;">±<span id="mix-tolerance">6</span>% tolerance</span>
+						<button class="bpm-btn" style="margin-left: auto;" onclick="generateAutoMix()">
+							🎲 Generate Mix
+						</button>
+						<button class="bpm-btn" onclick="clearMix()">
+							Clear
+						</button>
+					</div>
+					
+					<div id="mix-results" style="display: none;">
+						<div class="mix-stats">
+							<span>Tracks: <strong id="mix-track-count">0</strong></span>
+							<span>BPM Range: <strong id="mix-bpm-range">-</strong></span>
+							<span>Avg BPM: <strong id="mix-avg-bpm">-</strong></span>
+						</div>
+						
+						<div style="margin-top: 1rem;">
+							<h4 style="font-size: 0.9rem; color: rgba(255,255,255,0.8); margin-bottom: 0.5rem;">Mix Flow</h4>
+							<div class="mix-flow" id="mix-flow"></div>
+						</div>
+						
+						<div style="margin-top: 1rem; padding: 1rem; background: rgba(34, 197, 94, 0.1); border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.3);">
+							<h4 style="margin: 0 0 0.5rem 0; color: #22c55e; font-size: 0.9rem;">✨ How it works</h4>
+							<p style="margin: 0; font-size: 0.85rem; color: rgba(255,255,255,0.8);">
+								This mix selects tracks within ±6% of the target BPM (120–136 BPM). 
+								Each track is ordered by BPM closeness for smooth transitions. 
+								In the full implementation, we would apply time-stretching to match exact BPMs.
+							</p>
+						</div>
+					</div>
+				</section>
+			</main>
+
+			<!-- Player Bar -->
+			<div class="player-bar" id="player-bar">
+				<div class="player-content">
+					<div class="player-track">
+						<img id="player-art" src="" alt="" class="player-art"/>
+						<div class="player-info">
+							<div class="player-title" id="player-title">Select a track</div>
+							<div class="player-artist" id="player-artist">-</div>
+						</div>
+					</div>
+					
+					<div class="play-controls">
+						<button class="play-btn" id="play-btn" onclick="togglePlay()">
+							<svg id="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M8 5v14l11-7z"/>
+							</svg>
+							<svg id="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+								<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+							</svg>
+						</button>
+					</div>
+					
+					<div class="bpm-controls">
+						<div class="bpm-display">
+							<div class="bpm-value" id="current-bpm">--</div>
+							<div class="bpm-label">Original BPM</div>
+						</div>
+						
+						<div style="text-align: center;">
+							<div style="font-size: 1.5rem; color: rgba(255,255,255,0.3);">→</div>
+						</div>
+						
+						<div class="bpm-display">
+							<div class="bpm-value" id="playback-bpm" style="color: #22c55e;">--</div>
+							<div class="bpm-label">Playback</div>
+						</div>
+						
+						<div class="bpm-slider-container">
+							<label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 0.25rem;">
+								Speed Adjustment
+							</label>
+							<input type="range" class="bpm-slider" id="speed-slider" 
+								min="0.8" max="1.2" step="0.01" value="1"
+								oninput="adjustSpeed(this.value)">
+							<div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 0.25rem;">
+								<span>-20%</span>
+								<span id="speed-percent">0%</span>
+								<span>+20%</span>
+							</div>
+						</div>
+						
+						<div class="bpm-buttons">
+							<button class="bpm-btn" onclick="resetSpeed()">Reset</button>
+							<button class="bpm-btn" onclick="matchTargetBPM()">Match Target</button>
+						</div>
+					</div>
+					
+					<div class="metronome">
+						<div class="metronome-beat" id="metronome-beat"></div>
+					</div>
+					
+					<audio id="audio-player" preload="metadata"></audio>
+				</div>
+			</div>
+
+			<script>
+			// Track data - collect from DOM
+			function getTracks() {
+				const tracks = [];
+				document.querySelectorAll('.track-card').forEach(card => {
+					tracks.push({
+						id: card.dataset.trackId,
+						title: card.dataset.title,
+						artist: card.dataset.artist,
+						bpm: parseFloat(card.dataset.bpm) || 0,
+						artwork: card.dataset.artwork,
+						stream: card.dataset.stream
+					});
+				});
+				return tracks;
+			}
+			
+			// State
+			let currentTrack = null;
+			let currentBPM = 0;
+			let targetBPM = 128;
+			let tolerance = 6; // percent
+			let audio = document.getElementById('audio-player');
+			let metronomeInterval = null;
+			
+			// Initialize
+			updateBPMHighlights();
+			
+			function filterByBPM(min, max) {
+				// Update pill states
+				document.querySelectorAll('.bpm-pill').forEach(pill => {
+					const pillMin = parseInt(pill.dataset.min);
+					const pillMax = parseInt(pill.dataset.max);
+					pill.classList.toggle('active', pillMin === min && pillMax === max);
+				});
+				
+				// Filter tracks
+				const cards = document.querySelectorAll('.track-card');
+				let visibleCount = 0;
+				
+				cards.forEach(card => {
+					const bpm = parseFloat(card.dataset.bpm) || 0;
+					if (min === 0 && max === 0) {
+						card.classList.remove('hidden');
+						visibleCount++;
+					} else if (bpm >= min && bpm <= max) {
+						card.classList.remove('hidden');
+						visibleCount++;
+					} else {
+						card.classList.add('hidden');
+					}
+				});
+				
+				// Update count
+				const countText = min === 0 && max === 0 
+					? 'Showing all tracks' 
+					: `Showing ${visibleCount} tracks`;
+				document.getElementById('filtered-count').textContent = countText;
+			}
+			
+			function updateTargetBPM(value) {
+				targetBPM = parseInt(value) || 128;
+				document.getElementById('mix-target-display').textContent = targetBPM;
+				updateBPMHighlights();
+			}
+			
+			function updateTolerance(value) {
+				tolerance = parseInt(value);
+				document.getElementById('tolerance-value').textContent = tolerance + '%';
+				document.getElementById('mix-tolerance').textContent = tolerance;
+				updateBPMHighlights();
+			}
+			
+			function updateBPMHighlights() {
+				const minBPM = targetBPM * (1 - tolerance / 100);
+				const maxBPM = targetBPM * (1 + tolerance / 100);
+				
+				document.querySelectorAll('.bpm-badge').forEach(badge => {
+					const bpm = parseFloat(badge.dataset.bpmBadge) || 0;
+					if (bpm >= minBPM && bpm <= maxBPM) {
+						badge.classList.add('in-range');
+					} else {
+						badge.classList.remove('in-range');
+					}
+				});
+			}
+			
+			function playTrack(card) {
+				const trackId = card.dataset.trackId;
+				const bpm = parseFloat(card.dataset.bpm) || 0;
+				const title = card.dataset.title;
+				const artist = card.dataset.artist;
+				const artwork = card.dataset.artwork;
+				const stream = card.dataset.stream;
+				
+				currentTrack = { id: trackId, bpm, title, artist, artwork, stream };
+				currentBPM = bpm;
+				
+				// Update player UI
+				document.getElementById('player-art').src = artwork;
+				document.getElementById('player-title').textContent = title;
+				document.getElementById('player-artist').textContent = artist;
+				document.getElementById('current-bpm').textContent = bpm > 0 ? Math.round(bpm) : '--';
+				
+				// Show player
+				document.getElementById('player-bar').classList.add('active');
+				
+				// Load and play audio
+				audio.src = stream;
+				audio.playbackRate = 1;
+				audio.play();
+				
+				// Update play button
+				document.getElementById('play-icon').style.display = 'none';
+				document.getElementById('pause-icon').style.display = 'block';
+				
+				// Reset speed slider
+				document.getElementById('speed-slider').value = 1;
+				updatePlaybackBPM();
+				
+				// Start metronome
+				startMetronome();
+			}
+			
+			function togglePlay() {
+				if (audio.paused) {
+					audio.play();
+					document.getElementById('play-icon').style.display = 'none';
+					document.getElementById('pause-icon').style.display = 'block';
+					startMetronome();
+				} else {
+					audio.pause();
+					document.getElementById('play-icon').style.display = 'block';
+					document.getElementById('pause-icon').style.display = 'none';
+					stopMetronome();
+				}
+			}
+			
+			function adjustSpeed(value) {
+				const speed = parseFloat(value);
+				audio.playbackRate = speed;
+				
+				// Update percentage display
+				const percent = Math.round((speed - 1) * 100);
+				document.getElementById('speed-percent').textContent = (percent > 0 ? '+' : '') + percent + '%';
+				
+				updatePlaybackBPM();
+			}
+			
+			function updatePlaybackBPM() {
+				if (currentBPM > 0) {
+					const playbackBPM = Math.round(currentBPM * audio.playbackRate);
+					document.getElementById('playback-bpm').textContent = playbackBPM;
+				} else {
+					document.getElementById('playback-bpm').textContent = '--';
+				}
+			}
+			
+			function resetSpeed() {
+				document.getElementById('speed-slider').value = 1;
+				adjustSpeed(1);
+			}
+			
+			function matchTargetBPM() {
+				if (currentBPM > 0 && targetBPM > 0) {
+					const ratio = targetBPM / currentBPM;
+					// Clamp to ±20%
+					const clampedRatio = Math.max(0.8, Math.min(1.2, ratio));
+					document.getElementById('speed-slider').value = clampedRatio;
+					adjustSpeed(clampedRatio);
+				}
+			}
+			
+			function startMetronome() {
+				stopMetronome();
+				if (currentBPM > 0 && audio.playbackRate > 0) {
+					const bpm = currentBPM * audio.playbackRate;
+					const interval = 60000 / bpm;
+					const beat = document.getElementById('metronome-beat');
+					beat.classList.add('pulsing');
+					beat.style.animationDuration = interval * 2 + 'ms';
+				}
+			}
+			
+			function stopMetronome() {
+				document.getElementById('metronome-beat').classList.remove('pulsing');
+			}
+			
+			function generateAutoMix() {
+				const minBPM = targetBPM * (1 - tolerance / 100);
+				const maxBPM = targetBPM * (1 + tolerance / 100);
+				
+				// Get compatible tracks
+				const compatibleTracks = getTracks()
+					.filter(t => t.bpm >= minBPM && t.bpm <= maxBPM)
+					.sort((a, b) => {
+						// Sort by closeness to target BPM
+						const diffA = Math.abs(a.bpm - targetBPM);
+						const diffB = Math.abs(b.bpm - targetBPM);
+						return diffA - diffB;
+					});
+				
+				if (compatibleTracks.length === 0) {
+					alert('No tracks found in the selected BPM range');
+					return;
+				}
+				
+				// Highlight tracks in mix
+				document.querySelectorAll('.track-card').forEach(card => {
+					card.classList.remove('in-mix');
+				});
+				
+				compatibleTracks.forEach(track => {
+					const card = document.querySelector(`[data-track-id="${track.id}"]`);
+					if (card) card.classList.add('in-mix');
+				});
+				
+				// Update stats
+				const bpms = compatibleTracks.map(t => t.bpm);
+				const min = Math.min(...bpms);
+				const max = Math.max(...bpms);
+				const avg = bpms.reduce((a, b) => a + b, 0) / bpms.length;
+				
+				document.getElementById('mix-track-count').textContent = compatibleTracks.length;
+				document.getElementById('mix-bpm-range').textContent = `${Math.round(min)} - ${Math.round(max)}`;
+				document.getElementById('mix-avg-bpm').textContent = Math.round(avg);
+				
+				// Build flow visualization
+				const flowContainer = document.getElementById('mix-flow');
+				flowContainer.innerHTML = '';
+				
+				compatibleTracks.forEach((track, i) => {
+					const item = document.createElement('div');
+					item.className = 'mix-flow-item';
+					item.innerHTML = `
+						<span style="font-weight: 600;">${Math.round(track.bpm)}</span>
+						<span style="color: rgba(255,255,255,0.6); font-size: 0.8rem;">${track.title}</span>
+					`;
+					flowContainer.appendChild(item);
+					
+					if (i < compatibleTracks.length - 1) {
+						const arrow = document.createElement('span');
+						arrow.className = 'mix-flow-arrow';
+						arrow.textContent = '→';
+						flowContainer.appendChild(arrow);
+					}
+				});
+				
+				// Show results
+				document.getElementById('mix-results').style.display = 'block';
+			}
+			
+			function clearMix() {
+				document.querySelectorAll('.track-card').forEach(card => {
+					card.classList.remove('in-mix');
+				});
+				document.getElementById('mix-results').style.display = 'none';
+			}
+			
+			// Audio event listeners
+			audio.addEventListener('ended', () => {
+				document.getElementById('play-icon').style.display = 'block';
+				document.getElementById('pause-icon').style.display = 'none';
+				stopMetronome();
+			});
+			</script>
+		</body>
+	</html>
+}

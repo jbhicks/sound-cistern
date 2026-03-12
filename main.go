@@ -1135,6 +1135,86 @@ func main() {
 			return views.VisualizerProto(data).Render(c.Request().Context(), c.Response().Writer)
 		}, apis.ActivityLogger(app))
 
+		// BPM Manipulation & AutoMix prototype page
+		e.Router.GET("/bpm-proto", func(c echo.Context) error {
+			// Check for debug param to bypass auth
+			debugMode := c.QueryParam("debug") != "" || isTestMode
+
+			if !debugMode {
+				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+				if authRecord == nil {
+					return c.Redirect(http.StatusTemporaryRedirect, "/login")
+				}
+			}
+
+			tracksCollection, err := getCollection(app, "soundcloud_tracks")
+			if err != nil {
+				log.Printf("Failed to find soundcloud_tracks collection: %v", err)
+			}
+
+			var tracks []views.Track
+			if tracksCollection != nil {
+				records, err := app.Dao().FindRecordsByFilter(
+					tracksCollection.Id,
+					"bpm > 0",
+					"-created",
+					50,
+					0,
+					map[string]any{},
+				)
+				if err == nil && len(records) > 0 {
+					tracks = make([]views.Track, 0, len(records))
+					for _, record := range records {
+						artworkURL := upgradeArtworkURL(record.GetString("artwork_url"))
+						if artworkURL == "" {
+							artworkURL = "https://picsum.photos/seed/" + record.GetString("soundcloud_id") + "/500/500"
+						}
+
+						tracks = append(tracks, views.Track{
+							TrackID:       record.GetString("soundcloud_id"),
+							TrackTitle:    record.GetString("title"),
+							ArtistName:    record.GetString("artist_name"),
+							Genre:         record.GetString("genre"),
+							TrackDuration: int64(record.GetInt("length")),
+							ArtworkURL:    artworkURL,
+							StreamURL:     fmt.Sprintf("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-%d.mp3", (record.GetInt("id")%10)+1),
+							BPM:           record.GetFloat("bpm"),
+						})
+					}
+				}
+			}
+
+			// Add mock tracks with various BPMs for demo if no real tracks
+			if len(tracks) < 10 {
+				mockTracks := []views.Track{
+					{TrackID: "demo1", TrackTitle: "Chill Lounge", ArtistName: "Ambient Master", ArtworkURL: "https://picsum.photos/seed/bpm1/500/500", BPM: 90, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
+					{TrackID: "demo2", TrackTitle: "Deep House Groove", ArtistName: "House DJ", ArtworkURL: "https://picsum.photos/seed/bpm2/500/500", BPM: 122, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
+					{TrackID: "demo3", TrackTitle: "Techno Bunker", ArtistName: "Berlin Beats", ArtworkURL: "https://picsum.photos/seed/bpm3/500/500", BPM: 128, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"},
+					{TrackID: "demo4", TrackTitle: "Trance Anthem", ArtistName: "Uplift", ArtworkURL: "https://picsum.photos/seed/bpm4/500/500", BPM: 138, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"},
+					{TrackID: "demo5", TrackTitle: "Drum & Bass Rush", ArtistName: "DnB Master", ArtworkURL: "https://picsum.photos/seed/bpm5/500/500", BPM: 174, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"},
+					{TrackID: "demo6", TrackTitle: "Downtempo Vibes", ArtistName: "Chill Out", ArtworkURL: "https://picsum.photos/seed/bpm6/500/500", BPM: 95, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"},
+					{TrackID: "demo7", TrackTitle: "Progressive House", ArtistName: "Prog DJ", ArtworkURL: "https://picsum.photos/seed/bpm7/500/500", BPM: 126, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"},
+					{TrackID: "demo8", TrackTitle: "Tech House", ArtistName: "Tech Master", ArtworkURL: "https://picsum.photos/seed/bpm8/500/500", BPM: 124, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"},
+					{TrackID: "demo9", TrackTitle: "Hardstyle Energy", ArtistName: "Hardstyle Pro", ArtworkURL: "https://picsum.photos/seed/bpm9/500/500", BPM: 150, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3"},
+					{TrackID: "demo10", TrackTitle: "Breakbeat Classic", ArtistName: "Breaks DJ", ArtworkURL: "https://picsum.photos/seed/bpm10/500/500", BPM: 135, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"},
+					{TrackID: "demo11", TrackTitle: "Slow Jam", ArtistName: "R&B Artist", ArtworkURL: "https://picsum.photos/seed/bpm11/500/500", BPM: 82, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3"},
+					{TrackID: "demo12", TrackTitle: "Upbeat Pop", ArtistName: "Pop Star", ArtworkURL: "https://picsum.photos/seed/bpm12/500/500", BPM: 118, StreamURL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3"},
+				}
+				tracks = append(tracks, mockTracks...)
+			}
+
+			data := views.BPMProtoData{
+				PageData: views.PageData{
+					Title:       "BPM Manipulation & AutoMix",
+					Description: "Prototype for BPM-based features",
+					CurrentPath: "/bpm-proto",
+				},
+				Tracks: tracks,
+			}
+
+			return views.BPMProto(data).Render(c.Request().Context(), c.Response().Writer)
+		}, apis.ActivityLogger(app))
+
 		// Helper function to fetch fresh tracks from SoundCloud API with offset support.
 		// fetchSoundCloudTracks fetches one page of activities from the given URL.
 		// Pass the initial URL or a next_href cursor URL for subsequent pages.
@@ -1200,6 +1280,7 @@ func main() {
 						playbackCount, _ := origin["playback_count"].(float64)
 						favoritingsCount, _ := origin["favoritings_count"].(float64)
 						repostsCount, _ := origin["reposts_count"].(float64)
+						bpm, _ := origin["bpm"].(float64)
 						downloadable, _ := origin["downloadable"].(bool)
 						downloadURL, _ := origin["download_url"].(string)
 
@@ -1215,6 +1296,7 @@ func main() {
 							PlaybackCount:    int64(playbackCount),
 							FavoritingsCount: int64(favoritingsCount),
 							RepostsCount:     int64(repostsCount),
+							BPM:              bpm,
 							Downloadable:     downloadable,
 							DownloadURL:      downloadURL,
 						})
@@ -2164,80 +2246,82 @@ func main() {
 					duration                 int64
 					plays, likes, reposts    int64
 					isRepost                 bool
+					bpm                      float64
 				}{
-					{"1", "Midnight Drive", "Synthwave Boy", "Synthwave", 245000, 15000, 2500, 500, false},
-					{"2", "Neon Lights", "Cyber Punk", "Electronic", 180000, 32000, 4800, 1200, false},
-					{"3", "Bass Drop", "DJ Thunder", "House", 240000, 89000, 12000, 2500, false},
-					{"4", "Ocean Waves", "Chill Master", "Ambient", 360000, 5000, 890, 120, false},
-					{"5", "Rapid Fire", "Drum & Bass", "Drum & Bass", 185000, 45000, 6700, 890, false},
-					{"6", "Sunset Vibes", "LoFi Queen", "Lo-Fi", 195000, 12000, 3400, 450, false},
-					{"7", "Heavy Metal", "Rock Stars", "Metal", 280000, 67000, 8900, 1200, false},
-					{"8", "Jazz Morning", "Smooth Jazz", "Jazz", 320000, 8900, 1200, 200, false},
-					{"9", "Techno Bunker", "Berlin DJ", "Techno", 420000, 23000, 3400, 780, false},
-					{"10", "Pop Hit", "Mainstream", "Pop", 195000, 250000, 45000, 12000, false},
-					{"11", "Acoustic Session", "Guitar Hero", "Acoustic", 210000, 15000, 3200, 400, false},
-					{"12", "Dubstep Wobble", "Bass Cannon", "Dubstep", 200000, 78000, 12000, 2300, false},
-					{"13", "Classical Mood", "Orchestra", "Classical", 480000, 3400, 560, 89, false},
-					{"14", "Hip Hop Beat", "Rapper", "Hip-Hop", 220000, 180000, 34000, 8900, false},
-					{"15", "Trance State", "Uplift", "Trance", 410000, 56000, 8900, 1500, false},
-					{"16", "Deep House", "Poolside", "House", 380000, 23000, 4500, 670, false},
-					{"17", "Funkytown", "Disco Dan", "Funk", 265000, 45000, 7800, 1200, false},
-					{"18", "Emo Nights", "Punk Heart", "Punk", 175000, 89000, 15000, 3400, false},
-					{"19", "Indie Dream", "Alt Rock", "Indie", 230000, 12000, 2100, 340, false},
-					{"20", "EDM Festival", "Headliner", "EDM", 295000, 340000, 56000, 15000, false},
-					{"21", "Short Snippet", "Quick Beat", "Electronic", 45000, 500, 89, 12, false},
-					{"22", "Long Journey", "Progressive", "Progressive", 540000, 8900, 1200, 180, false},
-					{"23", "Reggae Vibes", "Island", "Reggae", 205000, 23000, 4500, 780, false},
-					{"24", "Country Road", "Nashville", "Country", 198000, 15000, 2100, 340, false},
-					{"25", "R&B Soul", "Smooth Vocal", "R&B", 248000, 67000, 12000, 2100, false},
+					// Genre-appropriate BPMs: Electronic ~128, House ~124, Techno ~130, DnB ~174, Hip-Hop ~95, etc.
+					{"1", "Midnight Drive", "Synthwave Boy", "Synthwave", 245000, 15000, 2500, 500, false, 100},
+					{"2", "Neon Lights", "Cyber Punk", "Electronic", 180000, 32000, 4800, 1200, false, 128},
+					{"3", "Bass Drop", "DJ Thunder", "House", 240000, 89000, 12000, 2500, false, 124},
+					{"4", "Ocean Waves", "Chill Master", "Ambient", 360000, 5000, 890, 120, false, 90},
+					{"5", "Rapid Fire", "Drum & Bass", "Drum & Bass", 185000, 45000, 6700, 890, false, 174},
+					{"6", "Sunset Vibes", "LoFi Queen", "Lo-Fi", 195000, 12000, 3400, 450, false, 85},
+					{"7", "Heavy Metal", "Rock Stars", "Metal", 280000, 67000, 8900, 1200, false, 140},
+					{"8", "Jazz Morning", "Smooth Jazz", "Jazz", 320000, 8900, 1200, 200, false, 110},
+					{"9", "Techno Bunker", "Berlin DJ", "Techno", 420000, 23000, 3400, 780, false, 130},
+					{"10", "Pop Hit", "Mainstream", "Pop", 195000, 250000, 45000, 12000, false, 120},
+					{"11", "Acoustic Session", "Guitar Hero", "Acoustic", 210000, 15000, 3200, 400, false, 100},
+					{"12", "Dubstep Wobble", "Bass Cannon", "Dubstep", 200000, 78000, 12000, 2300, false, 140},
+					{"13", "Classical Mood", "Orchestra", "Classical", 480000, 3400, 560, 89, false, 80},
+					{"14", "Hip Hop Beat", "Rapper", "Hip-Hop", 220000, 180000, 34000, 8900, false, 95},
+					{"15", "Trance State", "Uplift", "Trance", 410000, 56000, 8900, 1500, false, 138},
+					{"16", "Deep House", "Poolside", "House", 380000, 23000, 4500, 670, false, 122},
+					{"17", "Funkytown", "Disco Dan", "Funk", 265000, 45000, 7800, 1200, false, 115},
+					{"18", "Emo Nights", "Punk Heart", "Punk", 175000, 89000, 15000, 3400, false, 165},
+					{"19", "Indie Dream", "Alt Rock", "Indie", 230000, 12000, 2100, 340, false, 118},
+					{"20", "EDM Festival", "Headliner", "EDM", 295000, 340000, 56000, 15000, false, 128},
+					{"21", "Short Snippet", "Quick Beat", "Electronic", 45000, 500, 89, 12, false, 128},
+					{"22", "Long Journey", "Progressive", "Progressive", 540000, 8900, 1200, 180, false, 128},
+					{"23", "Reggae Vibes", "Island", "Reggae", 205000, 23000, 4500, 780, false, 80},
+					{"24", "Country Road", "Nashville", "Country", 198000, 15000, 2100, 340, false, 120},
+					{"25", "R&B Soul", "Smooth Vocal", "R&B", 248000, 67000, 12000, 2100, false, 90},
 					// Page 2 tracks
-					{"26", "Night Owl", "Lunar Sound", "Ambient", 310000, 6700, 890, 120, false},
-					{"27", "Electric Dreams", "Voltage", "Electronic", 225000, 45000, 6700, 890, false},
-					{"28", "Summer Breeze", "Beach Club", "House", 198000, 34000, 5600, 780, false},
-					{"29", "City Lights", "Urban Beat", "Hip-Hop", 215000, 56000, 8900, 1200, false},
-					{"30", "Galaxy Quest", "Space DJ", "Synthwave", 275000, 23000, 3400, 450, false},
-					{"31", "Coffee Break", "Cafe Sounds", "Lo-Fi", 165000, 8900, 1500, 200, false},
-					{"32", "Workout Mix", "Fitness Pro", "EDM", 240000, 120000, 18000, 3400, false},
-					{"33", "Road Trip", "Highway Kings", "Rock", 285000, 45000, 6700, 890, false},
-					{"34", "Chillout Zone", "Relaxation", "Ambient", 420000, 5600, 780, 89, false},
-					{"35", "Dance Floor", "Club Master", "House", 195000, 89000, 12000, 2100, false},
-					{"36", "Acoustic Covers", "Street Performer", "Acoustic", 178000, 23000, 3400, 450, false},
-					{"37", "Podcast Intro", "Host One", "Podcast", 30000, 1200, 200, 45, false},
-					{"38", "Rainy Day", "Moody Blues", "Jazz", 340000, 7800, 1100, 150, false},
-					{"39", "Gym Motivation", "Trainer Beat", "Hip-Hop", 185000, 67000, 9800, 1800, false},
-					{"40", "Sunday Morning", "Weekend Vibes", "Soul", 255000, 34000, 5600, 670, false},
-					{"41", "Night Shift", "Late Night", "Techno", 380000, 19000, 2800, 340, false},
-					{"42", "Wedding Song", "Celebration", "Funk", 245000, 45000, 7800, 1200, false},
-					{"43", "Study Session", "Focus Mode", "Lo-Fi", 300000, 15000, 2300, 340, false},
-					{"44", "Beach Party", "Summer Hits", "Pop", 210000, 120000, 20000, 4500, false},
-					{"45", "Mountain High", "Nature Sound", "Ambient", 420000, 4500, 670, 89, false},
+					{"26", "Night Owl", "Lunar Sound", "Ambient", 310000, 6700, 890, 120, false, 85},
+					{"27", "Electric Dreams", "Voltage", "Electronic", 225000, 45000, 6700, 890, false, 128},
+					{"28", "Summer Breeze", "Beach Club", "House", 198000, 34000, 5600, 780, false, 124},
+					{"29", "City Lights", "Urban Beat", "Hip-Hop", 215000, 56000, 8900, 1200, false, 95},
+					{"30", "Galaxy Quest", "Space DJ", "Synthwave", 275000, 23000, 3400, 450, false, 100},
+					{"31", "Coffee Break", "Cafe Sounds", "Lo-Fi", 165000, 8900, 1500, 200, false, 85},
+					{"32", "Workout Mix", "Fitness Pro", "EDM", 240000, 120000, 18000, 3400, false, 128},
+					{"33", "Road Trip", "Highway Kings", "Rock", 285000, 45000, 6700, 890, false, 130},
+					{"34", "Chillout Zone", "Relaxation", "Ambient", 420000, 5600, 780, 89, false, 90},
+					{"35", "Dance Floor", "Club Master", "House", 195000, 89000, 12000, 2100, false, 124},
+					{"36", "Acoustic Covers", "Street Performer", "Acoustic", 178000, 23000, 3400, 450, false, 100},
+					{"37", "Podcast Intro", "Host One", "Podcast", 30000, 1200, 200, 45, false, 0},
+					{"38", "Rainy Day", "Moody Blues", "Jazz", 340000, 7800, 1100, 150, false, 110},
+					{"39", "Gym Motivation", "Trainer Beat", "Hip-Hop", 185000, 67000, 9800, 1800, false, 95},
+					{"40", "Sunday Morning", "Weekend Vibes", "Soul", 255000, 34000, 5600, 670, false, 95},
+					{"41", "Night Shift", "Late Night", "Techno", 380000, 19000, 2800, 340, false, 130},
+					{"42", "Wedding Song", "Celebration", "Funk", 245000, 45000, 7800, 1200, false, 115},
+					{"43", "Study Session", "Focus Mode", "Lo-Fi", 300000, 15000, 2300, 340, false, 85},
+					{"44", "Beach Party", "Summer Hits", "Pop", 210000, 120000, 20000, 4500, false, 120},
+					{"45", "Mountain High", "Nature Sound", "Ambient", 420000, 4500, 670, 89, false, 88},
 					// Page 3 tracks
-					{"46", "Driving Rain", "Storm Chaser", "Rock", 265000, 34000, 5100, 670, false},
-					{"47", "Velvet Sky", "Dream Pop", "Indie", 225000, 18000, 2800, 390, false},
-					{"48", "Bass Commander", "Dub Master", "Dubstep", 215000, 78000, 11000, 2300, false},
-					{"49", "Morning Coffee", "Slow Brew", "Jazz", 290000, 8900, 1300, 180, false},
-					{"50", "Festival Anthem", "Crowd Pleaser", "EDM", 265000, 250000, 38000, 8900, false},
-					{"51", "Quiet Storm", "Smooth Groove", "R&B", 275000, 45000, 7800, 1100, false},
-					{"52", "Energy Boost", "Power Hour", "House", 195000, 67000, 9500, 1400, false},
-					{"53", "Late Night Drive", "Midnight Run", "Synthwave", 280000, 23000, 3600, 480, false},
-					{"54", "Sunrise Yoga", "Morning Zen", "Ambient", 360000, 5600, 890, 120, false},
-					{"55", "Party Start", "Warmup DJ", "House", 210000, 45000, 6800, 950, false},
-					{"56", "Acoustic Soul", "Guitar Man", "Acoustic", 235000, 23000, 3600, 460, false},
-					{"57", "Bass Face", "Sub Zero", "Dubstep", 200000, 89000, 13000, 2800, false},
-					{"58", "Lounge Mix", "Chill Out", "Downtempo", 310000, 12000, 1900, 230, false},
-					{"59", "Runway Ready", "Fashion Week", "Electronic", 185000, 34000, 5100, 680, false},
-					{"60", "Throwback", "Old School", "Hip-Hop", 245000, 78000, 12000, 2100, false},
-					{"61", "Meditation", "Inner Peace", "Ambient", 480000, 3400, 560, 78, false},
-					{"62", "Jump Up", "Rave Nation", "Drum & Bass", 195000, 56000, 8100, 1200, false},
-					{"63", "Smooth Operator", "Jazz Cafe", "Jazz", 265000, 15000, 2400, 310, false},
-					{"64", "Club Banger", "DJ Essential", "House", 195000, 180000, 26000, 4500, false},
-					{"65", "Acoustic Sessions", "Campfire", "Folk", 225000, 12000, 1800, 240, false},
+					{"46", "Driving Rain", "Storm Chaser", "Rock", 265000, 34000, 5100, 670, false, 135},
+					{"47", "Velvet Sky", "Dream Pop", "Indie", 225000, 18000, 2800, 390, false, 118},
+					{"48", "Bass Commander", "Dub Master", "Dubstep", 215000, 78000, 11000, 2300, false, 140},
+					{"49", "Morning Coffee", "Slow Brew", "Jazz", 290000, 8900, 1300, 180, false, 110},
+					{"50", "Festival Anthem", "Crowd Pleaser", "EDM", 265000, 250000, 38000, 8900, false, 128},
+					{"51", "Quiet Storm", "Smooth Groove", "R&B", 275000, 45000, 7800, 1100, false, 90},
+					{"52", "Energy Boost", "Power Hour", "House", 195000, 67000, 9500, 1400, false, 126},
+					{"53", "Late Night Drive", "Midnight Run", "Synthwave", 280000, 23000, 3600, 480, false, 100},
+					{"54", "Sunrise Yoga", "Morning Zen", "Ambient", 360000, 5600, 890, 120, false, 90},
+					{"55", "Party Start", "Warmup DJ", "House", 210000, 45000, 6800, 950, false, 124},
+					{"56", "Acoustic Soul", "Guitar Man", "Acoustic", 235000, 23000, 3600, 460, false, 100},
+					{"57", "Bass Face", "Sub Zero", "Dubstep", 200000, 89000, 13000, 2800, false, 140},
+					{"58", "Lounge Mix", "Chill Out", "Downtempo", 310000, 12000, 1900, 230, false, 100},
+					{"59", "Runway Ready", "Fashion Week", "Electronic", 185000, 34000, 5100, 680, false, 128},
+					{"60", "Throwback", "Old School", "Hip-Hop", 245000, 78000, 12000, 2100, false, 95},
+					{"61", "Meditation", "Inner Peace", "Ambient", 480000, 3400, 560, 78, false, 70},
+					{"62", "Jump Up", "Rave Nation", "Drum & Bass", 195000, 56000, 8100, 1200, false, 174},
+					{"63", "Smooth Operator", "Jazz Cafe", "Jazz", 265000, 15000, 2400, 310, false, 110},
+					{"64", "Club Banger", "DJ Essential", "House", 195000, 180000, 26000, 4500, false, 126},
+					{"65", "Acoustic Sessions", "Campfire", "Folk", 225000, 12000, 1800, 240, false, 105},
 					// Page 4 tracks (for testing infinite scroll)
-					{"66", "After Hours", "Night Owl", "Jazz", 295000, 8900, 1400, 190, false},
-					{"67", "Bass Drop Deluxe", "Subwave", "Dubstep", 210000, 67000, 9500, 1400, false},
-					{"68", "Morning Routine", "Daily Mix", "Pop", 185000, 23000, 3600, 480, false},
-					{"69", "Focus Flow", "Productivity", "Lo-Fi", 255000, 18000, 2800, 380, false},
-					{"70", "Workout Energy", "Gym Rat", "EDM", 175000, 78000, 11000, 1600, false},
+					{"66", "After Hours", "Night Owl", "Jazz", 295000, 8900, 1400, 190, false, 108},
+					{"67", "Bass Drop Deluxe", "Subwave", "Dubstep", 210000, 67000, 9500, 1400, false, 140},
+					{"68", "Morning Routine", "Daily Mix", "Pop", 185000, 23000, 3600, 480, false, 118},
+					{"69", "Focus Flow", "Productivity", "Lo-Fi", 255000, 18000, 2800, 380, false, 85},
+					{"70", "Workout Energy", "Gym Rat", "EDM", 175000, 78000, 11000, 1600, false, 128},
 				}
 
 				// Apply filters and keep fetching until we have enough tracks or exhaust the source
@@ -2356,7 +2440,7 @@ func main() {
 							PlaybackCount:    t.plays,
 							FavoritingsCount: t.likes,
 							RepostsCount:     t.reposts,
-							BPM:              0,
+							BPM:              t.bpm,
 							Downloadable:     false,
 							DownloadURL:      "",
 						})

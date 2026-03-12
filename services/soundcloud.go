@@ -227,6 +227,9 @@ func SyncTracks(app *pocketbase.PocketBase, authRecord *models.Record, targetLim
 		if createdAt, ok := activity["created_at"].(string); ok {
 			trackRecord.Set("post_time", createdAt)
 		}
+		if bpm, ok := origin["bpm"].(float64); ok {
+			trackRecord.Set("bpm", bpm)
+		}
 
 		if app.Dao().SaveRecord(trackRecord) == nil {
 			savedCount++

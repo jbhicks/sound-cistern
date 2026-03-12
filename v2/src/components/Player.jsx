@@ -4,6 +4,7 @@ import { Play, Pause, X, Volume2, VolumeX, ExternalLink, Radio, Sparkles, Downlo
 import { useStore } from '../store'
 import { ButterchurnMini, ButterchurnFullscreen } from './ButterchurnVisualizer'
 import EQVisualizer from './EQVisualizer'
+import BPMControls from './BPMControls'
 import clsx from 'clsx'
 
 function formatDurationMs(ms) {
@@ -501,6 +502,9 @@ export default function Player() {
                   >
                     <Sparkles className="w-4 h-4" />
                   </button>
+
+                  {/* BPM Controls */}
+                  <BPMControls />
 
 				  {/* SC link */}
                   {currentTrack.permalink_url && (
