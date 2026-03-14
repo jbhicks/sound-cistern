@@ -30,7 +30,9 @@ export default function EQVisualizer({ height = 40 }) {
   const stateRef     = useRef({ analyserNode: null, isPlaying: false })
 
   // Keep stateRef current without re-running the draw loop effect
-  const { analyserNode, isPlaying } = useStore()
+  // Use selectors to prevent re-renders on unrelated store changes
+  const analyserNode = useStore(state => state.analyserNode)
+  const isPlaying = useStore(state => state.isPlaying)
   useEffect(() => { stateRef.current = { analyserNode, isPlaying } }, [analyserNode, isPlaying])
 
   useEffect(() => {
@@ -59,8 +61,26 @@ export default function EQVisualizer({ height = 40 }) {
     const ro = new ResizeObserver(resize)
     ro.observe(canvas.parentElement || canvas)
 
-    const draw = (now) => {
-      rafRef.current = requestAnimationFrame(draw)
+    // Track visibility state
+    let isVisible = true
+    let draw = null  // Will be assigned below
+
+    const handleVisibility = () => {
+      isVisible = !document.hidden
+      if (!isVisible && rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      } else if (isVisible && !rafRef.current && draw) {
+        rafRef.current = requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    draw = (now) => {
+      // Only schedule next frame if visible
+      if (isVisible) {
+        rafRef.current = requestAnimationFrame(draw)
+      }
 
       // Hard cap at TARGET_FPS — skip frames on 120/144/240Hz displays
       if (now - lastFrameRef.current < FRAME_BUDGET) return
@@ -140,6 +160,7 @@ export default function EQVisualizer({ height = 40 }) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       ro.disconnect()
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [height]) // intentionally omit analyserNode/isPlaying — read via stateRef
 

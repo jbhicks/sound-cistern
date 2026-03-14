@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Pause, X, Volume2, VolumeX, ExternalLink, Radio, Sparkles, Download, Activity } from 'lucide-react'
 import { useStore } from '../store'
@@ -29,12 +29,41 @@ function formatTime(secs) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function Player() {
-  const { currentTrack, isPlaying, setIsPlaying, setCurrentTrack, setAudioEl, setAudioContext, streamQuality, setStreamQuality, playTrack } = useStore()
+// Throttle progress updates to 4fps (250ms) to avoid excessive re-renders
+const PROGRESS_THROTTLE_MS = 250
+
+// Pre-defined animation configs to avoid creating new objects every render
+const QUALITY_MENU_ANIMATION = {
+  initial: { opacity: 0, y: 4, scale: 0.97 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: 4, scale: 0.97 },
+  transition: { duration: 0.12 }
+}
+
+function Player() {
+  // Use selective store subscriptions to prevent re-renders on unrelated state changes
+  const currentTrack = useStore(state => state.currentTrack)
+  const isPlaying = useStore(state => state.isPlaying)
+  const setIsPlaying = useStore(state => state.setIsPlaying)
+  const setCurrentTrack = useStore(state => state.setCurrentTrack)
+  const setAudioEl = useStore(state => state.setAudioEl)
+  const setAudioContext = useStore(state => state.setAudioContext)
+  const streamQuality = useStore(state => state.streamQuality)
+  const setStreamQuality = useStore(state => state.setStreamQuality)
+  const playTrack = useStore(state => state.playTrack)
+  
   const audioRef = useRef(null)
-  const [progress, setProgress] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
+  
+  // Refs for high-frequency updates (no React re-renders)
+  const progressRef = useRef(0)
+  const currentTimeRef = useRef(0)
+  const durationRef = useRef(0)
+  const throttleTimeoutRef = useRef(null)
+  
+  // State for UI display (throttled updates)
+  const [displayProgress, setDisplayProgress] = useState(0)
+  const [displayDuration, setDisplayDuration] = useState(0)
+  const [displayCurrentTime, setDisplayCurrentTime] = useState(0)
   const [volume, setVolume] = useState(1)
   const [muted, setMuted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -116,9 +145,12 @@ export default function Player() {
 
     setLoading(true)
     if (!isReload) {
-      setProgress(0)
-      setCurrentTime(0)
-      setDuration(0)
+      progressRef.current = 0
+      currentTimeRef.current = 0
+      durationRef.current = 0
+      setDisplayProgress(0)
+      setDisplayCurrentTime(0)
+      setDisplayDuration(0)
     }
 
     const q = streamQuality && streamQuality !== 'auto' ? `?quality=${streamQuality}` : ''
@@ -152,20 +184,34 @@ export default function Player() {
     }
   }, [isPlaying])
 
+  // Throttled time update - updates refs immediately, state only every 250ms
   const handleTimeUpdate = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-    setCurrentTime(audio.currentTime)
-    // Use audio.duration if available, otherwise fall back to track duration (converted from ms to seconds)
+    
+    // Update refs immediately (no React re-render)
+    currentTimeRef.current = audio.currentTime
     const effectiveDuration = audio.duration || (currentTrack?.track_duration / 1000) || 0
-    setDuration(effectiveDuration)
-    setProgress(effectiveDuration ? (audio.currentTime / effectiveDuration) * 100 : 0)
+    durationRef.current = effectiveDuration
+    progressRef.current = effectiveDuration ? (audio.currentTime / effectiveDuration) * 100 : 0
+    
+    // Throttle state updates to 4fps to avoid excessive re-renders
+    if (!throttleTimeoutRef.current) {
+      throttleTimeoutRef.current = setTimeout(() => {
+        setDisplayCurrentTime(currentTimeRef.current)
+        setDisplayDuration(durationRef.current)
+        setDisplayProgress(progressRef.current)
+        throttleTimeoutRef.current = null
+      }, PROGRESS_THROTTLE_MS)
+    }
   }, [currentTrack?.track_duration])
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false)
-    setProgress(0)
-    setCurrentTime(0)
+    progressRef.current = 0
+    currentTimeRef.current = 0
+    setDisplayProgress(0)
+    setDisplayCurrentTime(0)
   }, [setIsPlaying])
 
   const handleProgressClick = (e) => {
@@ -331,11 +377,11 @@ export default function Player() {
             >
               <div
                 className="h-full bg-gradient-to-r from-accent to-vapor-pink transition-all duration-100 pointer-events-none"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${displayProgress}%` }}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                style={{ left: `calc(${progress}% - 6px)` }}
+                style={{ left: `calc(${displayProgress}% - 6px)` }}
               />
             </div>
 
@@ -395,7 +441,7 @@ export default function Player() {
                 {/* Waveform + time — fills remaining center space */}
                 <div className="flex-1 min-w-0 flex items-center gap-2">
                   <span className="hidden sm:block text-[11px] text-surface-600 tabular-nums w-7 text-right flex-shrink-0">
-                    {formatTime(currentTime)}
+                    {formatTime(displayCurrentTime)}
                   </span>
                   {/* Visualizer + seekable progress overlay */}
                   <div
@@ -408,23 +454,23 @@ export default function Player() {
                     {/* Filled progress — subtle tint over the played portion */}
                     <div
                       className="absolute inset-y-0 left-0 bg-accent/15 pointer-events-none transition-none"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${displayProgress}%` }}
                     />
 
                     {/* Playhead line */}
                     <div
                       className="absolute inset-y-0 w-px bg-accent/70 pointer-events-none"
-                      style={{ left: `${progress}%` }}
+                      style={{ left: `${displayProgress}%` }}
                     />
 
                     {/* Seek thumb — appears on hover */}
                     <div
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-lg pointer-events-none opacity-0 group-hover/viz:opacity-100 transition-opacity"
-                      style={{ left: `${progress}%` }}
+                      style={{ left: `${displayProgress}%` }}
                     />
                   </div>
                   <span className="hidden sm:block text-[11px] text-surface-600 tabular-nums w-7 flex-shrink-0">
-                    {formatTime(duration || (currentTrack.track_duration / 1000))}
+                    {formatTime(displayDuration || (currentTrack.track_duration / 1000))}
                   </span>
                 </div>
 
@@ -471,10 +517,7 @@ export default function Player() {
                     <AnimatePresence>
                       {qualityOpen && (
                         <motion.div
-                          initial={{ opacity: 0, y: 4, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                          transition={{ duration: 0.12 }}
+                          {...QUALITY_MENU_ANIMATION}
                           className="absolute bottom-full mb-2 right-0 w-44 bg-surface-900 border border-surface-700/60 rounded-xl shadow-2xl overflow-hidden z-50"
                         >
                           {QUALITY_OPTIONS.map(opt => (
@@ -561,3 +604,6 @@ export default function Player() {
     </>
   )
 }
+
+// Memoize Player to prevent unnecessary re-renders
+export default memo(Player)

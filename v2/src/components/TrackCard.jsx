@@ -1,4 +1,4 @@
-import { useState, forwardRef, useRef, useEffect } from 'react'
+import { useState, forwardRef, useRef, useEffect, memo, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, Play, Pause, Disc3, Download, ListPlus, Check, Clock } from 'lucide-react'
 import clsx from 'clsx'
@@ -27,7 +27,8 @@ export function upgradeArtwork(url) {
 }
 
 function AddToPlaylistButton({ track }) {
-  const { playlists } = useStore()
+  // Use selector to prevent re-renders on unrelated state changes
+  const playlists = useStore(state => state.playlists)
   const [open, setOpen] = useState(false)
   const [added, setAdded] = useState(null) // playlist id that was just added
   const ref = useRef(null)
@@ -100,25 +101,35 @@ function AddToPlaylistButton({ track }) {
   )
 }
 
-const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid', isNew = false, isTopArtist = false }, ref) {
+// Memoize TrackCard to prevent unnecessary re-renders
+const TrackCard = memo(forwardRef(function TrackCard({ track, index, viewMode = 'grid', isNew = false, isTopArtist = false }, ref) {
   const [flipped, setFlipped] = useState(false)
   const [imgError, setImgError] = useState(false)
-  const { currentTrack, isPlaying, playbackRate, playTrack, favorites, toggleFavorite, getGenreColor } = useStore()
+  
+  // Use selectors to prevent re-renders on unrelated state changes
+  const currentTrack = useStore(state => state.currentTrack)
+  const isPlaying = useStore(state => state.isPlaying)
+  const playbackRate = useStore(state => state.playbackRate)
+  const playTrack = useStore(state => state.playTrack)
+  const favorites = useStore(state => state.favorites)
+  const toggleFavorite = useStore(state => state.toggleFavorite)
+  const getGenreColor = useStore(state => state.getGenreColor)
 
   const isActive = currentTrack?.track_id === track.track_id
   const isThisPlaying = isActive && isPlaying
   const isFav = favorites.has(track.track_id)
   const art = imgError ? null : upgradeArtwork(track.artwork_url)
 
-  // Helper to get genre style from store
-  const getGenreStyle = (genre) => {
-    const color = getGenreColor(genre)
+  // Memoize genre style to avoid recalculation on every render
+  const genreStyle = useMemo(() => {
+    if (!track.genre) return null
+    const color = getGenreColor(track.genre)
     return {
       bg: color.bg,
       border: color.border,
       text: color.text
     }
-  }
+  }, [track.genre, getGenreColor])
 
   const handleCardClick = () => {
     playTrack(track)
@@ -175,13 +186,13 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
           <p className="text-xs text-surface-400 truncate">{track.artist_name}</p>
         </div>
 
-        {track.genre && (
+        {track.genre && genreStyle && (
           <span 
             className="hidden md:block px-2 py-0.5 text-[10px] rounded-md flex-shrink-0 backdrop-blur-md"
             style={{
-              backgroundColor: getGenreStyle(track.genre).bg,
-              border: `1px solid ${getGenreStyle(track.genre).border}`,
-              color: getGenreStyle(track.genre).text
+              backgroundColor: genreStyle.bg,
+              border: `1px solid ${genreStyle.border}`,
+              color: genreStyle.text
             }}
           >
             {track.genre}
@@ -371,13 +382,13 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   {/* Genre pill - compact, integrated */}
-                  {track.genre && (
+                  {track.genre && genreStyle && (
                     <span 
                       className="px-1.5 py-0.5 rounded-md backdrop-blur-md text-[9px] font-medium truncate flex-shrink-0"
                       style={{
-                        backgroundColor: getGenreStyle(track.genre).bg,
-                        border: `1px solid ${getGenreStyle(track.genre).border}`,
-                        color: getGenreStyle(track.genre).text
+                        backgroundColor: genreStyle.bg,
+                        border: `1px solid ${genreStyle.border}`,
+                        color: genreStyle.text
                       }}
                     >
                       {track.genre}
@@ -512,6 +523,14 @@ const TrackCard = forwardRef(function TrackCard({ track, index, viewMode = 'grid
         </div>
       </div>
     </motion.div>
+  )
+}), (prevProps, nextProps) => {
+  // Custom comparison - only re-render if essential props change
+  return (
+    prevProps.track.track_id === nextProps.track.track_id &&
+    prevProps.viewMode === nextProps.viewMode &&
+    prevProps.isNew === nextProps.isNew &&
+    prevProps.isTopArtist === nextProps.isTopArtist
   )
 })
 

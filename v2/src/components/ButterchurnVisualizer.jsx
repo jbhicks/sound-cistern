@@ -157,7 +157,9 @@ function createVizWithDimensions(canvas, audioCtx, analyserNode, width, height, 
 
 // ── Mini component ────────────────────────────────────────────────────────────
 export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
-  const { analyserNode, audioCtx } = useStore()
+  // Use selectors to prevent re-renders on unrelated store changes
+  const analyserNode = useStore(state => state.analyserNode)
+  const audioCtx = useStore(state => state.audioCtx)
   const canvasRef  = useRef(null)
   const vizRef     = useRef(null)
   const rafRef     = useRef(null)
@@ -249,7 +251,11 @@ export function ButterchurnMini({ width = 40, height = 40, paused = false }) {
 
 // ── Fullscreen component ──────────────────────────────────────────────────────
 export function ButterchurnFullscreen({ open, onClose }) {
-  const { analyserNode, audioCtx, currentTrack, isPlaying } = useStore()
+  // Use selectors to prevent re-renders on unrelated store changes
+  const analyserNode = useStore(state => state.analyserNode)
+  const audioCtx = useStore(state => state.audioCtx)
+  const currentTrack = useStore(state => state.currentTrack)
+  const isPlaying = useStore(state => state.isPlaying)
   const canvasRef  = useRef(null)
   const panelRef   = useRef(null)
   const vizRef     = useRef(null)
@@ -314,25 +320,27 @@ export function ButterchurnFullscreen({ open, onClose }) {
     applySharedPreset(shared.idx, vizRef.current)
   }, [])
 
-  // Initialize visualizer only once when component mounts
+  // Effect 1: Handle open/close state - cleanup RAF when closed
   useEffect(() => {
     if (!open) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
       // Reset stats so stale timestamps don't corrupt the next open
-      statsRef.current.times    = []
+      statsRef.current.times = []
       statsRef.current.lastFlush = 0
       setStats(null)
-      return
     }
+  }, [open])
 
+  // Effect 2: Initialize visualizer and start RAF loop (only depends on open and canvasKey)
+  useEffect(() => {
+    if (!open) return
+    
     // Reset failure count when opening
     failureCountRef.current = 0
 
     // If RAF loop is running, visualizer is already set up - just continue
-    if (rafRef.current) {
-      return
-    }
+    if (rafRef.current) return
 
     const canvas = canvasRef.current
     const panel = panelRef.current
@@ -565,6 +573,19 @@ export function ButterchurnFullscreen({ open, onClose }) {
     window.addEventListener('keydown', onKey)
     cleanupFns.push(() => window.removeEventListener('keydown', onKey))
 
+    // Set up visibility change handler to pause RAF when tab is hidden
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      } else if (vizRef.current) {
+        // Restart loop when tab becomes visible
+        startAnimationLoop()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    cleanupFns.push(() => document.removeEventListener('visibilitychange', onVisibilityChange))
+
     // If visualizer exists but no RAF (e.g., after dependency change), restart loop
     if (vizRef.current) {
       startAnimationLoop()
@@ -608,7 +629,7 @@ export function ButterchurnFullscreen({ open, onClose }) {
       rafRef.current = null
       cleanupFns.forEach(fn => fn())
     }
-  }, [open, analyserNode, audioCtx, next, prev, random, onClose, canvasKey])
+  }, [open, canvasKey]) // Only re-run when open changes or canvas is reset
   
   // Cleanup on unmount
   useEffect(() => {
