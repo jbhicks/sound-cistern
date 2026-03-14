@@ -156,9 +156,11 @@ export default function Player() {
     const audio = audioRef.current
     if (!audio) return
     setCurrentTime(audio.currentTime)
-    setDuration(audio.duration || 0)
-    setProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0)
-  }, [])
+    // Use audio.duration if available, otherwise fall back to track duration (converted from ms to seconds)
+    const effectiveDuration = audio.duration || (currentTrack?.track_duration / 1000) || 0
+    setDuration(effectiveDuration)
+    setProgress(effectiveDuration ? (audio.currentTime / effectiveDuration) * 100 : 0)
+  }, [currentTrack?.track_duration])
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false)
@@ -167,21 +169,32 @@ export default function Player() {
   }, [setIsPlaying])
 
   const handleProgressClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const audio = audioRef.current
     const bar = progressBarRef.current
-    if (!audio || !bar || !audio.duration) return
+    // Use audio.duration if available, otherwise fall back to track duration (converted from ms to seconds)
+    const effectiveDuration = audio?.duration || (currentTrack?.track_duration / 1000) || 0
+    if (!audio || !bar || !effectiveDuration || !isFinite(effectiveDuration)) {
+      return
+    }
     const rect = bar.getBoundingClientRect()
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    audio.currentTime = pct * audio.duration
+    const clickX = e.clientX - rect.left
+    const pct = Math.max(0, Math.min(1, clickX / rect.width))
+    audio.currentTime = pct * effectiveDuration
   }
 
   const handleVizSeek = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const audio = audioRef.current
     const bar = vizSeekRef.current
-    if (!audio || !bar || !audio.duration) return
+    // Use audio.duration if available, otherwise fall back to track duration (converted from ms to seconds)
+    const effectiveDuration = audio?.duration || (currentTrack?.track_duration / 1000) || 0
+    if (!audio || !bar || !effectiveDuration || !isFinite(effectiveDuration)) return
     const rect = bar.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    audio.currentTime = pct * audio.duration
+    audio.currentTime = pct * effectiveDuration
   }
 
   const handleVolumeChange = (e) => {
@@ -314,14 +327,14 @@ export default function Player() {
             <div
               ref={progressBarRef}
               onClick={handleProgressClick}
-              className="h-1 bg-surface-700 cursor-pointer group relative"
+              className="h-2 bg-surface-700 cursor-pointer group relative"
             >
               <div
-                className="h-full bg-gradient-to-r from-accent to-vapor-pink transition-all duration-100"
+                className="h-full bg-gradient-to-r from-accent to-vapor-pink transition-all duration-100 pointer-events-none"
                 style={{ width: `${progress}%` }}
               />
               <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                 style={{ left: `calc(${progress}% - 6px)` }}
               />
             </div>

@@ -3391,10 +3391,16 @@ func main() {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": "No stream URL available for this track. Try syncing tracks again."})
 			}
 
-			// Proxy the stream
+			// Proxy the stream with Range support for seeking
 			client := &http.Client{Timeout: 0}
 			req, _ := http.NewRequest("GET", streamURL, nil)
 			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			// Forward Range header for seeking support
+			if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
+				req.Header.Set("Range", rangeHeader)
+				log.Printf("[Stream] Forwarding Range header: %s", rangeHeader)
+			}
 
 			proxyResp, err := client.Do(req)
 			if err != nil {
@@ -3402,7 +3408,7 @@ func main() {
 			}
 			defer proxyResp.Body.Close()
 
-			if proxyResp.StatusCode != 200 {
+			if proxyResp.StatusCode != 200 && proxyResp.StatusCode != 206 {
 				log.Printf("[Stream] proxyResp.StatusCode: %d, URL: %s", proxyResp.StatusCode, streamURL)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Stream not available", "status": fmt.Sprintf("%d", proxyResp.StatusCode)})
 			}
@@ -3411,9 +3417,19 @@ func main() {
 			c.Response().Header().Set("Accept-Ranges", "bytes")
 			c.Response().Header().Set("Access-Control-Allow-Origin", "*")
 			c.Response().Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
+			c.Response().Header().Set("Access-Control-Expose-Headers", "Content-Range, Content-Length")
 			c.Response().Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
-			c.Response().WriteHeader(http.StatusOK)
 
+			// Forward Content-Range and Content-Length headers for 206 responses
+			if contentRange := proxyResp.Header.Get("Content-Range"); contentRange != "" {
+				c.Response().Header().Set("Content-Range", contentRange)
+				log.Printf("[Stream] Forwarding Content-Range: %s", contentRange)
+			}
+			if contentLength := proxyResp.Header.Get("Content-Length"); contentLength != "" {
+				c.Response().Header().Set("Content-Length", contentLength)
+			}
+
+			c.Response().WriteHeader(proxyResp.StatusCode)
 			io.Copy(c.Response(), proxyResp.Body)
 			return nil
 		})
