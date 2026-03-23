@@ -40,11 +40,13 @@ export default function Favorites() {
     const incomingIds = new Set(incoming.map(t => t.track_id))
     const retained = tracksRef.current.filter(t => !incomingIds.has(t.track_id))
     const merged = [...incoming, ...retained]
+    // Sort by created_at descending (newest first)
+    merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     newTrackIdsRef.current = brandNew
     tracksRef.current = merged
     writeCache(merged)
     setTracks(merged)
-    
+
     // Also update store tracks to populate genre colors
     setStoreTracks(merged)
   }, [setStoreTracks])
