@@ -280,7 +280,7 @@ func TestE2EStreamAPIPage1(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	body := resp.Body.Read(make([]byte, 1)) // just check it's not empty
+	body, _ := io.ReadAll(resp.Body)
 	if len(body) == 0 {
 		t.Error("Response body should not be empty")
 	}

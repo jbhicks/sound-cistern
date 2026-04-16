@@ -274,6 +274,7 @@ function Player() {
         onEnded={handleEnded}
         onCanPlay={() => setLoading(false)}
         onWaiting={() => setLoading(true)}
+        onError={() => setLoading(false)}
         preload="none"
         crossOrigin="anonymous"
       />

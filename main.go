@@ -716,8 +716,7 @@ func main() {
 			strings.Contains(ua, "ipod") || strings.Contains(ua, "apple")
 	}
 
-	// getStreamURL fetches a stream URL from SoundCloud using the /tracks/{id}/streams
-	// endpoint, which reliably returns all available formats.
+	// getStreamURL fetches a stream URL from SoundCloud.
 	// quality can be: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" or "auto"
 	// Apple devices get HLS for better compatibility, others get MP3
 	getStreamURL := func(accessToken, trackID, quality, userAgent string) string {
@@ -742,7 +741,7 @@ func main() {
 				return ""
 			}
 			defer resp.Body.Close()
-			if resp.StatusCode == 302 {
+			if resp.StatusCode == 302 || resp.StatusCode == 307 {
 				return resp.Header.Get("Location")
 			}
 			if resp.StatusCode == 200 {
@@ -756,6 +755,19 @@ func main() {
 			return ""
 		}
 
+		// Primary: use the documented /tracks/{id}/stream endpoint.
+		// Try numeric ID first, then URN prefix.
+		for _, endpoint := range []string{
+			fmt.Sprintf("https://api.soundcloud.com/tracks/%s/stream", trackID),
+			fmt.Sprintf("https://api.soundcloud.com/tracks/soundcloud:tracks:%s/stream", trackID),
+		} {
+			if url := resolveOne(endpoint); url != "" {
+				log.Printf("[Stream] Using primary stream endpoint for track %s", trackID)
+				return url
+			}
+		}
+
+		// Fallback: try the /tracks/{id}/streams endpoint for quality selection.
 		client := &http.Client{Timeout: 30 * time.Second}
 		streamsURL := fmt.Sprintf("https://api.soundcloud.com/tracks/%s/streams", trackID)
 		req, _ := http.NewRequest("GET", streamsURL, nil)
@@ -1564,7 +1576,7 @@ func main() {
 			log.Printf("  State: %s", state)
 			log.Printf("  Code Challenge: %s", codeChallenge)
 			log.Printf("  Code Verifier (stored): %s", codeVerifier)
-			return c.Redirect(http.StatusTemporaryRedirect, authURLString)
+			return c.Redirect(http.StatusFound, authURLString)
 		}, apis.ActivityLogger(app))
 
 		// Soundcloud OAuth callback endpoint
@@ -2004,7 +2016,7 @@ func main() {
 			redirectURL := scheme + "://" + redirectDomain + "/stream"
 			log.Printf("OAuth flow completed successfully for Soundcloud user: %s", userInfo.Username)
 			log.Printf("Redirecting to: %s", redirectURL)
-			return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+			return c.Redirect(http.StatusFound, redirectURL)
 		}, apis.ActivityLogger(app))
 
 		// OAuth callback alias for compatibility
@@ -2034,7 +2046,7 @@ func main() {
 			if len(query) > 0 {
 				redirectURL = redirectURL + "?" + query.Encode()
 			}
-			return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+			return c.Redirect(http.StatusFound, redirectURL)
 		}, apis.ActivityLogger(app))
 
 		// API routes (protected)
