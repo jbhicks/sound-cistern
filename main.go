@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -3147,6 +3148,34 @@ func main() {
 					"bpm":               trackRecord.GetFloat("bpm"),
 					"is_favorited":      true,
 				})
+			}
+
+			// Apply sorting based on user selection
+			sortParam := c.QueryParam("sort")
+			switch sortParam {
+			case "oldest":
+				// Oldest first (ascending by created_at)
+				sort.Slice(favorites, func(i, j int) bool {
+					return favorites[i]["created_at"].(string) < favorites[j]["created_at"].(string)
+				})
+			case "title":
+				// Alphabetical by title
+				sort.Slice(favorites, func(i, j int) bool {
+					return strings.ToLower(favorites[i]["track_title"].(string)) < strings.ToLower(favorites[j]["track_title"].(string))
+				})
+			case "artist":
+				// Alphabetical by artist
+				sort.Slice(favorites, func(i, j int) bool {
+					return strings.ToLower(favorites[i]["artist_name"].(string)) < strings.ToLower(favorites[j]["artist_name"].(string))
+				})
+			case "duration":
+				// Longest first
+				sort.Slice(favorites, func(i, j int) bool {
+					return favorites[i]["track_duration"].(int) > favorites[j]["track_duration"].(int)
+				})
+			default:
+				// "newest" - Most recently favorited first (already sorted by -created from DB)
+				// No additional sorting needed
 			}
 
 			return c.JSON(http.StatusOK, map[string]interface{}{
