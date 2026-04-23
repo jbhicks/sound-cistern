@@ -756,19 +756,9 @@ func main() {
 			return ""
 		}
 
-		// Primary: use the documented /tracks/{id}/stream endpoint.
-		// Try numeric ID first, then URN prefix.
-		for _, endpoint := range []string{
-			fmt.Sprintf("https://api.soundcloud.com/tracks/%s/stream", trackID),
-			fmt.Sprintf("https://api.soundcloud.com/tracks/soundcloud:tracks:%s/stream", trackID),
-		} {
-			if url := resolveOne(endpoint); url != "" {
-				log.Printf("[Stream] Using primary stream endpoint for track %s", trackID)
-				return url
-			}
-		}
-
-		// Fallback: try the /tracks/{id}/streams endpoint for quality selection.
+		// Use the /tracks/{id}/streams endpoint directly for high-quality streams.
+		// This endpoint returns all available quality formats (mp3_320, mp3_256, etc.)
+		// instead of the /stream endpoint which may return low-quality previews.
 		client := &http.Client{Timeout: 30 * time.Second}
 		streamsURL := fmt.Sprintf("https://api.soundcloud.com/tracks/%s/streams", trackID)
 		req, _ := http.NewRequest("GET", streamsURL, nil)
