@@ -1295,7 +1295,7 @@ func main() {
 							TrackDuration:    int64(durationMs),
 							ArtworkURL:       artworkURL,
 							StreamURL:        streamURL,
-							PermalinkURL:     "https://soundcloud.com/" + permalinkURL,
+							PermalinkURL:     permalinkURL,
 							PlaybackCount:    int64(playbackCount),
 							FavoritingsCount: int64(favoritingsCount),
 							RepostsCount:     int64(repostsCount),
