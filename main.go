@@ -2427,11 +2427,15 @@ func main() {
 						BPM              float64 `json:"bpm"`
 						Downloadable     bool    `json:"downloadable"`
 						DownloadURL      string  `json:"download_url"`
+						CreatedAt        string  `json:"created_at"`
 					}
 					out := make([]jsonTrack, 0, endIdx-startIdx)
 					for i := startIdx; i < endIdx; i++ {
 						t := mockTracks[filteredTracks[i]]
 						artworkURL := "https://picsum.photos/seed/" + t.id + "/500/500"
+						// Generate a created_at date based on track index (staggered ages)
+						daysAgo := (i % 30) + 1
+						createdAt := time.Now().AddDate(0, 0, -daysAgo).Format(time.RFC3339)
 						out = append(out, jsonTrack{
 							TrackID:          t.id,
 							TrackTitle:       t.title,
@@ -2446,6 +2450,7 @@ func main() {
 							BPM:              t.bpm,
 							Downloadable:     false,
 							DownloadURL:      "",
+							CreatedAt:        createdAt,
 						})
 					}
 					hasMore := endIdx < len(filteredTracks)
@@ -2720,6 +2725,7 @@ func main() {
 							BPM              float64 `json:"bpm"`
 							Downloadable     bool    `json:"downloadable"`
 							DownloadURL      string  `json:"download_url"`
+							CreatedAt        string  `json:"created_at"`
 						}
 						out := make([]jsonTrack, 0, len(tracks))
 						for _, t := range tracks {
@@ -2737,6 +2743,7 @@ func main() {
 								BPM:              t.BPM,
 								Downloadable:     t.Downloadable,
 								DownloadURL:      t.DownloadURL,
+								CreatedAt:        t.CreatedAt.Format(time.RFC3339),
 							})
 						}
 						return c.JSON(http.StatusOK, map[string]interface{}{
@@ -3035,9 +3042,9 @@ func main() {
 
 				if wantsJSON {
 					mockFavs := []map[string]interface{}{
-						{"track_id": "101", "track_title": "Favorite Track One", "artist_name": "Artist X", "genre": "Electronic", "track_duration": int64(180000), "artwork_url": "https://picsum.photos/seed/101/500/500", "permalink_url": "https://soundcloud.com/test/101", "playback_count": int64(5000), "favoritings_count": int64(250), "reposts_count": int64(50), "bpm": float64(0), "downloadable": false, "download_url": ""},
-						{"track_id": "102", "track_title": "Another Favorite", "artist_name": "Artist Y", "genre": "House", "track_duration": int64(240000), "artwork_url": "https://picsum.photos/seed/102/500/500", "permalink_url": "https://soundcloud.com/test/102", "playback_count": int64(8000), "favoritings_count": int64(480), "reposts_count": int64(120), "bpm": float64(128), "downloadable": true, "download_url": "https://soundcloud.com/test/102/download"},
-						{"track_id": "103", "track_title": "Loved Track", "artist_name": "Artist Z", "genre": "Techno", "track_duration": int64(360000), "artwork_url": "https://picsum.photos/seed/103/500/500", "permalink_url": "https://soundcloud.com/test/103", "playback_count": int64(12000), "favoritings_count": int64(120), "reposts_count": int64(25), "bpm": float64(140), "downloadable": false, "download_url": ""},
+						{"track_id": "101", "track_title": "Favorite Track One", "artist_name": "Artist X", "genre": "Electronic", "track_duration": int64(180000), "artwork_url": "https://picsum.photos/seed/101/500/500", "permalink_url": "https://soundcloud.com/test/101", "playback_count": int64(5000), "favoritings_count": int64(250), "reposts_count": int64(50), "bpm": float64(0), "downloadable": false, "download_url": "", "created_at": time.Now().AddDate(0, 0, -2).Format(time.RFC3339)},
+						{"track_id": "102", "track_title": "Another Favorite", "artist_name": "Artist Y", "genre": "House", "track_duration": int64(240000), "artwork_url": "https://picsum.photos/seed/102/500/500", "permalink_url": "https://soundcloud.com/test/102", "playback_count": int64(8000), "favoritings_count": int64(480), "reposts_count": int64(120), "bpm": float64(128), "downloadable": true, "download_url": "https://soundcloud.com/test/102/download", "created_at": time.Now().AddDate(0, 0, -5).Format(time.RFC3339)},
+						{"track_id": "103", "track_title": "Loved Track", "artist_name": "Artist Z", "genre": "Techno", "track_duration": int64(360000), "artwork_url": "https://picsum.photos/seed/103/500/500", "permalink_url": "https://soundcloud.com/test/103", "playback_count": int64(12000), "favoritings_count": int64(120), "reposts_count": int64(25), "bpm": float64(140), "downloadable": false, "download_url": "", "created_at": time.Now().AddDate(0, 0, -12).Format(time.RFC3339)},
 					}
 					return c.JSON(http.StatusOK, map[string]interface{}{
 						"tracks": mockFavs,

@@ -21,6 +21,26 @@ export function formatCompact(n) {
   return String(n)
 }
 
+export function formatAge(createdAt) {
+  if (!createdAt) return null
+  const date = new Date(createdAt)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+  const diffWeeks = Math.floor(diffDays / 7)
+  const diffMonths = Math.floor(diffDays / 30)
+  const diffYears = Math.floor(diffDays / 365)
+
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  if (diffWeeks < 4) return `${diffWeeks}w`
+  if (diffMonths < 12) return `${diffMonths}mo`
+  return `${diffYears}y`
+}
+
 export function upgradeArtwork(url) {
   if (!url) return null
   return url.replace(/-t\d+x\d+/g, '-t500x500').replace('-large.', '-t500x500.')
@@ -171,6 +191,14 @@ const TrackCard = memo(forwardRef(function TrackCard({ track, index, viewMode = 
             ? <img src={art} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
             : <MusicIcon />
           }
+          {/* Age badge for list view */}
+          {track.created_at && (
+            <div className="absolute top-0.5 left-0.5 z-20">
+              <span className="px-1 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-semibold text-white/90 border border-white/10">
+                {formatAge(track.created_at)}
+              </span>
+            </div>
+          )}
           <div className={clsx(
             'absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity',
             isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -302,6 +330,14 @@ const TrackCard = memo(forwardRef(function TrackCard({ track, index, viewMode = 
               ? <img src={art} alt={track.track_title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" onError={() => setImgError(true)} />
               : <div className="w-full h-full bg-surface-800 flex items-center justify-center"><MusicIcon large /></div>
             }
+            {/* Age badge — top-left corner of cover art */}
+            {track.created_at && (
+              <div className="absolute top-2 left-2 z-20">
+                <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-semibold text-white/90 border border-white/10">
+                  {formatAge(track.created_at)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Spinning vinyl — shown when playing */}
