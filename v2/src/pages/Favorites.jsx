@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Grid, List, Download, Rss, Copy, Check, X, RefreshCw } from 'lucide-react'
+import { Heart, Grid, List, Download, Rss, Copy, Check, X, RefreshCw, Search, SlidersHorizontal, ArrowUpDown, Clock, Calendar, User, Music, Timer } from 'lucide-react'
 import clsx from 'clsx'
 import TrackCard from '../components/TrackCard'
 import { useStore } from '../store'
@@ -14,6 +14,15 @@ function writeCache(tracks) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(tracks)) } catch {}
 }
 
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Date Added', icon: Calendar, desc: 'Newest first' },
+  { value: 'oldest', label: 'Date Added', icon: Calendar, desc: 'Oldest first' },
+  { value: 'title', label: 'Title', icon: Music, desc: 'A-Z' },
+  { value: 'artist', label: 'Artist', icon: User, desc: 'A-Z' },
+  { value: 'duration', label: 'Duration', icon: Timer, desc: 'Longest first' },
+  { value: 'plays', label: 'Plays', icon: Clock, desc: 'Most played' },
+]
+
 export default function Favorites() {
   const cached = useState(() => readCache())[0]
   const [tracks, setTracks] = useState(() => cached)
@@ -23,12 +32,42 @@ export default function Favorites() {
   const [exportOpen, setExportOpen] = useState(false)
   const [rssModalOpen, setRssModalOpen] = useState(false)
   const [rssCopied, setRssCopied] = useState(false)
+  
+  // Sort & Filter state
+  const [sortBy, setSortBy] = useState('newest')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [genreFilter, setGenreFilter] = useState('')
+  const [durationMin, setDurationMin] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  
   const exportRef = useRef(null)
   const newTrackIdsRef = useRef(new Set())
   const tracksRef = useRef(cached)
   const { favorites, user, setTracks: setStoreTracks } = useStore()
 
   const publicRssUrl = user ? `${window.location.origin}/feed/rss/${user.id}` : null
+
+  // Extract unique genres from tracks
+  const availableGenres = useMemo(() => {
+    const genres = new Set()
+    tracks.forEach(t => {
+      if (t.genre) genres.add(t.genre)
+    })
+    return Array.from(genres).sort()
+  }, [tracks])
+
+  // Build API URL with sort/filter params
+  const buildApiUrl = useCallback((basePath, params = {}) => {
+    const url = new URL(basePath, window.location.origin)
+    url.searchParams.set('sort', sortBy)
+    if (searchQuery) url.searchParams.set('q', searchQuery)
+    if (genreFilter) url.searchParams.set('genre', genreFilter)
+    if (durationMin) url.searchParams.set('duration_min', durationMin)
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') url.searchParams.set(k, v)
+    })
+    return url.toString()
+  }, [sortBy, searchQuery, genreFilter, durationMin])
 
   // Merge incoming tracks into current list, flag genuinely new ones
   const mergeAndSet = useCallback((incoming) => {
@@ -40,8 +79,6 @@ export default function Favorites() {
     const incomingIds = new Set(incoming.map(t => t.track_id))
     const retained = tracksRef.current.filter(t => !incomingIds.has(t.track_id))
     const merged = [...incoming, ...retained]
-    // Sort by created_at descending (newest first)
-    merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     newTrackIdsRef.current = brandNew
     tracksRef.current = merged
     writeCache(merged)
@@ -51,17 +88,18 @@ export default function Favorites() {
     setStoreTracks(merged)
   }, [setStoreTracks])
 
-  // Load from DB on mount — fast, no SoundCloud call
+  // Load from DB on mount — with sort/filter params
   useEffect(() => {
-    fetch('/api/favorites', {
+    setLoading(true)
+    fetch(buildApiUrl('/api/favorites'), {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     })
       .then(r => r.ok ? r.json() : { tracks: [] })
-      .then(d => mergeAndSet(d.tracks || []))
+      .then(d => mergeAndSet(d.tracks || d.favorites || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [mergeAndSet])
+  }, [mergeAndSet, buildApiUrl])
 
   // Background sync from SoundCloud after DB load settles
   useEffect(() => {
@@ -92,6 +130,60 @@ export default function Favorites() {
       .catch(() => {})
       .finally(() => setSyncing(false))
   }
+
+  // Apply sort/filter when params change (client-side for now)
+  useEffect(() => {
+    if (tracks.length === 0) return
+    
+    let filtered = [...tracksRef.current]
+    
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(t => 
+        (t.track_title || '').toLowerCase().includes(q) ||
+        (t.artist_name || '').toLowerCase().includes(q) ||
+        (t.genre || '').toLowerCase().includes(q)
+      )
+    }
+    
+    // Genre filter
+    if (genreFilter) {
+      filtered = filtered.filter(t => t.genre === genreFilter)
+    }
+    
+    // Duration filter (minutes)
+    if (durationMin) {
+      const minMs = parseInt(durationMin) * 60 * 1000
+      filtered = filtered.filter(t => (t.track_duration || 0) >= minMs)
+    }
+    
+    // Sort
+    switch (sortBy) {
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        break
+      case 'oldest':
+        filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+        break
+      case 'title':
+        filtered.sort((a, b) => (a.track_title || '').localeCompare(b.track_title || ''))
+        break
+      case 'artist':
+        filtered.sort((a, b) => (a.artist_name || '').localeCompare(b.artist_name || ''))
+        break
+      case 'duration':
+        filtered.sort((a, b) => (b.track_duration || 0) - (a.track_duration || 0))
+        break
+      case 'plays':
+        filtered.sort((a, b) => (b.playback_count || 0) - (a.playback_count || 0))
+        break
+      default:
+        break
+    }
+    
+    setTracks(filtered)
+  }, [sortBy, searchQuery, genreFilter, durationMin])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -125,6 +217,9 @@ export default function Favorites() {
     a.click()
     document.body.removeChild(a)
   }
+
+  const currentSort = SORT_OPTIONS.find(o => o.value === sortBy) || SORT_OPTIONS[0]
+  const SortIcon = currentSort.icon
 
   return (
     <div className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
@@ -220,6 +315,150 @@ export default function Favorites() {
           </div>
         </motion.div>
 
+        {/* Sort & Filter Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-4 space-y-3"
+        >
+          {/* Search + Sort Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
+              <input
+                type="text"
+                placeholder="Search tracks, artists, genres..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-surface-800/60 border border-surface-700/50 text-sm text-surface-200 placeholder:text-surface-600 focus:outline-none focus:border-accent/50 focus:bg-surface-800/80 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none pl-9 pr-8 py-2 rounded-xl bg-surface-800/60 border border-surface-700/50 text-sm text-surface-200 focus:outline-none focus:border-accent/50 cursor-pointer hover:bg-surface-800/80 transition-colors"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} — {opt.desc}
+                  </option>
+                ))}
+              </select>
+              <SortIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none" />
+              <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+            </div>
+
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={clsx(
+                'flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm transition-colors',
+                showFilters || genreFilter || durationMin
+                  ? 'border-accent/40 bg-accent/10 text-accent-light'
+                  : 'border-surface-700/50 bg-surface-800/60 text-surface-400 hover:text-surface-200 hover:border-surface-600/60'
+              )}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
+              {(genreFilter || durationMin) && (
+                <span className="w-2 h-2 rounded-full bg-accent" />
+              )}
+            </button>
+          </div>
+
+          {/* Expandable Filter Panel */}
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="flex items-center gap-3 flex-wrap p-3 rounded-xl bg-surface-800/40 border border-surface-700/30">
+                  {/* Genre Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Genre</span>
+                    <select
+                      value={genreFilter}
+                      onChange={(e) => setGenreFilter(e.target.value)}
+                      className="appearance-none px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/50 text-sm text-surface-200 focus:outline-none focus:border-accent/50 cursor-pointer"
+                    >
+                      <option value="">All genres</option>
+                      {availableGenres.map(g => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                    {genreFilter && (
+                      <button
+                        onClick={() => setGenreFilter('')}
+                        className="text-surface-500 hover:text-surface-300"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Duration Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Min Duration</span>
+                    <select
+                      value={durationMin}
+                      onChange={(e) => setDurationMin(e.target.value)}
+                      className="appearance-none px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/50 text-sm text-surface-200 focus:outline-none focus:border-accent/50 cursor-pointer"
+                    >
+                      <option value="">Any</option>
+                      <option value="1">1+ min</option>
+                      <option value="3">3+ min</option>
+                      <option value="5">5+ min</option>
+                      <option value="10">10+ min</option>
+                      <option value="30">30+ min</option>
+                      <option value="60">60+ min</option>
+                    </select>
+                    {durationMin && (
+                      <button
+                        onClick={() => setDurationMin('')}
+                        className="text-surface-500 hover:text-surface-300"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Clear all filters */}
+                  {(searchQuery || genreFilter || durationMin) && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('')
+                        setGenreFilter('')
+                        setDurationMin('')
+                      }}
+                      className="ml-auto text-xs text-surface-500 hover:text-surface-300 transition-colors flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
         {loading ? (
           <div className={clsx(
             viewMode === 'grid'
@@ -245,8 +484,14 @@ export default function Favorites() {
             <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mb-4">
               <Heart className="w-8 h-8 text-surface-600" />
             </div>
-            <h3 className="text-lg font-semibold text-surface-300 mb-2">No favorites yet</h3>
-            <p className="text-surface-500 text-sm">Heart tracks in your stream to save them here.</p>
+            <h3 className="text-lg font-semibold text-surface-300 mb-2">
+              {searchQuery || genreFilter || durationMin ? 'No matches found' : 'No favorites yet'}
+            </h3>
+            <p className="text-surface-500 text-sm">
+              {searchQuery || genreFilter || durationMin 
+                ? 'Try adjusting your filters.' 
+                : 'Heart tracks in your stream to save them here.'}
+            </p>
           </motion.div>
         ) : (
           <div className={clsx(

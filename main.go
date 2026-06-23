@@ -3210,6 +3210,8 @@ func main() {
 					"favoritings_count": f.FavoritingsCount,
 					"bpm":               f.BPM,
 					"is_favorited":      true,
+					"created_at":        f.CreatedAt,
+					"favorited_at":      f.FavoritedAt,
 				})
 			}
 

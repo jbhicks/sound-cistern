@@ -353,6 +353,8 @@ type SyncedFavorite struct {
 	PlaybackCount    int64
 	FavoritingsCount int64
 	BPM              float64
+	CreatedAt        string
+	FavoritedAt      string
 }
 
 // SyncFavorites fetches the user's liked tracks from SoundCloud, upserts them
@@ -476,6 +478,7 @@ func SyncFavorites(app *pocketbase.PocketBase, authRecord *models.Record) ([]Syn
 		playbackCount, _ := t["playback_count"].(float64)
 		favoritingsCount, _ := t["favoritings_count"].(float64)
 		bpm, _ := t["bpm"].(float64)
+		createdAt, _ := t["created_at"].(string)
 		artistName := ""
 		if user, ok := t["user"].(map[string]interface{}); ok {
 			artistName, _ = user["username"].(string)
@@ -558,6 +561,8 @@ func SyncFavorites(app *pocketbase.PocketBase, authRecord *models.Record) ([]Syn
 			PlaybackCount:    int64(playbackCount),
 			FavoritingsCount: int64(favoritingsCount),
 			BPM:              bpm,
+			CreatedAt:        createdAt,
+			FavoritedAt:      time.Now().UTC().Format(time.RFC3339),
 		})
 	}
 
