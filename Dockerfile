@@ -22,8 +22,8 @@ FROM golang:1.24-alpine AS go-builder
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Install templ CLI for template generation
-RUN go install github.com/a-h/templ/cmd/templ@latest
+# Install templ CLI for template generation (pinned to go.mod version to avoid Go 1.25 requirement)
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.960
 
 # Set working directory
 WORKDIR /app
