@@ -849,9 +849,8 @@ func main() {
 
 	var publicDir string = "./public"
 
-	isGoRun := true
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-		Automigrate: isGoRun,
+		Automigrate: true,
 	})
 
 	jsvm.MustRegister(app, jsvm.Config{})
