@@ -6,6 +6,8 @@
 /bin/
 /tmp/
 sound-cistern
+main
+server.pid
 
 # PocketBase data
 pb_data/
@@ -35,6 +37,9 @@ vendor/
 test_output.txt
 pb_data_test/
 pb_data_test_template/
+playwright-report/
+test-results/
+v2/test-results/
 
 # Temporary files
 *.tmp
@@ -43,7 +48,9 @@ pb_data_test_template/
 # Ralph progress files
 .ralph/progress/
 pb_data/data.db-*
-pb_data/logs.db-*# Node dependencies (any depth)
+pb_data/logs.db-*
+
+# Node dependencies (any depth)
 **/node_modules/
 
 # Vite cache
@@ -57,5 +64,3 @@ v2/node_modules/
 public/app/
 public/v2/
 sound-cistern-test
-v2/test-results/
-main

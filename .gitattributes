@@ -1,0 +1,5 @@
+public/** linguist-vendored
+v2/** linguist-vendored
+playwright-report/** linguist-vendored
+pb_data/** linguist-vendored
+*.templ linguist-language=Go
