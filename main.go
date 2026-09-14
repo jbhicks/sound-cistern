@@ -1285,6 +1285,26 @@ func main() {
 						downloadable, _ := origin["downloadable"].(bool)
 						downloadURL, _ := origin["download_url"].(string)
 
+						// Prefer track upload time; fall back to activity time (feed event).
+						createdAtStr, _ := origin["created_at"].(string)
+						if createdAtStr == "" {
+							createdAtStr, _ = activity["created_at"].(string)
+						}
+						var createdAt time.Time
+						if createdAtStr != "" {
+							for _, layout := range []string{
+								"2006/01/02 15:04:05 -0700",
+								time.RFC3339,
+								"2006-01-02T15:04:05Z",
+								"2006-01-02 15:04:05",
+							} {
+								if parsed, err := time.Parse(layout, createdAtStr); err == nil {
+									createdAt = parsed
+									break
+								}
+							}
+						}
+
 						tracks = append(tracks, views.Track{
 							TrackID:          trackID,
 							TrackTitle:       title,
@@ -1300,6 +1320,7 @@ func main() {
 							BPM:              bpm,
 							Downloadable:     downloadable,
 							DownloadURL:      downloadURL,
+							CreatedAt:        createdAt,
 						})
 					}
 				}
@@ -2727,6 +2748,10 @@ func main() {
 						}
 						out := make([]jsonTrack, 0, len(tracks))
 						for _, t := range tracks {
+							createdAt := ""
+							if !t.CreatedAt.IsZero() {
+								createdAt = t.CreatedAt.Format(time.RFC3339)
+							}
 							out = append(out, jsonTrack{
 								TrackID:          t.TrackID,
 								TrackTitle:       t.TrackTitle,
@@ -2741,7 +2766,7 @@ func main() {
 								BPM:              t.BPM,
 								Downloadable:     t.Downloadable,
 								DownloadURL:      t.DownloadURL,
-								CreatedAt:        t.CreatedAt.Format(time.RFC3339),
+								CreatedAt:        createdAt,
 							})
 						}
 						return c.JSON(http.StatusOK, map[string]interface{}{
