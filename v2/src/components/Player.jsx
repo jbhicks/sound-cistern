@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
+import Hls from 'hls.js'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Pause, X, Volume2, VolumeX, ExternalLink, Radio, Sparkles, Download, Activity } from 'lucide-react'
 import { useStore } from '../store'
@@ -53,6 +54,7 @@ function Player() {
   const playTrack = useStore(state => state.playTrack)
   
   const audioRef = useRef(null)
+  const hlsRef = useRef(null)
   
   // Refs for high-frequency updates (no React re-renders)
   const progressRef = useRef(0)
@@ -141,7 +143,7 @@ function Player() {
 
     const wasPlaying = !audio.paused
     const prevTime = audio.currentTime
-    const isReload = audio.src.includes(currentTrack.track_id) // same track, quality change
+    const isReload = (audio.src || '').includes(currentTrack.track_id) // same track, quality change
 
     setLoading(true)
     if (!isReload) {
@@ -154,22 +156,88 @@ function Player() {
     }
 
     const q = streamQuality && streamQuality !== 'auto' ? `?quality=${streamQuality}` : ''
-    audio.src = `/api/track/${currentTrack.track_id}/stream${q}`
-    audio.volume = volume
-    audio.muted = muted
+    const src = `/api/track/${currentTrack.track_id}/stream${q}`
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+    audio.removeAttribute('src')
     audio.load()
 
-    if (isReload && prevTime > 0) {
-      audio.addEventListener('canplay', () => { audio.currentTime = prevTime }, { once: true })
+    audio.volume = volume
+    audio.muted = muted
+
+    const startPlayback = () => {
+      if (isReload && prevTime > 0) {
+        try { audio.currentTime = prevTime } catch (_) {}
+      }
+      if (!isReload || wasPlaying) {
+        audio.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false))
+          .finally(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
     }
 
-    if (!isReload || wasPlaying) {
-      audio.play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false))
-        .finally(() => setLoading(false))
+    const loadNative = () => {
+      audio.src = src
+      audio.load()
+      if (isReload && prevTime > 0) {
+        audio.addEventListener('canplay', () => { audio.currentTime = prevTime }, { once: true })
+      }
+      if (!isReload || wasPlaying) {
+        audio.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false))
+          .finally(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
+    }
+
+    // Chromium/Firefox need hls.js for SoundCloud HLS playlists.
+    // Safari can play HLS natively. Progressive MP3 falls back to native on manifest error.
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        xhrSetup: (xhr) => { xhr.withCredentials = true },
+      })
+      hlsRef.current = hls
+      hls.attachMedia(audio)
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        hls.loadSource(src)
+      })
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        startPlayback()
+      })
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (!data.fatal) return
+        if (
+          data.type === Hls.ErrorTypes.NETWORK_ERROR ||
+          data.type === Hls.ErrorTypes.MEDIA_ERROR ||
+          data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR ||
+          data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR
+        ) {
+          hls.destroy()
+          hlsRef.current = null
+          loadNative()
+          return
+        }
+        setLoading(false)
+        setIsPlaying(false)
+      })
     } else {
-      setLoading(false)
+      loadNative()
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
+      }
     }
   }, [currentTrack?.track_id, streamQuality]) // eslint-disable-line
 
@@ -257,8 +325,12 @@ function Player() {
   }
 
   const close = () => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
     const audio = audioRef.current
-    if (audio) { audio.pause(); audio.src = '' }
+    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load() }
     setCurrentTrack(null)
     setIsPlaying(false)
   }

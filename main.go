@@ -792,14 +792,13 @@ func main() {
 		}
 		log.Printf("[Stream] Available streams for %s: %v", trackID, keys)
 
-		// Quality preference order based on device type
-		// Apple devices: MP3 (better native support)
-		// Others: HLS AAC 160 (higher quality)
+		// Prefer progressive HTTP when available; player uses hls.js for HLS.
+		// preview_mp3_128_url is a progressive fallback when http_mp3_128 is missing.
 		var preference []string
 		if isAppleDevice(userAgent) {
-			preference = []string{"http_mp3_128_url", "hls_mp3_128_url", "hls_aac_160_url"}
+			preference = []string{"http_mp3_128_url", "preview_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url"}
 		} else {
-			preference = []string{"hls_aac_160_url", "http_mp3_128_url", "hls_mp3_128_url"}
+			preference = []string{"http_mp3_128_url", "preview_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url"}
 		}
 
 		if quality != "" && quality != "auto" {

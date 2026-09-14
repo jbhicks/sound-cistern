@@ -16,6 +16,7 @@
     "@tanstack/react-virtual": "^3.13.21",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.3",
+    "hls.js": "^1.7.3",
     "lucide-react": "^0.323.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
