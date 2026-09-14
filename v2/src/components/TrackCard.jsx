@@ -24,8 +24,12 @@ export function formatCompact(n) {
 export function formatAge(createdAt) {
   if (!createdAt) return null
   const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return null
+  // Reject Go/PocketBase zero dates (year 0001) and other pre-epoch sentinels
+  if (date.getUTCFullYear() < 1970) return null
   const now = new Date()
   const diffMs = now - date
+  if (diffMs < 0) return null
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
