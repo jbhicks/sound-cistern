@@ -792,13 +792,16 @@ func main() {
 		}
 		log.Printf("[Stream] Available streams for %s: %v", trackID, keys)
 
-		// Prefer progressive HTTP when available; player uses hls.js for HLS.
-		// preview_mp3_128_url is a progressive fallback when http_mp3_128 is missing.
+		// Full-length streams only in Auto — never prefer SoundCloud's short preview.
+		// Player has hls.js, so HLS AAC/MP3 are valid full tracks. preview_* is last resort.
+		// Explicit ?quality= still wins above (requested key first, then this fallback order).
 		var preference []string
 		if isAppleDevice(userAgent) {
-			preference = []string{"http_mp3_128_url", "preview_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url"}
+			// Safari: progressive MP3 if present, else native/hls.js-friendly full HLS
+			preference = []string{"http_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url", "preview_mp3_128_url"}
 		} else {
-			preference = []string{"http_mp3_128_url", "preview_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url"}
+			// Chromium/Firefox via hls.js: prefer highest full quality first
+			preference = []string{"hls_aac_160_url", "hls_mp3_128_url", "http_mp3_128_url", "preview_mp3_128_url"}
 		}
 
 		if quality != "" && quality != "auto" {
