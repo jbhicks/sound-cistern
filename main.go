@@ -800,8 +800,8 @@ func main() {
 			// Safari: progressive MP3 if present, else native/hls.js-friendly full HLS
 			preference = []string{"http_mp3_128_url", "hls_aac_160_url", "hls_mp3_128_url", "preview_mp3_128_url"}
 		} else {
-			// Chromium/Firefox via hls.js: prefer highest full quality first
-			preference = []string{"hls_aac_160_url", "hls_mp3_128_url", "http_mp3_128_url", "preview_mp3_128_url"}
+			// Chromium/Firefox via hls.js: prefer MP3 HLS (broader MSE support), then AAC, then progressive
+			preference = []string{"hls_mp3_128_url", "hls_aac_160_url", "http_mp3_128_url", "preview_mp3_128_url"}
 		}
 
 		if quality != "" && quality != "auto" {

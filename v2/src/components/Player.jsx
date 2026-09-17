@@ -199,11 +199,19 @@ function Player() {
     }
 
     // Chromium/Firefox need hls.js for SoundCloud HLS playlists.
-    // Safari can play HLS natively. Progressive MP3 falls back to native on manifest error.
+    // Only send cookies on same-origin playlist fetches. CDN segment hosts return
+    // Access-Control-Allow-Origin: *, which browsers reject when withCredentials=true.
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        xhrSetup: (xhr) => { xhr.withCredentials = true },
+        xhrSetup: (xhr, url) => {
+          try {
+            const u = new URL(url, window.location.href)
+            if (u.origin === window.location.origin) {
+              xhr.withCredentials = true
+            }
+          } catch (_) {}
+        },
       })
       hlsRef.current = hls
       hls.attachMedia(audio)
@@ -215,15 +223,22 @@ function Player() {
       })
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return
+        // Progressive MP3 mis-detected as HLS — fall back to native <audio>
         if (
-          data.type === Hls.ErrorTypes.NETWORK_ERROR ||
-          data.type === Hls.ErrorTypes.MEDIA_ERROR ||
           data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR ||
           data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR
         ) {
           hls.destroy()
           hlsRef.current = null
           loadNative()
+          return
+        }
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad()
+          return
+        }
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError()
           return
         }
         setLoading(false)
