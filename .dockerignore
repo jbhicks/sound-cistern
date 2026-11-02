@@ -39,3 +39,21 @@ README.md
 # Temp files
 *.tmp
 *.temp
+
+# Security: keep secrets, local data and artifacts out of the build context
+.env
+.env.*
+!.env.example
+pb_data/
+pb_data_test/
+logs/
+dev.log
+test_output.txt
+server.pid
+telemetry-id
+main
+.firecrawl/
+.ralph/
+playwright-report/
+test-results/
+*.db
