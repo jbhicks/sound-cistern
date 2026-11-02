@@ -85,3 +85,35 @@ func TestGuardUserProtectedFields_AdminCanChangeRole(t *testing.T) {
 	rec.Set("role", "admin")
 	assert.NoError(t, guardUserProtectedFields(updateEvent(rec, true)))
 }
+
+func TestWithDefaultCORSOrigins(t *testing.T) {
+	o := []string{"https://soundcistern.com"}
+	got := withDefaultCORSOrigins([]string{"app", "serve", "--http=0.0.0.0:8090"}, o)
+	assert.Equal(t, []string{"app", "serve", "--http=0.0.0.0:8090", "--origins=https://soundcistern.com"}, got)
+
+	explicit := []string{"app", "serve", "--origins=https://x.example"}
+	assert.Equal(t, explicit, withDefaultCORSOrigins(explicit, o))
+	explicit2 := []string{"app", "serve", "--origins", "https://x.example"}
+	assert.Equal(t, explicit2, withDefaultCORSOrigins(explicit2, o))
+
+	migrate := []string{"app", "migrate", "up"}
+	assert.Equal(t, migrate, withDefaultCORSOrigins(migrate, o))
+}
+
+func TestAllowedCORSOrigins(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "")
+	t.Setenv("TEST_MODE", "")
+	t.Setenv("GO_ENV", "production")
+	assert.Equal(t, []string{"https://soundcistern.com"}, allowedCORSOrigins())
+
+	t.Setenv("GO_ENV", "")
+	assert.Equal(t, []string{"https://soundcistern.com"}, allowedCORSOrigins())
+
+	t.Setenv("GO_ENV", "development")
+	got := allowedCORSOrigins()
+	assert.Contains(t, got, "https://soundcistern.com")
+	assert.Contains(t, got, "http://localhost:5173")
+
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.example/, *, https://b.example")
+	assert.Equal(t, []string{"https://a.example", "https://b.example"}, allowedCORSOrigins())
+}

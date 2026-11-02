@@ -832,6 +832,11 @@ func main() {
 		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
+	// SECURITY: PocketBase's serve command defaults to CORS "*". Restrict it to
+	// the production origin (plus localhost outside production) unless an
+	// explicit --origins flag was passed.
+	os.Args = withDefaultCORSOrigins(os.Args, allowedCORSOrigins())
+
 	app := pocketbase.New()
 
 	// In test mode, ensure test user exists before routes are set up

@@ -5,6 +5,8 @@ package main
 
 import (
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -68,4 +70,84 @@ func guardUserProtectedFields(e *core.RecordUpdateEvent) error {
 		}
 	}
 	return nil
+}
+
+// productionOrigin is the only browser origin allowed in production.
+const productionOrigin = "https://soundcistern.com"
+
+// devOrigins are additionally allowed outside production (local dev / tests).
+var devOrigins = []string{
+	"http://localhost:8090", "http://127.0.0.1:8090",
+	"http://localhost:5173", "http://127.0.0.1:5173",
+}
+
+// isProductionEnv reports whether this process runs in production: anything
+// that is not explicitly test mode or a development GO_ENV.
+func isProductionEnv() bool {
+	if os.Getenv("TEST_MODE") == "true" {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) {
+	case "development", "dev", "local", "test":
+		return false
+	}
+	return true
+}
+
+// allowedCORSOrigins returns the browser origins allowed to call the API.
+// CORS_ALLOWED_ORIGINS (comma separated) overrides the defaults.
+func allowedCORSOrigins() []string {
+	if v := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")); v != "" {
+		var out []string
+		for _, o := range strings.Split(v, ",") {
+			if o = strings.TrimSpace(o); o != "" && o != "*" {
+				out = append(out, strings.TrimSuffix(o, "/"))
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	origins := []string{productionOrigin}
+	if !isProductionEnv() {
+		origins = append(origins, devOrigins...)
+	}
+	return origins
+}
+
+// withDefaultCORSOrigins appends --origins=<origins> to a "serve" command line
+// that does not already set --origins, so PocketBase does not fall back to
+// its default "*".
+func withDefaultCORSOrigins(args []string, origins []string) []string {
+	if len(args) < 2 || args[1] != "serve" || len(origins) == 0 {
+		return args
+	}
+	for _, a := range args[2:] {
+		if a == "--origins" || strings.HasPrefix(a, "--origins=") {
+			return args
+		}
+	}
+	out := make([]string, 0, len(args)+1)
+	out = append(out, args...)
+	return append(out, "--origins="+strings.Join(origins, ","))
+}
+
+// isAllowedOrigin reports whether origin is one of the allowed origins.
+func isAllowedOrigin(origin string, allowed []string) bool {
+	origin = strings.TrimSuffix(origin, "/")
+	for _, a := range allowed {
+		if strings.EqualFold(origin, a) {
+			return true
+		}
+	}
+	return false
+}
+
+// originHost returns the host[:port] of an Origin/Referer header value.
+func originHost(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return ""
+	}
+	return strings.ToLower(u.Host)
 }
