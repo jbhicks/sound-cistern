@@ -96,4 +96,18 @@ The following skills are available for development assistance (use `/skill <name
 **Note:** Skills are discovered automatically from `.agents/skills/` but must be loaded into context using the `/skill` command when needed.
 
 <!-- MANUAL ADDITIONS START -->
+
+## Cursor Cloud specific instructions
+
+Boot starts the app in `TEST_MODE` (SoundCloud OAuth mocked).
+
+- Use Go **1.24.13** from `/usr/local/bin/go` (`/usr/local/go`). The Ubuntu `golang-go` package is 1.22 and cannot build this module (`go.mod` requires 1.24).
+- The `templ` CLI on `PATH` is **v0.3.977**, which matches the checked-in `*_templ.go` headers. The library in `go.mod` stays at v0.3.960. `air` is **v1.62.0** (newer air releases need a newer Go).
+- tmux session `api`: PocketBase via air on http://127.0.0.1:8090. Health: `curl -sf http://127.0.0.1:8090/health`.
+- tmux session `vite`: Vite on http://127.0.0.1:5173. In `--dev`, PocketBase proxies the React app to Vite.
+- Leave both sessions running. Check health with curl.
+- Mock feed, no SoundCloud account required: `curl -sf 'http://127.0.0.1:8090/api/stream?format=json&limit=2'`.
+- A real SoundCloud login needs `SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET`, and `SOUNDCLOUD_REDIRECT_URI`. Until those are set, "Continue with Soundcloud" responds with `OAuth configuration missing`. The mock stream still works.
+- Unit tests: `make test` (`go test -tags=unit`).
+
 <!-- MANUAL ADDITIONS END -->
