@@ -7,6 +7,7 @@ package main
 // *models.Record) so they can be unit-tested without booting PocketBase.
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -290,10 +291,32 @@ func newTrackStreamHandler(d trackStreamDeps) echo.HandlerFunc {
 	}
 }
 
+// cspReportOnlyPolicy is sent as Content-Security-Policy-Report-Only (NOT
+// enforced) so violations can be collected before enforcing it. All app JS
+// and CSS is self-hosted (htmx, butterchurn, quill, tinymce, the Vite build);
+// artwork comes from SoundCloud's CDN (*.sndcdn.com), HLS/MP3 media and
+// playlists from SoundCloud CDNs, and the prototype pages use picsum.photos
+// and soundhelix.com placeholders. 'unsafe-inline' is needed by the Templ
+// pages' inline scripts/styles and 'unsafe-eval' by butterchurn presets.
+const cspReportOnlyPolicy = "default-src 'self'; " +
+	"script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data: blob: https://*.sndcdn.com https://picsum.photos https://fastly.picsum.photos; " +
+	"media-src 'self' blob: https://*.sndcdn.com https://*.soundcloud.com https://*.soundcloud.cloud https://www.soundhelix.com; " +
+	"connect-src 'self' https://*.sndcdn.com https://*.soundcloud.com https://*.soundcloud.cloud; " +
+	"font-src 'self' data:; " +
+	"worker-src 'self' blob:; " +
+	"manifest-src 'self'; " +
+	"frame-src 'self'; " +
+	"object-src 'none'; " +
+	"base-uri 'self'; " +
+	"form-action 'self'; " +
+	"frame-ancestors 'self'; " +
+	"report-uri /api/csp-report"
+
 // securityHeadersMiddleware adds baseline security headers that
-// echo's middleware.Secure() does not set. It intentionally does not set a
-// Content-Security-Policy (the Templ pages rely on inline scripts and CDNs;
-// roll that out separately in Report-Only mode first).
+// echo's middleware.Secure() does not set, plus a Report-Only CSP (skipped
+// for the PocketBase admin UI under /_/).
 func securityHeadersMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -306,6 +329,9 @@ func securityHeadersMiddleware() echo.MiddlewareFunc {
 			}
 			if c.Request().TLS != nil || strings.EqualFold(c.Request().Header.Get("X-Forwarded-Proto"), "https") {
 				h.Set("Strict-Transport-Security", "max-age=15552000")
+			}
+			if !strings.HasPrefix(c.Request().URL.Path, "/_/") {
+				h.Set("Content-Security-Policy-Report-Only", cspReportOnlyPolicy)
 			}
 			return next(c)
 		}
@@ -431,4 +457,26 @@ func safeLocalRedirectPath(p string) string {
 		p = p[1:]
 	}
 	return p
+}
+
+// cspReportHandler receives CSP violation reports (report-uri) and logs a
+// bounded summary. It must be mounted behind a rate limiter.
+func cspReportHandler(c echo.Context) error {
+	body, _ := io.ReadAll(io.LimitReader(c.Request().Body, 8<<10))
+	var payload struct {
+		Report struct {
+			DocumentURI        string `json:"document-uri"`
+			ViolatedDirective  string `json:"violated-directive"`
+			EffectiveDirective string `json:"effective-directive"`
+			BlockedURI         string `json:"blocked-uri"`
+		} `json:"csp-report"`
+	}
+	if err := json.Unmarshal(body, &payload); err == nil && payload.Report.ViolatedDirective != "" {
+		r := payload.Report
+		log.Printf("[CSP-Report-Only] directive=%q blocked=%q page=%q",
+			truncateForLog(r.EffectiveDirective+" / "+r.ViolatedDirective, 120),
+			truncateForLog(redactURL(r.BlockedURI), 200),
+			truncateForLog(redactURL(r.DocumentURI), 200))
+	}
+	return c.NoContent(http.StatusNoContent)
 }

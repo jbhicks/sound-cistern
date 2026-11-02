@@ -329,6 +329,21 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	assert.Equal(t, "strict-origin-when-cross-origin", rec.Header().Get("Referrer-Policy"))
 	assert.NotEmpty(t, rec.Header().Get("Permissions-Policy"))
 	assert.Contains(t, rec.Header().Get("Strict-Transport-Security"), "max-age=")
+	csp := rec.Header().Get("Content-Security-Policy-Report-Only")
+	assert.Contains(t, csp, "default-src 'self'")
+	assert.Contains(t, csp, "https://*.sndcdn.com")
+	assert.Empty(t, rec.Header().Get("Content-Security-Policy"), "CSP must not be enforced yet")
+}
+
+func TestCSPReportHandler(t *testing.T) {
+	e := echo.New()
+	e.POST("/api/csp-report", cspReportHandler)
+	body := `{"csp-report":{"document-uri":"https://soundcistern.com/stream?x=1","violated-directive":"img-src","blocked-uri":"https://evil.example/a.png?t=secret"}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/csp-report", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/csp-report")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
 func TestSafeLocalRedirectPath(t *testing.T) {

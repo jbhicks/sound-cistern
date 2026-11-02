@@ -996,6 +996,9 @@ func main() {
 		}
 
 		// Health check endpoint
+		// CSP violation reports (Content-Security-Policy-Report-Only report-uri).
+		e.Router.POST("/api/csp-report", cspReportHandler, rateLimitMiddleware(newRateLimiter(60, time.Minute)))
+
 		e.Router.GET("/health", func(c echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
 		})
