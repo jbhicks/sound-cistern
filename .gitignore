@@ -64,3 +64,13 @@ v2/node_modules/
 public/app/
 public/v2/
 sound-cistern-test
+
+# Security: never commit env files, local data, logs or build artifacts
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+dev.log
+telemetry-id
+.firecrawl/
