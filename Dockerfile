@@ -1,5 +1,12 @@
 # Production Dockerfile for Sound Cistern (PocketBase + Templ + React v2)
 # Single static binary with embedded SQLite database
+#
+# SECURITY: no secret is needed at build time. SOUNDCLOUD_CLIENT_ID,
+# SOUNDCLOUD_CLIENT_SECRET, SOUNDCLOUD_REDIRECT_URI, DATABASE_URL etc. are read
+# by the binary from the runtime environment only. Never declare them as
+# ARG/ENV in this file (ARG/ENV values end up in image metadata/history), and
+# keep them runtime-only ("Build variable" unticked) in Coolify, otherwise
+# Coolify injects them as --build-arg/ARG into every stage.
 
 # Stage 1: Build React v2 frontend
 FROM node:22-alpine AS node-builder
