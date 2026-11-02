@@ -984,10 +984,7 @@ func main() {
 		})
 		e.Router.GET("/v2/*", func(c echo.Context) error {
 			// Strip /v2 prefix and redirect, e.g. /v2/stream → /stream
-			rest := strings.TrimPrefix(c.Request().URL.Path, "/v2")
-			if rest == "" {
-				rest = "/"
-			}
+			rest := safeLocalRedirectPath(strings.TrimPrefix(c.Request().URL.Path, "/v2"))
 			return c.Redirect(http.StatusMovedPermanently, rest)
 		})
 

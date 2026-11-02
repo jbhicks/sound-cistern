@@ -419,3 +419,16 @@ func truncateForLog(s string, n int) string {
 	}
 	return s
 }
+
+// safeLocalRedirectPath makes sure a redirect target is a same-origin path.
+// "//evil.example" or "/\\evil.example" would otherwise be treated by browsers
+// as a protocol-relative URL to another host (open redirect).
+func safeLocalRedirectPath(p string) string {
+	if p == "" || !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\\r\n") {
+		return "/"
+	}
+	for strings.HasPrefix(p, "//") {
+		p = p[1:]
+	}
+	return p
+}

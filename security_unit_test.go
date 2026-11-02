@@ -330,3 +330,12 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	assert.NotEmpty(t, rec.Header().Get("Permissions-Policy"))
 	assert.Contains(t, rec.Header().Get("Strict-Transport-Security"), "max-age=")
 }
+
+func TestSafeLocalRedirectPath(t *testing.T) {
+	assert.Equal(t, "/stream", safeLocalRedirectPath("/stream"))
+	assert.Equal(t, "/", safeLocalRedirectPath(""))
+	assert.Equal(t, "/example.org/x", safeLocalRedirectPath("//example.org/x"))
+	assert.Equal(t, "/example.org", safeLocalRedirectPath("///example.org"))
+	assert.Equal(t, "/", safeLocalRedirectPath("/\\example.org"))
+	assert.Equal(t, "/", safeLocalRedirectPath("https://example.org"))
+}
