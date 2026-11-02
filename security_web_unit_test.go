@@ -173,3 +173,44 @@ func TestClearSessionCookieAndDomain(t *testing.T) {
 		assert.True(t, ck.Secure)
 	}
 }
+
+func TestOAuthStateCookie(t *testing.T) {
+	e := echo.New()
+
+	// /auth/soundcloud sets the cookie.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/soundcloud", nil)
+	req.Host = "soundcistern.com"
+	setOAuthStateCookie(e.NewContext(req, rec), "state-123")
+	cookies := rec.Result().Cookies()
+	require.Len(t, cookies, 1)
+	ck := cookies[0]
+	assert.Equal(t, oauthStateCookieName, ck.Name)
+	assert.Equal(t, "state-123", ck.Value)
+	assert.True(t, ck.HttpOnly)
+	assert.True(t, ck.Secure)
+	assert.Equal(t, http.SameSiteLaxMode, ck.SameSite)
+	assert.Equal(t, "/auth/", ck.Path)
+	assert.Equal(t, 600, ck.MaxAge)
+
+	check := func(cookieVal, state string) bool {
+		req := httptest.NewRequest(http.MethodGet, "/auth/soundcloud/callback?state="+state, nil)
+		if cookieVal != "" {
+			req.AddCookie(&http.Cookie{Name: oauthStateCookieName, Value: cookieVal})
+		}
+		return oauthStateCookieMatches(e.NewContext(req, httptest.NewRecorder()), state)
+	}
+	assert.True(t, check("state-123", "state-123"))
+	assert.False(t, check("", "state-123"), "missing cookie")
+	assert.False(t, check("attacker-state", "state-123"), "mismatch")
+	assert.False(t, check("state-123", ""), "missing state")
+
+	// Local dev over http: not Secure, host-only.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/auth/soundcloud", nil)
+	req.Host = "localhost:8090"
+	setOAuthStateCookie(e.NewContext(req, rec), "s")
+	ck = rec.Result().Cookies()[0]
+	assert.False(t, ck.Secure)
+	assert.Equal(t, "", ck.Domain)
+}

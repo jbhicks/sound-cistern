@@ -1622,6 +1622,9 @@ func main() {
 				}.Encode(),
 			}
 
+			// Bind this authorization request to this browser (login CSRF).
+			setOAuthStateCookie(c, state)
+
 			authURLString := authURL.String()
 			// Never log state, code_verifier/challenge or the full authorize URL.
 			log.Printf("Redirecting to SoundCloud OAuth (state record %s)", stateRecord.Id)
@@ -1635,6 +1638,12 @@ func main() {
 			state := c.QueryParam("state")
 			errorParam := c.QueryParam("error")
 
+			// The state must match the HttpOnly cookie set by /auth/soundcloud in
+			// this browser; otherwise an attacker could log the victim into the
+			// attacker's account by sending them the attacker's callback URL.
+			stateCookieOK := oauthStateCookieMatches(c, state)
+			clearOAuthStateCookie(c)
+
 			// Handle OAuth errors from Soundcloud
 			if errorParam != "" {
 				errorDesc := c.QueryParam("error_description")
@@ -1645,6 +1654,11 @@ func main() {
 			if code == "" || state == "" {
 				log.Printf("Missing required OAuth parameters: code present=%v, state present=%v", code != "", state != "")
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_callback")
+			}
+
+			if !stateCookieOK {
+				log.Printf("OAuth callback rejected: state cookie missing or mismatched")
+				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_state")
 			}
 
 			// Find the state record to verify CSRF protection and get code_verifier

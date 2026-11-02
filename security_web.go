@@ -4,10 +4,12 @@ package main
 // cookies, CSP). Kept free of PocketBase app state so they are unit-testable.
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase/apis"
@@ -243,3 +245,49 @@ main{text-align:center}button{font:inherit;padding:.6rem 1.4rem;border-radius:.5
 </head><body><main><h1>Sign out of Sound Cistern?</h1>
 <form method="post" action="/signout"><button type="submit">Sign out</button></form>
 <p><a href="/">Cancel</a></p></main></body></html>`
+
+// oauthStateCookieName binds an OAuth authorization request to the browser
+// that started it (login CSRF protection): the state is stored server-side
+// AND in this short-lived cookie, and the callback requires both to match.
+const (
+	oauthStateCookieName = "sc_oauth_state"
+	oauthStateCookiePath = "/auth/"
+	oauthStateTTL        = 10 * time.Minute
+)
+
+func oauthStateCookie(c echo.Context, value string, maxAge int) *http.Cookie {
+	host := c.Request().Host
+	return &http.Cookie{
+		Name:     oauthStateCookieName,
+		Value:    value,
+		Path:     oauthStateCookiePath,
+		Domain:   cookieDomainFor(host),
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   !isLocalHost(host),
+		SameSite: http.SameSiteLaxMode, // sent on the top-level redirect back from SoundCloud
+	}
+}
+
+// setOAuthStateCookie is called by /auth/soundcloud before redirecting.
+func setOAuthStateCookie(c echo.Context, state string) {
+	c.SetCookie(oauthStateCookie(c, state, int(oauthStateTTL.Seconds())))
+}
+
+// clearOAuthStateCookie removes the state cookie (single use).
+func clearOAuthStateCookie(c echo.Context) {
+	c.SetCookie(oauthStateCookie(c, "", -1))
+}
+
+// oauthStateCookieMatches reports whether the browser presented the state
+// cookie set for this exact state value.
+func oauthStateCookieMatches(c echo.Context, state string) bool {
+	if state == "" {
+		return false
+	}
+	ck, err := c.Cookie(oauthStateCookieName)
+	if err != nil || ck == nil || ck.Value == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(ck.Value), []byte(state)) == 1
+}
