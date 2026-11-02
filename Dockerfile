@@ -2,7 +2,7 @@
 # Single static binary with embedded SQLite database
 
 # Stage 1: Build React v2 frontend
-FROM node:20-alpine AS node-builder
+FROM node:22-alpine AS node-builder
 
 WORKDIR /app/v2
 COPY v2/package*.json ./
@@ -17,13 +17,15 @@ COPY public/js/butterchurnPresetsExtra.min.js ./public/js/
 RUN npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.24-alpine AS go-builder
+FROM golang:1.26.10-alpine AS go-builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Install templ CLI for template generation (pinned to go.mod version to avoid Go 1.25 requirement)
-RUN go install github.com/a-h/templ/cmd/templ@v0.3.960
+# Install templ CLI for template generation. Keep this pinned to the exact
+# github.com/a-h/templ version in go.mod (never @latest) so generated code
+# matches the runtime library.
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.1100
 
 # Set working directory
 WORKDIR /app

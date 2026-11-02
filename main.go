@@ -876,6 +876,8 @@ func main() {
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		// Test mode middleware (always added - checks isTestMode internally)
+		// GO-2026-6293 mitigation (echo encoded-slash route bypass).
+		e.Router.Pre(rejectEncodedPathSeparators())
 		e.Router.Pre(testAuthMiddleware(app))
 		e.Router.Pre(mockSoundcloudMiddleware())
 
