@@ -1568,7 +1568,6 @@ func main() {
 			// Generate random state for CSRF protection
 			state := generateRandomString(32)
 
-
 			// Store state and code verifier in oauth_states collection
 			oauthStatesCollection, err := getCollection(app, "oauth_states")
 			if err != nil {
@@ -1883,7 +1882,6 @@ func main() {
 				SameSite: http.SameSiteLaxMode,
 				MaxAge:   int(tokenDuration.Seconds()),
 			})
-
 
 			// Auto-sync tracks from Soundcloud on first login
 			log.Printf("[AutoSync] Starting auto-sync for user %s after OAuth", user.Id)
