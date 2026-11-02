@@ -3,12 +3,19 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/labstack/echo/v5"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/models"
+	"github.com/pocketbase/pocketbase/models/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRejectEncodedPathSeparators(t *testing.T) {
@@ -29,4 +36,52 @@ func TestRejectEncodedPathSeparators(t *testing.T) {
 		e.ServeHTTP(rec, req)
 		assert.Equal(t, want, rec.Code, path)
 	}
+}
+
+func usersRecord(role, firstName string) *models.Record {
+	col := &models.Collection{Name: "users", Type: models.CollectionTypeAuth}
+	col.Schema = schema.NewSchema(
+		&schema.SchemaField{Name: "role", Type: schema.FieldTypeText},
+		&schema.SchemaField{Name: "first_name", Type: schema.FieldTypeText},
+	)
+	// Simulate a record loaded from the DB (sets the original copy).
+	data := dbx.NullStringMap{}
+	for k, v := range map[string]string{"id": "u1", "role": role, "first_name": firstName} {
+		data[k] = sql.NullString{String: v, Valid: true}
+	}
+	return models.NewRecordFromNullStringMap(col, data)
+}
+
+func updateEvent(rec *models.Record, admin bool) *core.RecordUpdateEvent {
+	e := echo.New()
+	c := e.NewContext(httptest.NewRequest(http.MethodPatch, "/api/collections/users/records/u1", nil), httptest.NewRecorder())
+	if admin {
+		c.Set(apis.ContextAdminKey, &models.Admin{})
+	} else {
+		c.Set(apis.ContextAuthRecordKey, rec)
+	}
+	return &core.RecordUpdateEvent{HttpContext: c, Record: rec}
+}
+
+func TestGuardUserProtectedFields_UserCannotChangeOwnRole(t *testing.T) {
+	rec := usersRecord("user", "Al")
+	rec.Set("role", "admin")
+	err := guardUserProtectedFields(updateEvent(rec, false))
+	require.Error(t, err)
+	var apiErr *apis.ApiError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusForbidden, apiErr.Code)
+}
+
+func TestGuardUserProtectedFields_UserCanChangeOtherFields(t *testing.T) {
+	rec := usersRecord("user", "Al")
+	rec.Set("first_name", "Alice")
+	rec.Set("role", "user") // unchanged value is fine
+	assert.NoError(t, guardUserProtectedFields(updateEvent(rec, false)))
+}
+
+func TestGuardUserProtectedFields_AdminCanChangeRole(t *testing.T) {
+	rec := usersRecord("user", "Al")
+	rec.Set("role", "admin")
+	assert.NoError(t, guardUserProtectedFields(updateEvent(rec, true)))
 }

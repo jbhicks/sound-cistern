@@ -866,6 +866,10 @@ func main() {
 		})
 	}
 
+	// SECURITY: users may update their own record (users.updateRule), but
+	// never their role. Enforced here and in the users.updateRule migration.
+	app.OnRecordBeforeUpdateRequest("users").Add(guardUserProtectedFields)
+
 	var publicDir string = "./public"
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
