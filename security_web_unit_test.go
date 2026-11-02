@@ -117,3 +117,59 @@ func TestAllowedCORSOrigins(t *testing.T) {
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.example/, *, https://b.example")
 	assert.Equal(t, []string{"https://a.example", "https://b.example"}, allowedCORSOrigins())
 }
+
+func TestSameOriginWriteGuard(t *testing.T) {
+	e := echo.New()
+	e.Pre(sameOriginWriteGuard([]string{"https://soundcistern.com"}))
+	e.Any("/*", func(c echo.Context) error { return c.String(http.StatusOK, "ok") })
+
+	type tc struct {
+		method, host, origin, referer string
+		want                          int
+	}
+	cases := []tc{
+		{http.MethodGet, "soundcistern.com", "https://evil.example", "", http.StatusOK},
+		{http.MethodPost, "soundcistern.com", "https://soundcistern.com", "", http.StatusOK},
+		{http.MethodPost, "localhost:8090", "http://localhost:8090", "", http.StatusOK},
+		{http.MethodPost, "soundcistern.com", "", "https://soundcistern.com/stream", http.StatusOK},
+		{http.MethodPost, "soundcistern.com", "", "", http.StatusOK}, // non-browser client
+		{http.MethodPost, "soundcistern.com", "https://evil.example", "", http.StatusForbidden},
+		{http.MethodDelete, "soundcistern.com", "null", "", http.StatusForbidden},
+		{http.MethodPatch, "soundcistern.com", "", "https://evil.example/x", http.StatusForbidden},
+		{http.MethodPost, "soundcistern.com", "https://soundcistern.com.evil.example", "", http.StatusForbidden},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(c.method, "/api/favorites/toggle", nil)
+		req.Host = c.host
+		if c.origin != "" {
+			req.Header.Set("Origin", c.origin)
+		}
+		if c.referer != "" {
+			req.Header.Set("Referer", c.referer)
+		}
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		assert.Equal(t, c.want, rec.Code, "%+v", c)
+	}
+}
+
+func TestClearSessionCookieAndDomain(t *testing.T) {
+	assert.Equal(t, ".soundcistern.com", cookieDomainFor("soundcistern.com"))
+	assert.Equal(t, ".soundcistern.com", cookieDomainFor("soundcistern.com:443"))
+	assert.Equal(t, "", cookieDomainFor("localhost:8090"))
+	assert.Equal(t, "", cookieDomainFor("soundcistern.com.evil.example"))
+
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/signout", nil)
+	req.Host = "soundcistern.com"
+	clearSessionCookie(e.NewContext(req, rec))
+	cookies := rec.Result().Cookies()
+	require.Len(t, cookies, 2)
+	for _, ck := range cookies {
+		assert.Equal(t, "pb_auth", ck.Name)
+		assert.True(t, ck.MaxAge < 0)
+		assert.True(t, ck.HttpOnly)
+		assert.True(t, ck.Secure)
+	}
+}

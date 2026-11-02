@@ -208,7 +208,7 @@ func Layout(data PageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span></summary><ul class=\"user-dropdown-menu\"><li><a href=\"/dashboard\">Dashboard</a></li><li><a href=\"/settings\">Settings</a></li><li><a href=\"/signout\">Sign out</a></li></ul></details></li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span></summary><ul class=\"user-dropdown-menu\"><li><a href=\"/dashboard\">Dashboard</a></li><li><a href=\"/settings\">Settings</a></li><li><form method=\"post\" action=\"/signout\" class=\"signout-form\" style=\"margin:0\"><button type=\"submit\" class=\"signout-button\" style=\"background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;cursor:pointer;width:auto\">Sign out</button></form></li></ul></details></li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

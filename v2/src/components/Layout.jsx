@@ -69,13 +69,16 @@ export default function Layout({ children }) {
                 <span className="text-sm text-surface-300">{user.name?.trim() || user.email}</span>
               </div>
             )}
-            <a
-              href="/signout"
-              className="p-2 text-surface-500 hover:text-surface-300 hover:bg-surface-800 rounded-lg transition-colors"
-              title="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
-            </a>
+            <form method="post" action="/signout" className="m-0">
+              <button
+                type="submit"
+                className="p-2 text-surface-500 hover:text-surface-300 hover:bg-surface-800 rounded-lg transition-colors"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </form>
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="md:hidden p-2 text-surface-400 hover:text-surface-100 hover:bg-surface-800 rounded-lg transition-colors"

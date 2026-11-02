@@ -151,3 +151,95 @@ func originHost(raw string) string {
 	}
 	return strings.ToLower(u.Host)
 }
+
+// sameOriginWriteGuard rejects state-changing requests (anything but
+// GET/HEAD/OPTIONS) that a browser marked as coming from another origin.
+// Origin is checked first, then Referer; a request carrying neither is a
+// non-browser client (browsers always send Origin on cross-origin writes) and
+// is allowed. Same host (as seen in the Host header) or an allowed origin
+// passes. Session cookies are SameSite=Lax as the first line of defence.
+func sameOriginWriteGuard(allowed []string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			req := c.Request()
+			switch req.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions:
+				return next(c)
+			}
+			src := req.Header.Get("Origin")
+			if src == "" {
+				src = req.Header.Get("Referer")
+			}
+			if src == "" {
+				return next(c)
+			}
+			if isAllowedOrigin(originOf(src), allowed) {
+				return next(c)
+			}
+			if h := originHost(src); h != "" && h == strings.ToLower(req.Host) {
+				return next(c)
+			}
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Cross-origin request blocked"})
+		}
+	}
+}
+
+// originOf reduces an Origin/Referer value to scheme://host[:port].
+func originOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return raw
+	}
+	return strings.ToLower(u.Scheme + "://" + u.Host)
+}
+
+// isLocalHost reports whether the request host is localhost / loopback.
+func isLocalHost(host string) bool {
+	h := strings.ToLower(host)
+	if i := strings.LastIndex(h, ":"); i >= 0 && !strings.Contains(h[i:], "]") {
+		h = h[:i]
+	}
+	h = strings.Trim(h, "[]")
+	return h == "localhost" || h == "127.0.0.1" || h == "::1" || strings.HasSuffix(h, ".localhost")
+}
+
+// cookieDomainFor returns ".soundcistern.com" for requests to the production
+// domain (matching how the pb_auth cookie is issued) and "" (host-only)
+// anywhere else, e.g. local development.
+func cookieDomainFor(host string) string {
+	h := strings.ToLower(host)
+	if i := strings.LastIndex(h, ":"); i >= 0 {
+		h = h[:i]
+	}
+	if h == "soundcistern.com" || strings.HasSuffix(h, ".soundcistern.com") {
+		return ".soundcistern.com"
+	}
+	return ""
+}
+
+// clearSessionCookie expires the pb_auth session cookie (both the
+// .soundcistern.com and any host-only variant).
+func clearSessionCookie(c echo.Context) {
+	for _, domain := range []string{".soundcistern.com", ""} {
+		c.SetCookie(&http.Cookie{
+			Name:     "pb_auth",
+			Value:    "",
+			Path:     "/",
+			Domain:   domain,
+			HttpOnly: true,
+			Secure:   !isLocalHost(c.Request().Host),
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   -1,
+		})
+	}
+}
+
+// signoutConfirmHTML is served for GET /signout (sign-out itself is POST).
+const signoutConfirmHTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Sign out - Sound Cistern</title>
+<style>body{font-family:system-ui,sans-serif;background:#0b0b10;color:#e5e5e5;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
+main{text-align:center}button{font:inherit;padding:.6rem 1.4rem;border-radius:.5rem;border:0;background:#ff5500;color:#fff;cursor:pointer}a{color:#aaa}</style>
+</head><body><main><h1>Sign out of Sound Cistern?</h1>
+<form method="post" action="/signout"><button type="submit">Sign out</button></form>
+<p><a href="/">Cancel</a></p></main></body></html>`

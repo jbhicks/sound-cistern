@@ -887,6 +887,9 @@ func main() {
 		// Test mode middleware (always added - checks isTestMode internally)
 		// GO-2026-6293 mitigation (echo encoded-slash route bypass).
 		e.Router.Pre(rejectEncodedPathSeparators())
+		// CSRF: reject cross-site state-changing requests (POST/PUT/PATCH/DELETE)
+		// whose Origin/Referer is neither this host nor an allowed origin.
+		e.Router.Pre(sameOriginWriteGuard(allowedCORSOrigins()))
 		e.Router.Pre(testAuthMiddleware(app))
 		e.Router.Pre(mockSoundcloudMiddleware())
 
@@ -950,12 +953,20 @@ func main() {
 			e.Router.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 				TokenLength: 32,
 				TokenLookup: "form:csrf_token",
+				// The _csrf cookie is never read by JavaScript.
+				CookiePath:     "/",
+				CookieSecure:   true,
+				CookieHTTPOnly: true,
+				CookieSameSite: http.SameSiteLaxMode,
 				Skipper: func(c echo.Context) bool {
-					// Skip CSRF for all /api/ routes (JSON APIs use cookie auth, not form tokens)
-					// and for PocketBase admin routes
+					// Skip the form-token check for /api/ routes, PocketBase admin
+					// routes, OAuth and sign-out. Those are covered by the
+					// same-origin Origin/Referer check (sameOriginWriteGuard)
+					// plus SameSite=Lax session cookies.
 					return strings.HasPrefix(c.Path(), "/_") ||
 						strings.HasPrefix(c.Path(), "/api/") ||
-						strings.HasPrefix(c.Path(), "/auth/")
+						strings.HasPrefix(c.Path(), "/auth/") ||
+						c.Path() == "/signout"
 				},
 			}))
 		}
@@ -1396,20 +1407,16 @@ func main() {
 			return views.LoginSplash(data).Render(c.Request().Context(), c.Response().Writer)
 		}, apis.ActivityLogger(app))
 
-		// Sign out - clear auth cookie and redirect to home
-		e.Router.GET("/signout", func(c echo.Context) error {
-			c.SetCookie(&http.Cookie{
-				Name:     "pb_auth",
-				Value:    "",
-				Path:     "/",
-				Domain:   ".soundcistern.com",
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteLaxMode,
-				MaxAge:   -1,
-			})
-			return c.Redirect(http.StatusTemporaryRedirect, "/")
+		// Sign out - POST only (a GET link could be triggered cross-site).
+		// GET /signout shows a confirmation form for old links/bookmarks.
+		e.Router.POST("/signout", func(c echo.Context) error {
+			clearSessionCookie(c)
+			return c.Redirect(http.StatusSeeOther, "/")
 		}, apis.ActivityLogger(app))
+		e.Router.GET("/signout", func(c echo.Context) error {
+			c.Response().Header().Set("Cache-Control", "no-store")
+			return c.HTML(http.StatusOK, signoutConfirmHTML)
+		})
 
 		// Blog index page (without enhanced features)
 		e.Router.GET("/blog", func(c echo.Context) error {
