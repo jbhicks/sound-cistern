@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -36,7 +35,8 @@ import (
 	"github.com/jbhicks/sound-cistern/views/components"
 )
 
-// Test mode flag - set via environment variable or query parameter (?test_mode=true)
+// Test mode flag - set ONLY via the TEST_MODE=true environment variable at
+// process start. It can never be toggled by a request (no query/header switch).
 var isTestMode bool = os.Getenv("TEST_MODE") == "true"
 
 // Collection cache - populated at startup to avoid repeated DB lookups
@@ -217,8 +217,8 @@ func relatedTracksHandler(app *pocketbase.PocketBase) echo.HandlerFunc {
 
 	return func(c echo.Context) error {
 		trackID := c.PathParam("id")
-		if trackID == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "track ID required"})
+		if !isValidSoundCloudTrackID(trackID) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "valid numeric track ID required"})
 		}
 
 		// Check in-memory cache first
@@ -289,9 +289,8 @@ func relatedTracksHandler(app *pocketbase.PocketBase) echo.HandlerFunc {
 			}
 
 			if resp.StatusCode != 200 {
-				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
-				log.Printf("[Related] v1 fallback also failed: status=%d body=%s", resp.StatusCode, string(body))
+				log.Printf("[Related] v1 fallback also failed: status=%d", resp.StatusCode)
 				return c.JSON(http.StatusBadGateway, map[string]string{"error": fmt.Sprintf("SoundCloud API error: %d", resp.StatusCode)})
 			}
 		}
@@ -849,6 +848,24 @@ func main() {
 		})
 	}
 
+	// SECURITY: users sign in exclusively via SoundCloud OAuth. Accounts created
+	// by the OAuth callback historically got a shared static password, and the
+	// default PocketBase users collection allows public sign-up plus
+	// username/email password auth. Block both REST paths outside test mode so
+	// nobody can sign up or log in with a password (admins are unaffected; the
+	// OAuth callback writes records via the DAO and does not hit these hooks).
+	if !isTestMode {
+		app.OnRecordBeforeAuthWithPasswordRequest("users").Add(func(e *core.RecordAuthWithPasswordEvent) error {
+			return apis.NewForbiddenError("Password sign-in is disabled. Sign in with SoundCloud.", nil)
+		})
+		app.OnRecordBeforeCreateRequest("users").Add(func(e *core.RecordCreateEvent) error {
+			if admin, _ := e.HttpContext.Get(apis.ContextAdminKey).(*models.Admin); admin != nil {
+				return nil
+			}
+			return apis.NewForbiddenError("Sign-up is disabled. Sign in with SoundCloud.", nil)
+		})
+	}
+
 	var publicDir string = "./public"
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
@@ -863,6 +880,11 @@ func main() {
 		e.Router.Pre(mockSoundcloudMiddleware())
 
 		e.Router.Use(middleware.Secure())
+		e.Router.Use(securityHeadersMiddleware())
+
+		// Simple in-memory rate limiters for auth endpoints (per IP / per user).
+		oauthRateLimiter := newRateLimiter(30, time.Minute)
+		refreshRateLimiter := newRateLimiter(10, time.Minute)
 
 		// Auth context loading middleware - reads pb_auth cookie and sets auth record
 		e.Router.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -891,6 +913,9 @@ func main() {
 
 				userID, ok := claims["id"].(string)
 				if !ok || userID == "" {
+					return next(c)
+				}
+				if typ, _ := claims["type"].(string); typ != "authRecord" {
 					return next(c)
 				}
 
@@ -981,8 +1006,7 @@ func main() {
 
 		// Proto page - design experiments
 		e.Router.GET("/proto", func(c echo.Context) error {
-			// Check for debug param to bypass auth
-			debugMode := c.QueryParam("debug") != "" || isTestMode
+			debugMode := isTestMode // ?debug= query bypass removed (security)
 
 			if !debugMode {
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -1082,7 +1106,7 @@ func main() {
 
 		// Visualizer prototype page
 		e.Router.GET("/visualizer-proto", func(c echo.Context) error {
-			debugMode := c.QueryParam("debug") != "" || isTestMode
+			debugMode := isTestMode // ?debug= query bypass removed (security)
 
 			if !debugMode {
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -1141,8 +1165,7 @@ func main() {
 
 		// BPM Manipulation & AutoMix prototype page
 		e.Router.GET("/bpm-proto", func(c echo.Context) error {
-			// Check for debug param to bypass auth
-			debugMode := c.QueryParam("debug") != "" || isTestMode
+			debugMode := isTestMode // ?debug= query bypass removed (security)
 
 			if !debugMode {
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -1248,6 +1271,11 @@ func main() {
 			}
 
 			nextHref, _ := activities["next_href"].(string)
+			// Only follow pagination cursors that point back at SoundCloud over https
+			// (the bearer token is attached to the next request).
+			if nextHref != "" && !isSoundCloudHTTPSURL(nextHref) {
+				nextHref = ""
+			}
 
 			var tracks []views.Track
 			rawCount := 0
@@ -1540,7 +1568,6 @@ func main() {
 			// Generate random state for CSRF protection
 			state := generateRandomString(32)
 
-			log.Printf("DEBUG: Starting OAuth flow, state=%s", state)
 
 			// Store state and code verifier in oauth_states collection
 			oauthStatesCollection, err := getCollection(app, "oauth_states")
@@ -1558,14 +1585,12 @@ func main() {
 			// No user_id since no auth required
 			stateRecord.Set("expires_at", time.Now().Add(10*time.Minute).Format(time.RFC3339))
 
-			log.Printf("DEBUG: About to save state record, state=%s, code_verifier=%s", state, codeVerifier[:10]+"...")
 			if err := app.Dao().SaveRecord(stateRecord); err != nil {
 				log.Printf("DEBUG: Failed to store OAuth state: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Failed to store OAuth state",
 				})
 			}
-			log.Printf("DEBUG: State record saved successfully, id=%s", stateRecord.Id)
 
 			// Build Soundcloud OAuth URL with PKCE
 			authURL := url.URL{
@@ -1584,13 +1609,10 @@ func main() {
 			}
 
 			authURLString := authURL.String()
-			log.Printf("Redirecting to Soundcloud OAuth:")
-			log.Printf("  Full URL: %s", authURLString)
-			log.Printf("  State: %s", state)
-			log.Printf("  Code Challenge: %s", codeChallenge)
-			log.Printf("  Code Verifier (stored): %s", codeVerifier)
+			// Never log state, code_verifier/challenge or the full authorize URL.
+			log.Printf("Redirecting to SoundCloud OAuth (state record %s)", stateRecord.Id)
 			return c.Redirect(http.StatusFound, authURLString)
-		}, apis.ActivityLogger(app))
+		}, rateLimitMiddleware(oauthRateLimiter), apis.ActivityLogger(app))
 
 		// Soundcloud OAuth callback endpoint
 		e.Router.GET("/auth/soundcloud/callback", func(c echo.Context) error {
@@ -1602,14 +1624,12 @@ func main() {
 			// Handle OAuth errors from Soundcloud
 			if errorParam != "" {
 				errorDesc := c.QueryParam("error_description")
-				log.Printf("❌ OAuth error from Soundcloud: %s", errorParam)
-				log.Printf("❌ Error description: %s", errorDesc)
-				log.Printf("❌ Full callback URL: %s", c.Request().URL.String())
+				log.Printf("OAuth error from SoundCloud: %q (%q)", truncateForLog(errorParam, 64), truncateForLog(errorDesc, 200))
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=oauth_failed&error_msg="+url.QueryEscape(errorParam))
 			}
 
 			if code == "" || state == "" {
-				log.Printf("Missing required OAuth parameters: code=%s, state=%s", code, state)
+				log.Printf("Missing required OAuth parameters: code present=%v, state present=%v", code != "", state != "")
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_callback")
 			}
 
@@ -1631,10 +1651,20 @@ func main() {
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_state")
 			}
 
+			// OAuth state is single-use: delete it before doing anything else so a
+			// replayed callback (or a failed exchange) can never reuse it.
+			if err := app.Dao().DeleteRecord(stateRecord); err != nil {
+				log.Printf("Warning: Failed to delete OAuth state record: %v", err)
+			}
+			if exp := stateRecord.GetDateTime("expires_at"); !exp.IsZero() && time.Now().After(exp.Time()) {
+				log.Printf("Expired OAuth state record %s", stateRecord.Id)
+				return c.Redirect(http.StatusTemporaryRedirect, "/?error=invalid_state")
+			}
+
 			// Get the code verifier
 			codeVerifier := stateRecord.GetString("code_verifier")
 			if codeVerifier == "" {
-				log.Printf("Missing code verifier for state: %s", state)
+				log.Printf("Missing code verifier for OAuth state record %s", stateRecord.Id)
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=missing_verifier")
 			}
 
@@ -1670,11 +1700,8 @@ func main() {
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				log.Printf("❌ Token exchange failed with status: %d", resp.StatusCode)
-				log.Printf("❌ Response body: %s", string(body))
-				log.Printf("❌ Request data: client_id=%s, redirect_uri=%s, code_verifier=%s",
-					clientID[:10]+"...", redirectURI, codeVerifier[:10]+"...")
+				// Do not log the response body or request data (may contain secrets).
+				log.Printf("Token exchange failed with status: %d", resp.StatusCode)
 				return c.Redirect(http.StatusTemporaryRedirect, "/?error=token_exchange_failed")
 			}
 
@@ -1757,7 +1784,8 @@ func main() {
 
 				user = models.NewRecord(usersCollection)
 				user.Set("email", userInfo.Username+"@soundcloud.local")
-				user.Set("password", "soundcloud_default") // In production, generate secure password
+				// Random, never-disclosed password: these accounts sign in via SoundCloud only.
+				user.Set("password", generateRandomString(48))
 				user.Set("first_name", userInfo.DisplayName)
 				user.Set("username", userInfo.Username)
 
@@ -1856,10 +1884,6 @@ func main() {
 				MaxAge:   int(tokenDuration.Seconds()),
 			})
 
-			// Clean up the state record
-			if err := app.Dao().DeleteRecord(stateRecord); err != nil {
-				log.Printf("Warning: Failed to clean up state record: %v", err)
-			}
 
 			// Auto-sync tracks from Soundcloud on first login
 			log.Printf("[AutoSync] Starting auto-sync for user %s after OAuth", user.Id)
@@ -1892,8 +1916,7 @@ func main() {
 						} else {
 							defer resp.Body.Close()
 							if resp.StatusCode != 200 {
-								body, _ := io.ReadAll(resp.Body)
-								log.Printf("[AutoSync] ERROR: SoundCloud API returned status %d: %s", resp.StatusCode, string(body))
+								log.Printf("[AutoSync] ERROR: SoundCloud API returned status %d", resp.StatusCode)
 							} else {
 								var activities map[string]interface{}
 								if err := json.NewDecoder(resp.Body).Decode(&activities); err != nil {
@@ -2014,23 +2037,10 @@ func main() {
 				}
 			}
 
-			// Redirect to the current domain
-			redirectDomain := c.Request().Host
-			if redirectDomain == "" {
-				redirectDomain = os.Getenv("APP_DOMAIN")
-			}
-			if redirectDomain == "" {
-				redirectDomain = "soundcistern.com"
-			}
-			scheme := "https"
-			if c.Request().TLS == nil {
-				scheme = "http"
-			}
-			redirectURL := scheme + "://" + redirectDomain + "/stream"
+			// Relative redirect: never build the target from the (client-controlled) Host header.
 			log.Printf("OAuth flow completed successfully for Soundcloud user: %s", userInfo.Username)
-			log.Printf("Redirecting to: %s", redirectURL)
-			return c.Redirect(http.StatusFound, redirectURL)
-		}, apis.ActivityLogger(app))
+			return c.Redirect(http.StatusFound, "/stream")
+		}, rateLimitMiddleware(oauthRateLimiter), apis.ActivityLogger(app))
 
 		// OAuth callback alias for compatibility
 		e.Router.GET("/auth/callback", func(c echo.Context) error {
@@ -2064,7 +2074,10 @@ func main() {
 
 		// API routes (protected)
 		e.Router.GET("/api/user", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"id":    authRecord.Id,
 				"email": authRecord.GetString("email"),
@@ -2075,43 +2088,25 @@ func main() {
 		// Token refresh endpoint - refresh the JWT using stored SoundCloud refresh token
 		// Works even with expired JWT by parsing the cookie manually
 		e.Router.POST("/api/auth/refresh", func(c echo.Context) error {
-			log.Printf("Refresh endpoint called, cookie: %v", c.Cookies())
-			// Parse token from cookie without validation (to get user ID even if expired)
+			// SECURITY: never log cookies. The cookie must carry a VALID signature;
+			// only the expiry is tolerated, and it must belong to the caller.
+			authed := authRecordFromContext(c)
+			if authed == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 			cookie, err := c.Cookie("pb_auth")
 			if err != nil || cookie == nil {
-				log.Printf("No cookie found: %v", err)
 				return c.JSON(http.StatusUnauthorized, map[string]string{
 					"error": "No auth cookie found",
 				})
 			}
-
-			tokenString := cookie.Value
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-				}
-				return []byte(app.Settings().RecordAuthToken.Secret), nil
-			})
-
-			// Even if token is expired, we can still get the claims
-			if err != nil {
-				// Try to extract claims from expired token
-				if token != nil {
-					if claims, ok := token.Claims.(jwt.MapClaims); ok {
-						if userID, ok := claims["id"].(string); ok && userID != "" {
-							// Proceed with user ID from expired token
-							goto foundUser
-						}
-					}
-				}
+			userID, ok := parseSessionUserID(cookie.Value, app.Settings().RecordAuthToken.Secret)
+			if !ok || userID != authed.Id {
 				return c.JSON(http.StatusUnauthorized, map[string]string{
 					"error": "Invalid token",
 				})
 			}
-
-		foundUser:
-			claims, _ := token.Claims.(jwt.MapClaims)
-			userID, _ := claims["id"].(string)
+			var tokenString string
 
 			usersCollection, err := getCollection(app, "users")
 			if err != nil {
@@ -2228,7 +2223,7 @@ func main() {
 			return c.JSON(http.StatusOK, map[string]string{
 				"status": "refreshed",
 			})
-		}, apis.RequireRecordAuth())
+		}, apis.RequireRecordAuth(), rateLimitMiddleware(refreshRateLimiter))
 
 		// Stream endpoint - fetch user's Soundcloud tracks with filtering, sorting, and pagination
 		streamHandler := func(c echo.Context) error {
@@ -2516,7 +2511,10 @@ func main() {
 			}
 
 			// This endpoint requires authentication via apis.RequireRecordAuth()
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			// Detect JSON mode: Accept header or ?format=json
 			wantsJSON := strings.Contains(c.Request().Header.Get("Accept"), "application/json") ||
@@ -2827,7 +2825,10 @@ func main() {
 
 		// Sync endpoint - fetch tracks from SoundCloud and save to database
 		e.Router.POST("/api/sync", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			var reqBody struct {
 				Limit int `json:"limit"`
@@ -2855,7 +2856,10 @@ func main() {
 
 		// Search endpoint - search user's tracks by title, artist, genre
 		e.Router.GET("/api/search", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			// Get query parameters
 			searchQuery := c.QueryParam("q")
@@ -2942,7 +2946,10 @@ func main() {
 
 		// Favorites toggle endpoint
 		e.Router.POST("/api/favorites/toggle", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			var req struct {
 				TrackID string `json:"track_id"`
@@ -3005,7 +3012,10 @@ func main() {
 
 		// Favorites toggle endpoint for HTMX - returns HTML fragment
 		e.Router.POST("/api/favorites/:id/htmx", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 			trackID := c.PathParam("id")
 
 			// Find soundcloud_tracks record
@@ -3060,7 +3070,7 @@ func main() {
 		}, apis.RequireRecordAuth())
 
 		// List favorites endpoint
-		e.Router.GET("/api/favorites", func(c echo.Context) error {
+		favoritesListHandler := func(c echo.Context) error {
 			// Test mode - return mock favorites
 			if isTestMode {
 				wantsJSON := strings.Contains(c.Request().Header.Get("Accept"), "application/json") ||
@@ -3126,7 +3136,10 @@ func main() {
 				return c.HTML(http.StatusOK, htmlBuilder.String())
 			}
 
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			favoritesCollection, err := getCollection(app, "favorites")
 			if err != nil {
@@ -3205,11 +3218,20 @@ func main() {
 				"favorites": favorites,
 				"tracks":    favorites,
 			})
-		})
+		}
+		// Anonymous requests previously hit an unchecked type assertion (panic -> 400).
+		if isTestMode {
+			e.Router.GET("/api/favorites", favoritesListHandler)
+		} else {
+			e.Router.GET("/api/favorites", favoritesListHandler, apis.RequireRecordAuth())
+		}
 
 		// Sync favorites from SoundCloud likes
 		e.Router.POST("/api/favorites/sync", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			synced, err := services.SyncFavorites(app, authRecord)
 			if err != nil {
@@ -3276,234 +3298,58 @@ func main() {
 		// Related tracks endpoint - returns similar tracks for the given SoundCloud track ID
 		e.Router.GET("/api/track/:id/related", relatedTracksHandler(app), apis.RequireRecordAuth())
 
-		// Stream proxy endpoint - streams audio from SoundCloud using stored auth
-		e.Router.GET("/api/track/:id/stream", func(c echo.Context) error {
-			var accessToken string
-			var refreshToken string
-
-			// Check for debug param or test mode
-			debugMode := c.QueryParam("debug") != "" || isTestMode
-
-			// In debug/test mode, use first available token
-			if debugMode {
-				// Use first available soundcloud user token in test mode
-				soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
-				if err == nil {
-					records, _ := app.Dao().FindRecordsByFilter(
-						soundcloudUsersCollection.Id,
-						"access_token != ''",
-						"-created",
-						1,
-						0,
-						map[string]any{},
-					)
-					if len(records) > 0 {
-						accessToken = records[0].GetString("access_token")
-						refreshToken = records[0].GetString("refresh_token")
-					}
-				}
-			} else {
-				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-				if authRecord == nil {
-					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Authentication required"})
-				}
-
-				// Find the soundcloud_users record for this user
-				soundcloudUsersCollection, err := getCollection(app, "soundcloud_users")
+		// Stream proxy endpoint - streams audio from SoundCloud using the
+		// AUTHENTICATED user's own stored SoundCloud token. There is no debug or
+		// "first available token" path: anonymous requests get 401.
+		streamDeps := trackStreamDeps{
+			lookupSoundcloudUser: func(userID string) (*models.Record, error) {
+				col, err := getCollection(app, "soundcloud_users")
 				if err != nil {
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+					return nil, err
 				}
-
-				records, err := app.Dao().FindRecordsByFilter(
-					soundcloudUsersCollection.Id,
-					"user_id = {:user_id}",
-					"-created",
-					1,
-					0,
-					map[string]any{"user_id": authRecord.Id},
-				)
-				if err != nil || len(records) == 0 {
-					return c.JSON(http.StatusNotFound, map[string]string{"error": "No SoundCloud account connected"})
-				}
-
-				soundcloudUser := records[0]
-				accessToken = soundcloudUser.GetString("access_token")
-				refreshToken = soundcloudUser.GetString("refresh_token")
-
-				// If no access token, try to refresh
-				if accessToken == "" && refreshToken != "" {
-					tokenURL := "https://api.soundcloud.com/oauth2/token"
-					data := url.Values{}
-					data.Set("client_id", os.Getenv("SOUNDCLOUD_CLIENT_ID"))
-					data.Set("client_secret", os.Getenv("SOUNDCLOUD_CLIENT_SECRET"))
-					data.Set("grant_type", "refresh_token")
-					data.Set("refresh_token", refreshToken)
-
-					resp, err := http.PostForm(tokenURL, data)
-					if err == nil && resp.StatusCode == 200 {
-						var tokenResp struct {
-							AccessToken  string `json:"access_token"`
-							RefreshToken string `json:"refresh_token"`
-							ExpiresIn    int    `json:"expires_in"`
-						}
-						if json.NewDecoder(resp.Body).Decode(&tokenResp) == nil {
-							accessToken = tokenResp.AccessToken
-							if tokenResp.RefreshToken != "" {
-								soundcloudUser.Set("refresh_token", tokenResp.RefreshToken)
-							}
-							soundcloudUser.Set("access_token", tokenResp.AccessToken)
-							app.Dao().SaveRecord(soundcloudUser)
-						}
-						resp.Body.Close()
-					}
-				}
-			}
-
-			if accessToken == "" {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "No access token available"})
-			}
-
-			trackID := c.PathParam("id")
-			log.Printf("[Stream] Looking for track with soundcloud_id=%s", trackID)
-
-			// Find the track in our database to get the stream_url
-			tracksCollection, err := getCollection(app, "soundcloud_tracks")
-			if err != nil {
-				log.Printf("[Stream] Collection not found: %v", err)
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Track not found"})
-			}
-
-			trackRecords, err := app.Dao().FindRecordsByFilter(
-				tracksCollection.Id,
-				"soundcloud_id = {:track_id}",
-				"-post_time",
-				1,
-				0,
-				map[string]any{"track_id": trackID},
-			)
-			if err != nil {
-				log.Printf("[Stream] Query error: %v", err)
-			}
-			log.Printf("[Stream] Found %d tracks for soundcloud_id=%s", len(trackRecords), trackID)
-
-			// Always get high-quality stream from transcodings (ignore stored stream_url)
-			// First, try to refresh token if needed
-			if !isTestMode && accessToken != "" && refreshToken != "" {
-				// Test if token is valid by making a quick API call
-				testClient := &http.Client{Timeout: 5 * time.Second}
-				testReq, _ := http.NewRequest("GET", "https://api.soundcloud.com/me", nil)
-				testReq.Header.Set("Authorization", "Bearer "+accessToken)
-				testResp, err := testClient.Do(testReq)
-
+				return app.Dao().FindFirstRecordByFilter(col.Id, "user_id = {:user_id}", map[string]any{"user_id": userID})
+			},
+			saveRecord: func(r *models.Record) error { return app.Dao().SaveRecord(r) },
+			storedStreamURL: func(trackID string) string {
+				col, err := getCollection(app, "soundcloud_tracks")
 				if err != nil {
-					log.Printf("[Stream] Token test request failed: %v", err)
-				} else {
-					log.Printf("[Stream] Token test status: %d", testResp.StatusCode)
-					testResp.Body.Close()
-
-					if testResp.StatusCode == 401 || testResp.StatusCode == 403 {
-						log.Printf("[Stream] Token expired (status %d), refreshing...", testResp.StatusCode)
-						// Token expired, refresh it
-						tokenURL := "https://api.soundcloud.com/oauth2/token"
-						data := url.Values{}
-						data.Set("client_id", os.Getenv("SOUNDCLOUD_CLIENT_ID"))
-						data.Set("client_secret", os.Getenv("SOUNDCLOUD_CLIENT_SECRET"))
-						data.Set("grant_type", "refresh_token")
-						data.Set("refresh_token", refreshToken)
-
-						resp, err := http.PostForm(tokenURL, data)
-						if err != nil {
-							log.Printf("[Stream] Token refresh POST failed: %v", err)
-						} else {
-							log.Printf("[Stream] Token refresh response status: %d", resp.StatusCode)
-
-							if resp.StatusCode == 200 {
-								var tokenResp struct {
-									AccessToken  string `json:"access_token"`
-									RefreshToken string `json:"refresh_token"`
-									ExpiresIn    int    `json:"expires_in"`
-								}
-								if json.NewDecoder(resp.Body).Decode(&tokenResp) == nil {
-									accessToken = tokenResp.AccessToken
-									log.Printf("[Stream] Token refreshed! New token: %s...", accessToken[:min(30, len(accessToken))])
-								} else {
-									log.Printf("[Stream] Token refresh JSON decode failed")
-								}
-							} else {
-								body, _ := io.ReadAll(resp.Body)
-								log.Printf("[Stream] Token refresh failed: status=%d body=%s", resp.StatusCode, string(body))
-							}
-							resp.Body.Close()
-						}
-					} else if testResp.StatusCode == 200 {
-						log.Printf("[Stream] Token is valid")
-					}
+					return ""
 				}
-			}
-
-			// quality param: "hls_aac_160" | "http_mp3_128" | "hls_mp3_128" | "" (auto = device-specific)
-			quality := c.QueryParam("quality")
-			userAgent := c.Request().Header.Get("User-Agent")
-			streamURL := getStreamURL(accessToken, trackID, quality, userAgent)
-
-			// If no URL from /streams, fall back to stored stream_url
-			if streamURL == "" && len(trackRecords) > 0 {
-				streamURL = trackRecords[0].GetString("stream_url")
-			}
-
-			// If still no URL, return error
-			if streamURL == "" {
-				log.Printf("[Stream] No stream URL for track %s - stored URL is empty and high-quality fetch failed", trackID)
-				return c.JSON(http.StatusNotFound, map[string]string{"error": "No stream URL available for this track. Try syncing tracks again."})
-			}
-
-			// Proxy the stream with Range support for seeking
-			client := &http.Client{Timeout: 0}
-			req, _ := http.NewRequest("GET", streamURL, nil)
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-
-			// Forward Range header for seeking support
-			if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
-				req.Header.Set("Range", rangeHeader)
-				log.Printf("[Stream] Forwarding Range header: %s", rangeHeader)
-			}
-
-			proxyResp, err := client.Do(req)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stream"})
-			}
-			defer proxyResp.Body.Close()
-
-			if proxyResp.StatusCode != 200 && proxyResp.StatusCode != 206 {
-				log.Printf("[Stream] proxyResp.StatusCode: %d, URL: %s", proxyResp.StatusCode, streamURL)
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Stream not available", "status": fmt.Sprintf("%d", proxyResp.StatusCode)})
-			}
-
-			c.Response().Header().Set("Content-Type", proxyResp.Header.Get("Content-Type"))
-			c.Response().Header().Set("Accept-Ranges", "bytes")
-			c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-			c.Response().Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
-			c.Response().Header().Set("Access-Control-Expose-Headers", "Content-Range, Content-Length")
-			c.Response().Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
-
-			// Forward Content-Range and Content-Length headers for 206 responses
-			if contentRange := proxyResp.Header.Get("Content-Range"); contentRange != "" {
-				c.Response().Header().Set("Content-Range", contentRange)
-				log.Printf("[Stream] Forwarding Content-Range: %s", contentRange)
-			}
-			if contentLength := proxyResp.Header.Get("Content-Length"); contentLength != "" {
-				c.Response().Header().Set("Content-Length", contentLength)
-			}
-
-			c.Response().WriteHeader(proxyResp.StatusCode)
-			io.Copy(c.Response(), proxyResp.Body)
-			return nil
-		})
+				recs, err := app.Dao().FindRecordsByFilter(col.Id, "soundcloud_id = {:track_id}", "-post_time", 1, 0, map[string]any{"track_id": trackID})
+				if err != nil || len(recs) == 0 {
+					return ""
+				}
+				return recs[0].GetString("stream_url")
+			},
+			resolveStreamURL: getStreamURL,
+			validateToken: func(accessToken string) (bool, bool) {
+				client := &http.Client{Timeout: 5 * time.Second}
+				req, _ := http.NewRequest("GET", "https://api.soundcloud.com/me", nil)
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+				resp, err := client.Do(req)
+				if err != nil {
+					return false, false
+				}
+				resp.Body.Close()
+				if resp.StatusCode == 401 || resp.StatusCode == 403 {
+					return false, true
+				}
+				return true, true
+			},
+			refreshToken:   services.RefreshTokenFull,
+			httpClient:     &http.Client{Timeout: 0},
+			skipValidation: isTestMode,
+		}
+		e.Router.GET("/api/track/:id/stream", newTrackStreamHandler(streamDeps),
+			apis.RequireRecordAuth(), rateLimitMiddleware(newRateLimiter(120, time.Minute)))
 
 		// Play history sync endpoint — accepts a batch of play events from the frontend
 		// and persists them to PocketBase. Keeps the last 500 entries per user.
 		e.Router.POST("/api/play-history", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			type playEntry struct {
 				TrackID       string `json:"track_id"`
@@ -3576,7 +3422,10 @@ func main() {
 
 		// Play history fetch endpoint — returns the last N plays for the current user
 		e.Router.GET("/api/play-history", func(c echo.Context) error {
-			authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+			authRecord := authRecordFromContext(c)
+			if authRecord == nil {
+				return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+			}
 
 			limit := 100
 			if l := c.QueryParam("limit"); l != "" {

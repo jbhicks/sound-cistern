@@ -3,7 +3,6 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -264,15 +263,17 @@ func RefreshTokenFull(refreshToken string) (*TokenRefreshResult, error) {
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", refreshToken)
 
-	resp, err := http.PostForm(tokenURL, data)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.PostForm(tokenURL, data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("token refresh request failed")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("token refresh failed: %s", string(body))
+		// Do not include the response body: it is returned to clients via
+		// /api/sync error messages and written to logs.
+		return nil, fmt.Errorf("token refresh failed with status %d", resp.StatusCode)
 	}
 
 	var tokenData struct {
@@ -450,6 +451,11 @@ func SyncFavorites(app *pocketbase.PocketBase, authRecord *models.Record) ([]Syn
 
 		allTracks = append(allTracks, page.Collection...)
 		nextURL = page.NextHref
+		// Only follow https SoundCloud cursors (the bearer token is attached).
+		if nu, err := url.Parse(nextURL); nextURL != "" && (err != nil || nu.Scheme != "https" ||
+			!(nu.Hostname() == "api.soundcloud.com" || strings.HasSuffix(nu.Hostname(), ".soundcloud.com"))) {
+			nextURL = ""
+		}
 		log.Printf("[SyncFavorites] Fetched %d likes so far (next: %v)", len(allTracks), nextURL != "")
 	}
 

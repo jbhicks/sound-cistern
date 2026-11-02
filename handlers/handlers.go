@@ -128,7 +128,10 @@ func fetchPlaylistTracks(app *pocketbase.PocketBase, playlistID string) ([]map[s
 // ListPlaylists returns all playlists for the authenticated user.
 func ListPlaylists(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 
 		records, err := app.Dao().FindRecordsByFilter(
 			"playlists",
@@ -160,7 +163,10 @@ func ListPlaylists(app *pocketbase.PocketBase) echo.HandlerFunc {
 // CreatePlaylist creates a new playlist for the authenticated user.
 func CreatePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 
 		var body struct {
 			Name string `json:"name"`
@@ -196,7 +202,10 @@ func CreatePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // GetPlaylist returns a single playlist with its tracks.
 func GetPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 
 		playlist, err := app.Dao().FindRecordById("playlists", playlistID)
@@ -221,7 +230,10 @@ func GetPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // AddTrackToPlaylist adds a track to the given playlist.
 func AddTrackToPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 
 		playlist, err := app.Dao().FindRecordById("playlists", playlistID)
@@ -293,7 +305,10 @@ func AddTrackToPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // The :track_id path param may be a soundcloud_id or playlist_track record ID.
 func RemoveTrackFromPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 		trackID := c.PathParam("track_id")
 
@@ -339,7 +354,10 @@ func RemoveTrackFromPlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // DeletePlaylist deletes a playlist and all its playlist_tracks records.
 func DeletePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 
 		playlist, err := app.Dao().FindRecordById("playlists", playlistID)
@@ -371,7 +389,10 @@ func DeletePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // RenamePlaylist renames an existing playlist.
 func RenamePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 
 		playlist, err := app.Dao().FindRecordById("playlists", playlistID)
@@ -405,7 +426,10 @@ func RenamePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 // SharePlaylist generates (or returns existing) a share token for a playlist.
 func SharePlaylist(app *pocketbase.PocketBase) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		authRecord := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+		authRecord := requireAuthRecord(c)
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("The request requires valid record authorization token to be set.", nil)
+		}
 		playlistID := c.PathParam("id")
 
 		playlist, err := app.Dao().FindRecordById("playlists", playlistID)
@@ -847,4 +871,10 @@ func itoa(n int) string {
 		buf = append([]byte{'-'}, buf...)
 	}
 	return string(buf)
+}
+
+// requireAuthRecord returns the authenticated record or nil (never panics).
+func requireAuthRecord(c echo.Context) *models.Record {
+	rec, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+	return rec
 }
