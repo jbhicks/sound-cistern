@@ -80,6 +80,27 @@ func initCollectionCache(app *pocketbase.PocketBase) error {
 	return nil
 }
 
+// currentSoundcloudUserID returns the id of the soundcloud_users record owned
+// by the authenticated user, or an id that matches nothing when there is no
+// authenticated user / linked SoundCloud account. soundcloud_tracks.user_id
+// references soundcloud_users, so this is what track queries must scope by.
+func currentSoundcloudUserID(app *pocketbase.PocketBase, c echo.Context) string {
+	const none = "__no_soundcloud_user__"
+	authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+	if authRecord == nil || authRecord.Id == "" {
+		return none
+	}
+	col, err := getCollection(app, "soundcloud_users")
+	if err != nil || col == nil {
+		return none
+	}
+	rec, err := app.Dao().FindFirstRecordByFilter(col.Id, "user_id = {:user_id}", map[string]any{"user_id": authRecord.Id})
+	if err != nil || rec == nil {
+		return none
+	}
+	return rec.Id
+}
+
 // getCollection returns a cached collection or fetches it if not cached
 func getCollection(app *pocketbase.PocketBase, name string) (*models.Collection, error) {
 	if col, ok := collectionCache[name]; ok {
@@ -1055,13 +1076,15 @@ func main() {
 
 			var tracks []views.Track
 			if tracksCollection != nil {
+				// Only the signed-in user's own tracks.
+				scUserID := currentSoundcloudUserID(app, c)
 				records, err := app.Dao().FindRecordsByFilter(
 					tracksCollection.Id,
-					"stream_url != ''",
+					"user_id = {:sc_user} && stream_url != ''",
 					"-created",
 					10,
 					0,
-					map[string]any{},
+					map[string]any{"sc_user": scUserID},
 				)
 				if err == nil && len(records) > 0 {
 					tracks = make([]views.Track, 0, len(records))
@@ -1144,13 +1167,15 @@ func main() {
 
 			var tracks []views.Track
 			if tracksCollection != nil {
+				// Only the signed-in user's own tracks.
+				scUserID := currentSoundcloudUserID(app, c)
 				records, err := app.Dao().FindRecordsByFilter(
 					tracksCollection.Id,
-					"stream_url != ''",
+					"user_id = {:sc_user} && stream_url != ''",
 					"-created",
 					10,
 					0,
-					map[string]any{},
+					map[string]any{"sc_user": scUserID},
 				)
 				if err == nil && len(records) > 0 {
 					tracks = make([]views.Track, 0, len(records))
@@ -1203,13 +1228,15 @@ func main() {
 
 			var tracks []views.Track
 			if tracksCollection != nil {
+				// Only the signed-in user's own tracks.
+				scUserID := currentSoundcloudUserID(app, c)
 				records, err := app.Dao().FindRecordsByFilter(
 					tracksCollection.Id,
-					"bpm > 0",
+					"user_id = {:sc_user} && bpm > 0",
 					"-created",
 					50,
 					0,
-					map[string]any{},
+					map[string]any{"sc_user": scUserID},
 				)
 				if err == nil && len(records) > 0 {
 					tracks = make([]views.Track, 0, len(records))
